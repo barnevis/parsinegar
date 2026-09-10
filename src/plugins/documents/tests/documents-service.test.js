@@ -1,7 +1,7 @@
 // Verifies the documents service (fake storage, fake events).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createService } from '../../../../src/plugins/documents/lib/documents-service.js';
+import { createService } from '../lib/documents-service.js';
 
 function createStorage(initial = []) {
   const records = new Map(initial.map((record) => [record.id, { ...record }]));

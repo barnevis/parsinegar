@@ -2,7 +2,7 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMarkdownView } from '../../../src/ui/components/editor/markdown-view.js';
+import { createMarkdownView } from '../../../components/editor/markdown-view.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');

@@ -1,7 +1,7 @@
 // Verifies the parsinegar.app plugin contract (route ownership).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { activate, prepare } from '../../../src/plugins/app/index.js';
+import { activate, prepare } from '../index.js';
 
 function createPrepareContext() {
   return {

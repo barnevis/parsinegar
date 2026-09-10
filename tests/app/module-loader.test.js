@@ -1,5 +1,5 @@
 // Verifies the browser ModuleLoader contract surface (two-step, no code on manifest).
-import '../setup-dom.js';
+import '../../src/ui/tests/setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createModuleLoader } from '../../src/app/module-loader.js';

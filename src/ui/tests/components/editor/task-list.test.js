@@ -2,8 +2,8 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMarkdownView } from '../../../src/ui/components/editor/markdown-view.js';
-import { TASK_LINE_PATTERN, toggledBox } from '../../../src/ui/components/editor/task-list.js';
+import { createMarkdownView } from '../../../components/editor/markdown-view.js';
+import { TASK_LINE_PATTERN, toggledBox } from '../../../components/editor/task-list.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');

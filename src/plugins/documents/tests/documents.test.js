@@ -1,7 +1,7 @@
 // Verifies the parsinegar.documents entry point (prepare/activate wiring).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { activate, prepare } from '../../../src/plugins/documents/index.js';
+import { activate, prepare } from '../index.js';
 
 function createPrepareContext() {
   return {

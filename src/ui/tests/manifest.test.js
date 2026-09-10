@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const MANIFEST_URL = new URL('../../src/ui/manifest.json', import.meta.url);
+const MANIFEST_URL = new URL('../manifest.json', import.meta.url);
 
 test('should_match_ui_manifest_contract_when_manifest_is_loaded', async () => {
   const manifest = JSON.parse(await readFile(MANIFEST_URL, 'utf8'));

@@ -2,8 +2,8 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMarkdownView } from '../../../src/ui/components/editor/markdown-view.js';
-import SAMPLE_DOCUMENT from '../../../src/ui/sample-document.js';
+import { createMarkdownView } from '../../../components/editor/markdown-view.js';
+import SAMPLE_DOCUMENT from '../../../sample-document.js';
 
 test('should_show_document_when_created_with_text', () => {
   const host = document.createElement('div');

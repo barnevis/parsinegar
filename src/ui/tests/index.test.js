@@ -1,9 +1,9 @@
 // Verifies the UI entry point wires required services through to pages.
-import '../setup-dom.js';
+import './setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PEY_ROUTER_SERVICE } from 'pey.webui/contracts';
-import { setup } from '../../src/ui/index.js';
+import { setup } from '../index.js';
 
 function createEvents() {
   return {

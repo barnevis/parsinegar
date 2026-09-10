@@ -2,8 +2,8 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TAG } from '../../../src/ui/pages/not-found/not-found.js';
-import catalog from '../../../src/ui/i18n/catalog.js';
+import { TAG } from '../../../pages/not-found/not-found.js';
+import catalog from '../../../i18n/catalog.js';
 
 function createEvents() {
   return {
