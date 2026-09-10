@@ -1,0 +1,70 @@
+{
+  "name": "parsinegar.documents",
+  "version": "0.1.0",
+  "architecture": "0.11",
+  "description": "Parsinegar document management: Markdown documents over pey.storage.service",
+  "type": "product",
+  "dependencies": {
+    "required": ["pey.storage.service"],
+    "optional": []
+  },
+  "provides": [
+    {
+      "name": "parsinegar.documents.service",
+      "description": "Multi-document management for Markdown records with automatic timestamps.",
+      "methods": [
+        {
+          "name": "listDocuments",
+          "description": "Lists all documents ordered by most recently updated first.",
+          "params": [],
+          "returns": "Promise<object[]>",
+          "errors": []
+        },
+        {
+          "name": "openDocument",
+          "description": "Reads one document by id, or null when it does not exist.",
+          "params": [
+            { "name": "id", "type": "string" }
+          ],
+          "returns": "Promise<object | null>",
+          "errors": []
+        },
+        {
+          "name": "saveDocument",
+          "description": "Creates or overwrites a document, stamps updatedAt, publishes documents:changed.",
+          "params": [
+            { "name": "input", "type": "{ id?: string, title?: string, content?: string }" }
+          ],
+          "returns": "Promise<object>",
+          "errors": []
+        },
+        {
+          "name": "createDocument",
+          "description": "Creates a new empty document with the given title.",
+          "params": [
+            { "name": "title", "type": "string" }
+          ],
+          "returns": "Promise<object>",
+          "errors": []
+        },
+        {
+          "name": "deleteDocument",
+          "description": "Deletes a document by id (no-op when absent), publishes documents:changed.",
+          "params": [
+            { "name": "id", "type": "string" }
+          ],
+          "returns": "Promise<void>",
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "documents:changed",
+      "description": "Published after a document is saved or deleted.",
+      "data": ["id"]
+    }
+  ],
+  "config": {}
+}

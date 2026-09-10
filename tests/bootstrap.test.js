@@ -22,10 +22,21 @@ test('should_contain_all_required_sections_when_loaded', async () => {
 test('should_wire_router_adapter_and_plugins_when_loaded', async () => {
   const bootstrap = await loadBootstrap();
   assert.equal(bootstrap.adapters.router, 'BrowserHistoryAdapter');
+  assert.equal(bootstrap.adapters.storage, 'IndexedDBAdapter');
   const names = bootstrap.plugins.map((plugin) => plugin.name);
   assert.ok(names.includes('pey.router'));
+  assert.ok(names.includes('pey.storage'));
   assert.ok(names.includes('parsinegar.app'));
-  assert.equal(bootstrap.plugins.length, 2);
+  assert.ok(names.includes('parsinegar.documents'));
+  assert.equal(bootstrap.plugins.length, 4);
+});
+
+test('should_configure_documents_store_when_loaded', async () => {
+  const bootstrap = await loadBootstrap();
+  const stores = bootstrap.config['pey.storage'].stores;
+  const documents = stores.find((store) => store.name === 'documents');
+  assert.ok(documents, 'expected a documents store');
+  assert.equal(documents.keyPath, 'id');
 });
 
 test('should_carry_persian_ui_config_when_loaded', async () => {

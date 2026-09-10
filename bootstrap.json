@@ -5,7 +5,8 @@
     "version": "0.2.2"
   },
   "adapters": {
-    "router": "BrowserHistoryAdapter"
+    "router": "BrowserHistoryAdapter",
+    "storage": "IndexedDBAdapter"
   },
   "ui": {
     "path": "./src/ui"
@@ -17,15 +18,36 @@
       "path": "./node_modules/pey.router"
     },
     {
+      "name": "pey.storage",
+      "version": "0.4.0",
+      "path": "./node_modules/pey.storage"
+    },
+    {
       "name": "parsinegar.app",
       "version": "0.1.0",
       "path": "./src/plugins/app"
+    },
+    {
+      "name": "parsinegar.documents",
+      "version": "0.1.0",
+      "path": "./src/plugins/documents"
     }
   ],
   "config": {
     "pey.router": {
       "basePath": "/",
       "notFoundPath": "/not-found"
+    },
+    "pey.storage": {
+      "databaseName": "parsinegar-db",
+      "schemaVersion": 1,
+      "stores": [
+        {
+          "name": "documents",
+          "keyPath": "id",
+          "indexes": [{ "name": "updatedAtIdx", "field": "updatedAt" }]
+        }
+      ]
     },
     "ui": {
       "theme": "system",

@@ -1,0 +1,91 @@
+# parsinegar.documents Reference
+
+## Purpose
+
+Application plugin for Parsinegar: multi-document management for Markdown records over `pey.storage.service`, with automatic `updatedAt` timestamps.
+
+## Structure
+
+- `manifest.json` — authoritative plugin contract.
+- `index.js` — Bonyan `prepare` and `activate` entry points.
+
+## Dependencies
+
+- **Required:** `pey.storage.service` — record persistence; all methods fail clearly without it.
+- **Optional:** none.
+
+## Public API
+
+**Service:** `parsinegar.documents.service`. Records are `{ id, title, content, updatedAt }` stored in the `documents` collection.
+
+### `listDocuments()`
+
+Lists all documents ordered by most recently updated first (storage has no ordering, so the plugin sorts).
+
+```js
+const documents = await service.listDocuments();
+// => [{ id: '...', title: '...', content: '...', updatedAt: 1700000000000 }]
+```
+
+### `openDocument(id)`
+
+Reads one document by id, or `null` when it does not exist.
+
+```js
+const document = await service.openDocument('doc-id');
+// => record or null
+```
+
+### `saveDocument(input)`
+
+Creates or overwrites a document, stamps `updatedAt`, publishes `documents:changed`. Missing `id` generates one; missing/empty `title` becomes `بدون عنوان`; missing `content` becomes `''`.
+
+```js
+const saved = await service.saveDocument({ id: 'doc-id', title: 'یادداشت', content: '# سلام' });
+```
+
+### `createDocument(title)`
+
+Creates a new empty document with the given title.
+
+```js
+const created = await service.createDocument('ایده‌ها');
+```
+
+### `deleteDocument(id)`
+
+Deletes a document by id (no-op when absent), publishes `documents:changed`.
+
+```js
+await service.deleteDocument('doc-id');
+```
+
+## Events
+
+| Event | When | Data |
+|---|---|---|
+| `documents:changed` | After a document is saved or deleted. | `{ id }` |
+
+This plugin listens to no events.
+
+## Errors Reference
+
+This plugin defines no structured error codes. Storage failures (e.g. `STORE_NOT_FOUND`, `QUOTA_EXCEEDED`) propagate unchanged from `pey.storage.service`. Calling any method before local activation throws a plain `Error` naming the missing service — unreachable in normal startup after settlement.
+
+## Config
+
+No config keys. Store layout (`documents` collection with `keyPath: id`) is project configuration in `bootstrap.json`, not plugin config.
+
+## Business Rules
+
+- Every saved record carries `updatedAt` set at save time; callers cannot override it.
+- Listing order is always most-recently-updated first.
+- `openDocument` never throws for a missing id — it returns `null`.
+- `deleteDocument` never throws for a missing id — storage delete is a no-op then.
+- Every save and every delete publishes exactly one `documents:changed` with the affected `id`.
+
+## Constraints
+
+- Do not bypass this plugin from the UI to call `pey.storage.service` directly; the store layout and timestamp policy belong here.
+- Do not store anything but document records in the `documents` collection.
+- `updatedAt` is set exclusively by `saveDocument`; do not accept caller timestamps.

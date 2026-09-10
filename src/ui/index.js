@@ -7,14 +7,18 @@ import { TAG as APP_SHELL_TAG } from 'pey.webui/shell/app-shell';
 import { createApplicationSetup } from 'pey.webui/shell/create-application-setup';
 import appCatalog from './i18n/catalog.js';
 
+const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
+
 /**
  * Starts the Parsinegar UI: single home route plus the not-found slot.
+ * Every service the pages need must be declared here (the manifest alone
+ * does not deliver services to pages) and mirrored in ui/manifest.json.
  * @param {object} context Pey Core UI context.
  * @returns {Promise<void>}
  */
 export const setup = createApplicationSetup({
   assetBaseUrlBase: import.meta.url,
-  requiredServices: [PEY_ROUTER_SERVICE],
+  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE],
   optionalServices: [],
   mountShell(resources) {
     const shell = document.createElement(APP_SHELL_TAG);

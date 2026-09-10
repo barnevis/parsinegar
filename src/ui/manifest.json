@@ -5,7 +5,8 @@
   "description": "Parsinegar application UI built with pey.webui",
   "dependencies": {
     "required": [
-      "pey.router.service"
+      "pey.router.service",
+      "parsinegar.documents.service"
     ],
     "optional": []
   },

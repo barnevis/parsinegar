@@ -13,7 +13,7 @@ test('should_match_ui_manifest_contract_when_manifest_is_loaded', async () => {
   assert.equal('type' in manifest, false);
   assert.equal('provides' in manifest, false);
   assert.equal('adapterType' in manifest, false);
-  assert.deepEqual(manifest.dependencies.required, ['pey.router.service']);
+  assert.deepEqual(manifest.dependencies.required, ['pey.router.service', 'parsinegar.documents.service']);
   assert.equal(manifest.dependencies.optional.length, 0);
   assert.deepEqual(
     manifest.events.find(({ name }) => name === 'ui:component-error').data,

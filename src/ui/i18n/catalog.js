@@ -8,6 +8,12 @@ const catalog = {
     'parsinegar.editor.label': 'متن مارک‌داون',
     'parsinegar.not-found.title': 'این صفحه پیدا نشد',
     'parsinegar.not-found.action': 'بازگشت به ویرایشگر',
+    'parsinegar.documents.title': 'سندها',
+    'parsinegar.documents.title-label': 'عنوان سند',
+    'parsinegar.documents.new': 'سند تازه',
+    'parsinegar.documents.new-title': 'سند تازه',
+    'parsinegar.documents.welcome-title': 'خوش آمدید',
+    'parsinegar.documents.delete': 'حذف سند',
   },
 };
 
