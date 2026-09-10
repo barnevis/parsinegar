@@ -6,6 +6,8 @@ Application plugin for Parsinegar: owns the version-1 route catalog and register
 
 - `manifest.json` — authoritative plugin contract.
 - `index.js` — Bonyan `prepare` and `activate` entry points.
+- `docs/reference.md` — complete self-contained reference.
+- `CHANGELOG.md` — version history of this plugin.
 
 ## Dependencies
 
@@ -14,4 +16,4 @@ Application plugin for Parsinegar: owns the version-1 route catalog and register
 
 ## See Also
 
-See [`reference.md`](reference.md) for the full API/events/errors/config/business-rules/constraints reference.
+See [`docs/reference.md`](docs/reference.md) for the full API/events/errors/config/business-rules/constraints reference.

@@ -8,6 +8,8 @@ Application plugin for Parsinegar: owns the version-1 route catalog and register
 
 - `manifest.json` — authoritative plugin contract.
 - `index.js` — Bonyan `prepare` and `activate` entry points.
+- `docs/reference.md` — this file.
+- `CHANGELOG.md` — version history of this plugin.
 
 ## Dependencies
 

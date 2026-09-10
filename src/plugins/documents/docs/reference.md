@@ -7,7 +7,10 @@ Application plugin for Parsinegar: multi-document management for Markdown record
 ## Structure
 
 - `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points.
+- `index.js` — Bonyan `prepare` and `activate` entry points (wiring only).
+- `lib/documents-service.js` — service implementation.
+- `docs/reference.md` — this file.
+- `CHANGELOG.md` — version history of this plugin.
 
 ## Dependencies
 
