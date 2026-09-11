@@ -115,7 +115,7 @@ const taskMarkerPlugin = ViewPlugin.fromClass(
 );
 
 const taskTheme = EditorView.theme({
-  '& .parsi-task-marker': { cursor: 'pointer', color: 'var(--pey-color-accent, #0b5bd3)', fontWeight: '700' },
+  '& .parsi-task-marker': { cursor: 'pointer', color: 'var(--pey-color-accent, #5eead4)', fontWeight: '700' },
 });
 
 /**

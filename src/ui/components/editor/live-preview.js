@@ -77,7 +77,7 @@ const livePreviewTheme = EditorView.theme({
   '& .parsi-em': { fontStyle: 'italic' },
   '& .parsi-strong': { fontWeight: '700' },
   '& .parsi-strike': { textDecoration: 'line-through' },
-  '& .parsi-link': { color: 'var(--pey-color-accent, #0b5bd3)', textDecoration: 'underline' },
+  '& .parsi-link': { color: 'var(--pey-color-accent, #5eead4)', textDecoration: 'underline' },
   '& .parsi-code': {
     fontFamily: MONO_FONT,
     backgroundColor: 'var(--pey-color-surface, #f1f1f4)',

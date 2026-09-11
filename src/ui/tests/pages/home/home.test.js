@@ -374,6 +374,34 @@ test('should_stick_panels_with_styles_when_rendered', async () => {
   }
 });
 
+test('should_fill_viewport_with_styles_when_rendered', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(style.textContent.includes('100dvh'), 'expected full viewport height');
+    assert.ok(style.textContent.includes('minmax(0, 1fr)'), 'expected flexible middle row');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_use_icon_rail_with_styles_when_rendered', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(style.textContent.includes('inline-size: 18px'), 'expected 18px rail icons');
+    assert.ok(style.textContent.includes('#5eead4'), 'expected accent color');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_close_menu_when_escape_is_pressed', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
