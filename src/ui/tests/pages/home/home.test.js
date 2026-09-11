@@ -268,3 +268,118 @@ test('should_jump_to_line_when_outline_item_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_render_menubar_when_mounted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const buttons = [...element.shadowRoot.querySelectorAll('[data-menu]')];
+    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'view']);
+    assert.ok(element.shadowRoot.querySelector('[part="menu-dropdown"][hidden]'), 'expected hidden dropdowns');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_toggle_dropdown_when_menu_button_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const button = element.shadowRoot.querySelector('[data-menu="file"]');
+    button.click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-menu="file"]').getAttribute('aria-expanded'), 'true');
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 1);
+    const hidden = element.shadowRoot.querySelector('[data-menu="edit"]')
+      .closest('[part="menu"]')
+      .querySelector('[part="menu-dropdown"]');
+    assert.equal(globalThis.getComputedStyle(hidden).display, 'none');
+    button.click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-menu="file"]').getAttribute('aria-expanded'), 'false');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_close_menu_when_escape_is_pressed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-menu="edit"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 1);
+    element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_create_document_when_menu_action_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-action="new-document"]').click();
+    await flush();
+    await flush();
+    assert.equal(element.shadowRoot.querySelectorAll('[data-doc-id]').length, 2);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_undo_edit_when_menu_action_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن اول', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.setDocument('متن تازه');
+    assert.equal(element.value, 'متن تازه');
+    element.shadowRoot.querySelector('[data-menu="edit"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-action="undo"]').click();
+    await flush();
+    assert.equal(element.value, 'متن اول');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_toggle_panels_when_view_actions_are_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.ok(element.shadowRoot.querySelector('[part="statusbar"]'));
+    element.shadowRoot.querySelector('[data-menu="view"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-action="toggle-status"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="statusbar"]'), null);
+    element.shadowRoot.querySelector('[data-menu="view"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-action="toggle-side"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="side"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_live_stats_when_mounted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو\nسه', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const value = (part) => element.shadowRoot.querySelector(`[data-stat="${part}"]`)?.textContent;
+    assert.equal(value('words'), '3');
+    assert.equal(value('lines'), '2');
+    element.setDocument('یک');
+    await flush();
+    assert.equal(value('words'), '1');
+    assert.equal(value('lines'), '1');
+  } finally {
+    element.remove();
+  }
+});

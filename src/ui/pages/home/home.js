@@ -1,15 +1,19 @@
-// Home page: workbench with activity rail, switchable side panel and editor.
-// The page (connected by the kit page host) renders all regions in its single
-// template and mounts the CodeMirror view into the editor host; CodeMirror
-// needs a live DOM node, so mounting happens after render and release in
-// disconnectedCallback. Views render through the side-panel registry, which
-// holds only metadata and references — each view owns its markup. Document
-// titles are user content and are always escaped before entering the template.
+// Home page: workbench with menu bar, activity rail, switchable side panel,
+// editor and live status bar. The page (connected by the kit page host)
+// renders all regions in its single template and mounts the CodeMirror view
+// into the editor host; CodeMirror needs a live DOM node, so mounting happens
+// after render and release in disconnectedCallback. Views render through the
+// side-panel registry, which holds only metadata and references — each view
+// owns its markup. Document titles are user content and are always escaped
+// before entering the template. Status numbers sync imperatively on change
+// (same values render() produces) so typing never drops editor focus.
 // All DOM event handling stays declarative on PeyElement.
 import { createIconMarkup } from 'pey.webui/base/icon-sprite';
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
+import { buildMenuModel } from '../../components/workbench/menubar.js';
+import { countStats } from '../../components/workbench/stats.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 
 const TAG = 'parsi-page-home';
@@ -42,6 +46,8 @@ class ParsiPageHome extends PeyElement {
   #saveTimer = null;
   #activeView = FILES_VIEW;
   #sideOpen = true;
+  #bottomOpen = true;
+  #openMenu = null;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -57,7 +63,7 @@ class ParsiPageHome extends PeyElement {
   }
 
   eventTypes() {
-    return ['click', 'input'];
+    return ['click', 'input', 'keydown'];
   }
 
   handleEvent(event) {
@@ -66,10 +72,36 @@ class ParsiPageHome extends PeyElement {
       this.#scheduleSave();
       return;
     }
+    if (event.type === 'keydown') {
+      if (event.key === 'Escape' && this.#openMenu !== null) {
+        this.#openMenu = null;
+        this.#syncMenu();
+      }
+      return;
+    }
     if (event.type !== 'click') {
       return;
     }
     const target = event.target;
+    if (this.#openMenu !== null && !target?.closest?.('[part="menubar"]')) {
+      this.#openMenu = null;
+      this.#syncMenu();
+      return;
+    }
+    const menuButton = target?.closest?.('[data-menu]');
+    if (menuButton) {
+      const id = menuButton.getAttribute('data-menu');
+      this.#openMenu = this.#openMenu === id ? null : id;
+      this.#syncMenu();
+      return;
+    }
+    const menuItem = target?.closest?.('[data-action]');
+    if (menuItem && !menuItem.disabled) {
+      this.#openMenu = null;
+      this.#syncMenu();
+      void this.#runMenuAction(menuItem.getAttribute('data-action'));
+      return;
+    }
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
       return;
@@ -138,6 +170,47 @@ class ParsiPageHome extends PeyElement {
     this.#scheduleSave();
   }
 
+  async #runMenuAction(action) {
+    switch (action) {
+      case 'new-document':
+        await this.#createDocument();
+        return;
+      case 'delete-document':
+        await this.#deleteCurrent();
+        return;
+      case 'undo':
+        this.#editor?.undo();
+        return;
+      case 'redo':
+        this.#editor?.redo();
+        return;
+      case 'toggle-side':
+        this.#sideOpen = !this.#sideOpen;
+        this.#requestEditor();
+        return;
+      case 'toggle-status':
+        this.#bottomOpen = !this.#bottomOpen;
+        this.#requestEditor();
+        return;
+      default:
+        return;
+    }
+  }
+
+  /**
+   * Syncs menu dropdown visibility without a full render, so the editor
+   * (and its undo history) survives menu interaction. Only visibility and
+   * expansion state change; no content is mutated.
+   * @returns {void}
+   */
+  #syncMenu() {
+    for (const button of this.shadowRoot.querySelectorAll('[data-menu]')) {
+      const open = button.getAttribute('data-menu') === this.#openMenu;
+      button.setAttribute('aria-expanded', String(open));
+      button.parentElement?.querySelector('[part="menu-dropdown"]')?.toggleAttribute('hidden', !open);
+    }
+  }
+
   #switchView(id) {
     const view = getView(id);
     if (!view) {
@@ -184,6 +257,34 @@ class ParsiPageHome extends PeyElement {
       </aside>`;
   }
 
+  #renderMenubar() {
+    const menus = buildMenuModel({ t: this.#t, hasDocument: this.#currentId !== null });
+    const markup = menus.map((menu) => {
+      const open = this.#openMenu === menu.id;
+      return `
+        <div part="menu">
+          <button type="button" part="menu-button" data-menu="${menu.id}" aria-haspopup="true" aria-expanded="${open}">${escapeHtml(menu.label)}</button>
+          <div part="menu-dropdown" role="menu" ${open ? '' : 'hidden'}>${menu.items.map((item) => `
+            <button type="button" part="menu-item" role="menuitem" data-action="${item.id}" ${item.disabled ? 'disabled' : ''}>${escapeHtml(item.label)}</button>`).join('')}
+          </div>
+        </div>`;
+    }).join('');
+    return `<div part="menubar" role="menubar">${markup}</div>`;
+  }
+
+  #renderStatusbar() {
+    if (!this.#bottomOpen) {
+      return '';
+    }
+    const stats = countStats(this.value);
+    return `
+      <footer part="statusbar">
+        <span part="stat"><b part="stat-value" data-stat="chars">${stats.chars}</b> ${escapeHtml(this.#t('parsinegar.stats.chars'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="words">${stats.words}</b> ${escapeHtml(this.#t('parsinegar.stats.words'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="lines">${stats.lines}</b> ${escapeHtml(this.#t('parsinegar.stats.lines'))}</span>
+      </footer>`;
+  }
+
   render() {
     return `
       <style>
@@ -202,10 +303,70 @@ class ParsiPageHome extends PeyElement {
         [part="workbench"] {
           display: grid;
           grid-template-columns: auto minmax(12rem, 17rem) minmax(0, 1fr);
+          grid-template-areas:
+            "menubar menubar menubar"
+            "rail side center"
+            "status status status";
           gap: 0.75rem;
           align-items: start;
         }
+        [part="menubar"] {
+          grid-area: menubar;
+          display: flex;
+          gap: 0.25rem;
+        }
+        [part="menu"] {
+          position: relative;
+        }
+        [part="menu-button"] {
+          font: inherit;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          background-color: transparent;
+          padding: 0.35rem 0.8rem;
+          cursor: pointer;
+          color: inherit;
+        }
+        [part="menu-button"][aria-expanded="true"] {
+          border-color: #c8c8d2;
+          background-color: #ffffff;
+        }
+        [part="menu-dropdown"] {
+          position: absolute;
+          inset-block-start: calc(100% + 0.25rem);
+          inset-inline-start: 0;
+          min-inline-size: 11rem;
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+          padding: 0.3rem;
+          border: 1px solid #e2e2e8;
+          border-radius: 10px;
+          background-color: #ffffff;
+          box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+        }
+        [part="menu-dropdown"][hidden] {
+          display: none;
+        }
+        [part="menu-item"] {
+          font: inherit;
+          text-align: start;
+          border: 0;
+          border-radius: 6px;
+          background-color: transparent;
+          padding: 0.4rem 0.6rem;
+          cursor: pointer;
+          color: inherit;
+        }
+        [part="menu-item"]:hover {
+          background-color: #f1f1f5;
+        }
+        [part="menu-item"][disabled] {
+          opacity: 0.45;
+          cursor: default;
+        }
         [part="rail"] {
+          grid-area: rail;
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
@@ -235,6 +396,7 @@ class ParsiPageHome extends PeyElement {
           background-color: #ffffff;
         }
         [part="side"] {
+          grid-area: side;
           border: 1px solid #e2e2e8;
           border-radius: 12px;
           background-color: #ffffff;
@@ -257,6 +419,7 @@ class ParsiPageHome extends PeyElement {
           overflow: auto;
         }
         [part="center"] {
+          grid-area: center;
           min-inline-size: 0;
         }
         [part="doc-title"] {
@@ -282,16 +445,31 @@ class ParsiPageHome extends PeyElement {
         [part="editor-host"] .cm-editor {
           min-block-size: 65vh;
         }
+        [part="statusbar"] {
+          grid-area: status;
+          display: flex;
+          gap: 1.25rem;
+          padding: 0.45rem 0.9rem;
+          border: 1px solid #e2e2e8;
+          border-radius: 10px;
+          background-color: #ffffff;
+          font-size: 0.85rem;
+        }
+        [part="stat-value"] {
+          font-weight: 700;
+        }
       </style>
       <h1 part="title">${this.#t('parsinegar.app.title')}</h1>
       <p part="subtitle">${this.#t('parsinegar.app.subtitle')}</p>
       <div part="workbench">
+        ${this.#renderMenubar()}
         ${this.#renderRail()}
         ${this.#renderSide()}
         <div part="center">
           <input part="doc-title" value="${escapeHtml(this.#docTitle)}" aria-label="${escapeHtml(this.#t('parsinegar.documents.title-label'))}" />
           <div part="editor-host"></div>
         </div>
+        ${this.#renderStatusbar()}
       </div>
     `;
   }
@@ -411,6 +589,7 @@ class ParsiPageHome extends PeyElement {
   }
 
   #requestEditor() {
+    this.#openMenu = null;
     this.#unmountEditor();
     this.requestRender();
     queueMicrotask(() => this.#mountEditor());
@@ -461,6 +640,16 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
+  #syncStats() {
+    if (!this.#bottomOpen) {
+      return;
+    }
+    const stats = countStats(this.value);
+    for (const [key, value] of Object.entries({ chars: stats.chars, words: stats.words, lines: stats.lines })) {
+      this.shadowRoot.querySelector(`[data-stat="${key}"]`)?.replaceChildren(String(value));
+    }
+  }
+
   #mountEditor() {
     if (this.#editor || !this.isConnected) {
       return;
@@ -481,6 +670,7 @@ class ParsiPageHome extends PeyElement {
             detail: { value },
           }),
         );
+        this.#syncStats();
         this.#scheduleSave();
       },
     });
