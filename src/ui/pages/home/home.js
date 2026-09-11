@@ -61,7 +61,7 @@ class ParsiPageHome extends PeyElement {
   }
 
   eventTypes() {
-    return ['click', 'input', 'keydown'];
+    return ['click', 'keydown'];
   }
 
   /**
@@ -74,11 +74,6 @@ class ParsiPageHome extends PeyElement {
   }
 
   handleEvent(event) {
-    if (event.type === 'input' && event.target?.matches?.('[part="doc-title"]')) {
-      this.#docTitle = event.target.value;
-      this.#scheduleSave();
-      return;
-    }
     if (event.type === 'keydown') {
       if (event.key === 'Escape' && this.#openMenu !== null) {
         this.#openMenu = null;
@@ -277,7 +272,6 @@ class ParsiPageHome extends PeyElement {
         ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
         ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value })}
         <div part="center">
-          <input part="doc-title" value="${escapeHtml(this.#docTitle)}" aria-label="${escapeHtml(this.#t('parsinegar.documents.title-label'))}" />
           <div part="editor-host"></div>
         </div>
         ${renderStatusbar({ t: this.#t, bottomOpen: this.#bottomOpen, stats: countStats(this.value), formatNumber: (value) => this.#formatNumber(value) })}

@@ -170,14 +170,11 @@ test('should_switch_document_when_list_item_is_clicked', async () => {
   }
 });
 
-test('should_autosave_title_and_content_when_edited', async (t) => {
+test('should_autosave_content_when_edited', async (t) => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   t.mock.timers.enable({ apis: ['setTimeout'] });
   try {
-    const input = element.shadowRoot.querySelector('[part="doc-title"]');
-    input.value = 'عنوان تازه';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
     element.setDocument('متن تازه');
     t.mock.timers.tick(1500);
     await new Promise((resolve) => setImmediate(resolve));
@@ -185,10 +182,20 @@ test('should_autosave_title_and_content_when_edited', async (t) => {
     assert.ok(saves.length >= 1, 'expected an autosave');
     const last = saves[saves.length - 1][1];
     assert.equal(last.id, 'd1');
-    assert.equal(last.title, 'عنوان تازه');
+    assert.equal(last.title, 't');
     assert.equal(last.content, 'متن تازه');
   } finally {
     t.mock.timers.reset();
+    element.remove();
+  }
+});
+
+test('should_render_no_title_input_when_mounted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.equal(element.shadowRoot.querySelector('[part="doc-title"]'), null);
+  } finally {
     element.remove();
   }
 });
@@ -361,6 +368,7 @@ test('should_stick_panels_with_styles_when_rendered', async () => {
       assert.ok(style.textContent.includes(`[part="${part}"]`), `expected styles for ${part}`);
     }
     assert.equal((style.textContent.match(/position: sticky/g) ?? []).length, 4);
+    assert.ok(style.textContent.includes('gap: 0'), 'expected flush panels without gaps');
   } finally {
     element.remove();
   }

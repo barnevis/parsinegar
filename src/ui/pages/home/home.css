@@ -1,11 +1,10 @@
-/* Home page stylesheet.
-   Surfaces map to --pey-* design tokens with fallbacks so the page follows
-   the kit theme when tokens are overridden. Panels stick to the viewport
-   edges; only the editor column and the side body scroll. */
+/* Home page stylesheet, attached through PeyElement.stylesheetHref().
+   Flush VSCode-like layout: regions touch each other with no gaps and are
+   separated by single divider lines; panels use a slightly darker surface
+   than the white editor. Only the editor column and the side body scroll. */
 
 :host {
   display: block;
-  padding: 1rem 1rem 2rem;
 }
 
 [part="workbench"] {
@@ -15,8 +14,8 @@
     "menubar menubar menubar"
     "rail side center"
     "status status status";
-  gap: 0.75rem;
-  align-items: start;
+  gap: 0;
+  align-items: stretch;
 }
 
 [part="menubar"] {
@@ -27,10 +26,9 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 10px;
-  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.3rem 0.75rem;
+  border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
+  background-color: var(--pey-color-surface, #f1f1f5);
 }
 
 [part="brand"] {
@@ -57,12 +55,12 @@
 }
 
 [part="menu-button"]:hover {
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="menu-button"][aria-expanded="true"] {
   border-color: var(--pey-color-border, #c8c8d2);
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="menu-dropdown"] {
@@ -107,14 +105,14 @@
 [part="rail"] {
   grid-area: rail;
   position: sticky;
-  top: 3.75rem;
+  top: 3.25rem;
+  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0.3rem;
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 10px;
-  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.5rem 0.3rem;
+  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
+  background-color: var(--pey-color-surface, #f1f1f5);
 }
 
 [part="rail-button"] {
@@ -132,7 +130,7 @@
 }
 
 [part="rail-button"]:hover {
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="rail-button"] svg {
@@ -146,16 +144,16 @@
 
 [part="rail-button"][aria-pressed="true"] {
   border-color: var(--pey-color-border, #c8c8d2);
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="side"] {
   grid-area: side;
   position: sticky;
-  top: 3.75rem;
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 12px;
-  background-color: var(--pey-color-canvas, #ffffff);
+  top: 3.25rem;
+  align-self: start;
+  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
+  background-color: var(--pey-color-surface, #f1f1f5);
   overflow: hidden;
 }
 
@@ -164,7 +162,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.6rem 0.8rem;
-  border-block-end: 1px solid var(--pey-color-border, #ececf1);
+  border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
 }
 
 [part="side-title"] {
@@ -174,7 +172,7 @@
 
 [part="side-body"] {
   padding: 0.6rem 0.8rem;
-  max-block-size: 60vh;
+  max-block-size: calc(100vh - 12rem);
   overflow: auto;
 }
 
@@ -203,12 +201,12 @@
 
 [part="docs-open"]:hover,
 [part="outline-jump"]:hover {
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="docs-open"][aria-current="true"] {
   border-color: var(--pey-color-border, #c8c8d2);
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
   font-weight: 700;
 }
 
@@ -230,7 +228,7 @@
   flex: 1;
   border: 1px solid var(--pey-color-border, #d8d8de);
   border-radius: 8px;
-  background-color: transparent;
+  background-color: var(--pey-color-canvas, #ffffff);
   padding: 0.35rem 0.5rem;
   cursor: pointer;
   color: inherit;
@@ -238,7 +236,8 @@
 
 [part="docs-new"]:hover,
 [part="docs-delete"]:hover {
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
+  border-color: var(--pey-color-border, #c8c8d2);
 }
 
 [part="side-close"] {
@@ -253,33 +252,17 @@
 }
 
 [part="side-close"]:hover {
-  background-color: var(--pey-color-surface, #f1f1f5);
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="center"] {
   grid-area: center;
   min-inline-size: 0;
-}
-
-[part="doc-title"] {
-  inline-size: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  font-weight: 700;
-  padding: 0.4rem 0.6rem;
-  margin-block-end: 0.75rem;
-  border: 1px solid var(--pey-color-border, #d8d8de);
-  border-radius: 8px;
   background-color: var(--pey-color-canvas, #ffffff);
-  color: inherit;
 }
 
 [part="editor-host"] {
   overflow: hidden;
-  background-color: var(--pey-color-canvas, #ffffff);
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.07);
   padding: 2rem 2.25rem;
   cursor: text;
 }
@@ -296,9 +279,8 @@
   display: flex;
   gap: 1.25rem;
   padding: 0.45rem 0.9rem;
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 10px;
-  background-color: var(--pey-color-canvas, #ffffff);
+  border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
+  background-color: var(--pey-color-surface, #f1f1f5);
   font-size: 0.85rem;
 }
 
@@ -309,7 +291,6 @@
 [part="menu-button"]:focus-visible,
 [part="menu-item"]:focus-visible,
 [part="rail-button"]:focus-visible,
-[part="doc-title"]:focus-visible,
 [part="docs-open"]:focus-visible,
 [part="outline-jump"]:focus-visible,
 [part="docs-new"]:focus-visible,
@@ -336,6 +317,15 @@
 
   [part="rail"] {
     flex-direction: row;
+    position: static;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
+  }
+
+  [part="side"] {
+    position: static;
+    border-inline-end: 0;
+    border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
   }
 
   [part="editor-host"] {
