@@ -28,6 +28,12 @@ DOM child-to-parent notification (not a bus event, declared nowhere because the 
 - `#items` — last fetched document list. Looks like business data, but it is only ever a render snapshot: refreshed from the service before every render and re-read after every save (see `../../../docs/decisions.md` §9). Never edited in place as a source of truth.
 - `#currentId`, `#docTitle`, `#draft` — open-document working set, rewritten on every document switch.
 - `#editor` — CodeMirror controller handle (released on disconnect).
+- `#editorHost` — host node identity the editor is mounted into; a full
+  re-render detaches the view while the handle stays set, so mounting tracks
+  the node, not the handle.
+- `#renderObserver` — render-completion observer that mounts the editor (the
+  first render may wait behind the stylesheet gate, so microtask order cannot
+  be relied on); disconnected on disconnect.
 - `#saveTimer` — pending autosave handle (cleared on disconnect).
 - `#activeView`, `#sideOpen`, `#bottomOpen`, `#openMenu` — purely presentational (rail selection, panel visibility, open menu).
 

@@ -1,5 +1,6 @@
 // Verifies the UI entry point wires required services through to pages.
 import './setup-dom.js';
+import './setup-styles.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PEY_ROUTER_SERVICE } from 'pey.webui/contracts';

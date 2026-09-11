@@ -1,10 +1,4 @@
-// Home page styles as an inline module (not a separate stylesheet).
-//
-// Kept as a plain string on purpose: the kit's external-stylesheet mechanism
-// (stylesheetHref) gates the first render on an async fetch, which makes
-// jsdom tests non-deterministic, while our renders are infrequent enough
-// that re-parsing is negligible. Revisit if render frequency grows.
-const HOME_CSS = `/* Home page stylesheet.
+/* Home page stylesheet.
    Surfaces map to --pey-* design tokens with fallbacks so the page follows
    the kit theme when tokens are overridden. Panels stick to the viewport
    edges; only the editor column and the side body scroll. */
@@ -348,5 +342,3 @@ const HOME_CSS = `/* Home page stylesheet.
     padding: 1.25rem 1rem;
   }
 }
-`;
-export { HOME_CSS };

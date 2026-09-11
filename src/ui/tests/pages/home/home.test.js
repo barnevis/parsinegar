@@ -1,5 +1,6 @@
 // Verifies the home page renders the Persian shell and hosts the editor.
 import '../../setup-dom.js';
+import '../../setup-styles.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TAG } from '../../../pages/home/home.js';
@@ -337,17 +338,32 @@ test('should_toggle_dropdown_when_menu_button_is_clicked', async () => {
 });
 
 test('should_hide_dropdown_with_styles_when_closed', async () => {
-  const { HOME_CSS } = await import('../../../pages/home/home-styles.js');
-  assert.ok(HOME_CSS.includes('[part="menu-dropdown"][hidden]'));
-  assert.ok(HOME_CSS.includes('display: none'));
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(style.textContent.includes('[part="menu-dropdown"][hidden]'));
+  } finally {
+    element.remove();
+  }
 });
 
 test('should_stick_panels_with_styles_when_rendered', async () => {
-  const { HOME_CSS } = await import('../../../pages/home/home-styles.js');
-  for (const part of ['menubar', 'rail', 'side', 'statusbar']) {
-    assert.ok(HOME_CSS.includes(`[part="${part}"]`), `expected styles for ${part}`);
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    for (const part of ['menubar', 'rail', 'side', 'statusbar']) {
+      assert.ok(style.textContent.includes(`[part="${part}"]`), `expected styles for ${part}`);
+    }
+    assert.equal((style.textContent.match(/position: sticky/g) ?? []).length, 4);
+  } finally {
+    element.remove();
   }
-  assert.equal((HOME_CSS.match(/position: sticky/g) ?? []).length, 4);
 });
 
 test('should_close_menu_when_escape_is_pressed', async () => {

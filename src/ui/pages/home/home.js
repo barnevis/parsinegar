@@ -13,7 +13,6 @@ import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
 import { escapeHtml } from '../../components/workbench/html.js';
-import { HOME_CSS } from './home-styles.js';
 import { FILES_VIEW, getView } from '../../components/workbench/views.js';
 import { renderMenubar, renderRail, renderSide, renderStatusbar } from '../../components/workbench/regions.js';
 
@@ -21,6 +20,7 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const AUTOSAVE_DELAY_MS = 1000;
+const STYLE_URL = new URL('./home.css', import.meta.url).href;
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
@@ -38,6 +38,8 @@ class ParsiPageHome extends PeyElement {
   #sideOpen = true;
   #bottomOpen = true;
   #openMenu = null;
+  #renderObserver = null;
+  #editorHost = null;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -60,6 +62,15 @@ class ParsiPageHome extends PeyElement {
 
   eventTypes() {
     return ['click', 'input', 'keydown'];
+  }
+
+  /**
+   * Declares the external stylesheet attached by the base class before the
+   * first contentful render (preload-and-cache contract of the kit).
+   * @returns {string} Absolute stylesheet URL.
+   */
+  stylesheetHref() {
+    return STYLE_URL;
   }
 
   handleEvent(event) {
@@ -133,15 +144,49 @@ class ParsiPageHome extends PeyElement {
 
   connectedCallback() {
     super.connectedCallback();
-    // The base class flushes render() in a microtask queued inside
-    // connectedCallback; loading and mounting wait for their own turn.
+    // The base class flushes render() on its own schedule — synchronously for
+    // plain templates, asynchronously when gated on the external stylesheet.
+    // Mounting CodeMirror needs the live host node, so instead of guessing
+    // microtask order, observe render completion and mount then.
+    this.#ensureRenderObserver();
     queueMicrotask(() => void this.#initialLoad());
   }
 
   disconnectedCallback() {
     this.#clearSaveTimer();
     this.#unmountEditor();
+    this.#renderObserver?.disconnect();
+    this.#renderObserver = null;
     super.disconnectedCallback();
+  }
+
+  /**
+   * Arms a one-purpose observer that mounts the editor as soon as a render
+   * produces its host node. Tracks host node identity (not just editor
+   * presence) because a full re-render detaches the previous view while the
+   * reference stays set. Stays armed across re-renders; CodeMirror's own DOM
+   * lives inside the host node, so it never retriggers itself.
+   * @returns {void}
+   */
+  #ensureRenderObserver() {
+    if (this.#renderObserver) {
+      return;
+    }
+    this.#renderObserver = new MutationObserver(() => {
+      if (!this.isConnected) {
+        return;
+      }
+      const host = this.shadowRoot.querySelector('[part="editor-host"]');
+      if (!host) {
+        return;
+      }
+      if (this.#editorHost !== host) {
+        this.#unmountEditor();
+        this.#editorHost = host;
+        this.#mountEditor();
+      }
+    });
+    this.#renderObserver.observe(this.shadowRoot, { childList: true, subtree: false });
   }
 
   /**
@@ -227,7 +272,6 @@ class ParsiPageHome extends PeyElement {
 
   render() {
     return `
-      <style>${HOME_CSS}</style>
       <div part="workbench">
         ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
         ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
@@ -370,8 +414,8 @@ class ParsiPageHome extends PeyElement {
   #requestEditor() {
     this.#openMenu = null;
     this.#unmountEditor();
+    this.#ensureRenderObserver();
     this.requestRender();
-    queueMicrotask(() => this.#mountEditor());
   }
 
   #scheduleSave() {
@@ -450,23 +494,30 @@ class ParsiPageHome extends PeyElement {
     if (!host) {
       return;
     }
-    this.#editor = createMarkdownView(host, {
-      document: this.#draft ?? SAMPLE_DOCUMENT,
-      label: this.#t('parsinegar.editor.label'),
-      direction: this.#direction,
-      onChange: (value) => {
-        this.#draft = value;
-        this.dispatchEvent(
-          new CustomEvent(CHANGE_EVENT, {
-            bubbles: true,
-            composed: true,
-            detail: { value },
-          }),
-        );
-        this.#syncStats();
-        this.#scheduleSave();
-      },
-    });
+    try {
+      this.#editor = createMarkdownView(host, {
+        document: this.#draft ?? SAMPLE_DOCUMENT,
+        label: this.#t('parsinegar.editor.label'),
+        direction: this.#direction,
+        onChange: (value) => {
+          this.#draft = value;
+          this.dispatchEvent(
+            new CustomEvent(CHANGE_EVENT, {
+              bubbles: true,
+              composed: true,
+              detail: { value },
+            }),
+          );
+          this.#syncStats();
+          this.#scheduleSave();
+        },
+      });
+      this.#editorHost = host;
+    } catch (error) {
+      this.#editor = null;
+      this.#editorHost = null;
+      throw error;
+    }
   }
 
   #unmountEditor() {
@@ -475,6 +526,7 @@ class ParsiPageHome extends PeyElement {
       this.#editor.destroy();
       this.#editor = null;
     }
+    this.#editorHost = null;
   }
 }
 
