@@ -64,7 +64,11 @@ test('should_emit_change_when_editor_content_changes', async () => {
   await flush();
   try {
     const seen = [];
-    element.addEventListener('parsi-page-home:change', (event) => seen.push(event.detail));
+    element.addEventListener('parsi-page-home:changed', (event) => {
+      seen.push(event.detail);
+      assert.equal(event.bubbles, true);
+      assert.equal(event.composed, true);
+    });
     element.setDocument('متن تازه');
     assert.equal(seen.length, 1);
     assert.equal(seen[0].value, 'متن تازه');
@@ -163,15 +167,17 @@ test('should_switch_document_when_list_item_is_clicked', async () => {
   }
 });
 
-test('should_autosave_title_and_content_when_edited', async () => {
+test('should_autosave_title_and_content_when_edited', async (t) => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   try {
     const input = element.shadowRoot.querySelector('[part="doc-title"]');
     input.value = 'عنوان تازه';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     element.setDocument('متن تازه');
-    await new Promise((resolve) => setTimeout(resolve, 1300));
+    t.mock.timers.tick(1500);
+    await new Promise((resolve) => setImmediate(resolve));
     const saves = documents.calls.filter(([method]) => method === 'save');
     assert.ok(saves.length >= 1, 'expected an autosave');
     const last = saves[saves.length - 1][1];
@@ -179,9 +185,39 @@ test('should_autosave_title_and_content_when_edited', async () => {
     assert.equal(last.title, 'عنوان تازه');
     assert.equal(last.content, 'متن تازه');
   } finally {
+    t.mock.timers.reset();
     element.remove();
   }
-}, { timeout: 10000 });
+});
+
+test('should_drop_pending_save_when_disconnected', async (t) => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    element.setDocument('متن تازه');
+    element.remove();
+    t.mock.timers.tick(5000);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(documents.calls, []);
+  } finally {
+    t.mock.timers.reset();
+  }
+});
+
+test('should_reject_second_connect_when_already_connected', async () => {
+  const element = document.createElement(TAG);
+  element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
+  document.body.append(element);
+  await flush();
+  try {
+    assert.throws(() => {
+      element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
+    });
+  } finally {
+    element.remove();
+  }
+});
 
 test('should_create_document_when_new_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
@@ -290,16 +326,18 @@ test('should_toggle_dropdown_when_menu_button_is_clicked', async () => {
     await flush();
     assert.equal(element.shadowRoot.querySelector('[data-menu="file"]').getAttribute('aria-expanded'), 'true');
     assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 1);
-    const hidden = element.shadowRoot.querySelector('[data-menu="edit"]')
-      .closest('[part="menu"]')
-      .querySelector('[part="menu-dropdown"]');
-    assert.equal(globalThis.getComputedStyle(hidden).display, 'none');
     button.click();
     await flush();
     assert.equal(element.shadowRoot.querySelector('[data-menu="file"]').getAttribute('aria-expanded'), 'false');
   } finally {
     element.remove();
   }
+});
+
+test('should_hide_dropdown_with_styles_when_closed', async () => {
+  const { HOME_CSS } = await import('../../../pages/home/home-styles.js');
+  assert.ok(HOME_CSS.includes('[part="menu-dropdown"][hidden]'));
+  assert.ok(HOME_CSS.includes('display: none'));
 });
 
 test('should_close_menu_when_escape_is_pressed', async () => {

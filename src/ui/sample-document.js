@@ -1,4 +1,4 @@
-// Default Persian sample document shown on first launch (version 1).
+// Default Persian sample document shown until real documents exist.
 // Static starter content only; future file management will replace it.
 const SAMPLE_DOCUMENT = `# پارسی‌نگار
 

@@ -77,6 +77,17 @@ test('should_mount_shell_and_home_when_started', async () => {
   }
 });
 
+test('should_unmount_shell_when_shutdown_runs', async () => {
+  const context = createContext();
+  await setup(context);
+  await flush();
+  await flush();
+  assert.ok(document.querySelector('pey-app-shell'), 'expected the shell');
+  context.onShutdown?.();
+  assert.equal(document.querySelector('pey-app-shell'), null);
+  assert.equal(document.querySelector('parsi-page-home'), null);
+});
+
 test('should_deliver_documents_service_when_home_loads', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن ذخیره‌شده', updatedAt: 1 }]);
   const context = createContext({ documents });
@@ -87,6 +98,24 @@ test('should_deliver_documents_service_when_home_loads', async () => {
     const home = document.querySelector('parsi-page-home');
     assert.ok(home, 'expected the home page');
     assert.equal(home.value, 'متن ذخیره‌شده');
+  } finally {
+    context.onShutdown?.();
+    document.querySelector('pey-app-shell')?.remove();
+    document.querySelector('parsi-page-home')?.remove();
+  }
+});
+
+test('should_format_stats_with_persian_digits_when_home_loads', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو سه', updatedAt: 1 }]);
+  const context = createContext({ documents });
+  await setup(context);
+  try {
+    await flush();
+    await flush();
+    const home = document.querySelector('parsi-page-home');
+    assert.ok(home, 'expected the home page');
+    const words = home.shadowRoot.querySelector('[data-stat="words"]')?.textContent ?? '';
+    assert.match(words, /[۰-۹]/);
   } finally {
     context.onShutdown?.();
     document.querySelector('pey-app-shell')?.remove();

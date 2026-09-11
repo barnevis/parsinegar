@@ -36,6 +36,7 @@ function isSelectAllEvent(event) {
  * @param {object} [options] View options.
  * @param {string} [options.document] Initial Markdown text.
  * @param {string} [options.label] Accessible label for the editor.
+ * @param {string} [options.direction] Writing direction: 'rtl' (default) or 'ltr'.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
  *   focus(), undo(), redo(), gotoLine(line), destroy().
@@ -47,6 +48,7 @@ export function createMarkdownView(host, options = {}) {
     throw new Error('createMarkdownView requires an element host');
   }
   const onChange = typeof options.onChange === 'function' ? options.onChange : null;
+  const direction = options.direction === 'ltr' ? 'ltr' : 'rtl';
   let current = typeof options.document === 'string' ? options.document : '';
   let destroyed = false;
 
@@ -70,11 +72,11 @@ export function createMarkdownView(host, options = {}) {
           return false;
         },
       }),
-      EditorView.editorAttributes.of({ dir: 'rtl', 'aria-label': options.label ?? '' }),
+      EditorView.editorAttributes.of({ dir: direction, 'aria-label': options.label ?? '' }),
       EditorView.theme({
         '&': {
-          direction: 'rtl',
-          textAlign: 'right',
+          direction,
+          textAlign: 'start',
           fontFamily: PERSIAN_FONT,
           fontSize: '1rem',
         },

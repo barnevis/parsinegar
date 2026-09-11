@@ -8,23 +8,25 @@
 // before entering the template. Status numbers sync imperatively on change
 // (same values render() produces) so typing never drops editor focus.
 // All DOM event handling stays declarative on PeyElement.
-import { createIconMarkup } from 'pey.webui/base/icon-sprite';
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
-import { buildMenuModel } from '../../components/workbench/menubar.js';
 import { countStats } from '../../components/workbench/stats.js';
 import { escapeHtml } from '../../components/workbench/html.js';
-import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
+import { HOME_CSS } from './home-styles.js';
+import { FILES_VIEW, getView } from '../../components/workbench/views.js';
+import { renderMenubar, renderRail, renderSide, renderStatusbar } from '../../components/workbench/regions.js';
 
 const TAG = 'parsi-page-home';
-const CHANGE_EVENT = 'parsi-page-home:change';
+const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const AUTOSAVE_DELAY_MS = 1000;
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
+  #format = null;
   #assetBaseUrl = null;
+  #direction = 'rtl';
   #documents = null;
   #editor = null;
   #items = [];
@@ -40,6 +42,12 @@ class ParsiPageHome extends PeyElement {
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
       this.#t = refs.t;
+    }
+    if (typeof refs.format === 'function') {
+      this.#format = refs.format;
+    }
+    if (refs.direction === 'ltr' || refs.direction === 'rtl') {
+      this.#direction = refs.direction;
     }
     if (typeof refs.assetBaseUrl === 'string' && refs.assetBaseUrl.length > 0) {
       this.#assetBaseUrl = refs.assetBaseUrl;
@@ -159,29 +167,33 @@ class ParsiPageHome extends PeyElement {
   }
 
   async #runMenuAction(action) {
-    switch (action) {
-      case 'new-document':
-        await this.#createDocument();
-        return;
-      case 'delete-document':
-        await this.#deleteCurrent();
-        return;
-      case 'undo':
-        this.#editor?.undo();
-        return;
-      case 'redo':
-        this.#editor?.redo();
-        return;
-      case 'toggle-side':
-        this.#sideOpen = !this.#sideOpen;
-        this.#requestEditor();
-        return;
-      case 'toggle-status':
-        this.#bottomOpen = !this.#bottomOpen;
-        this.#requestEditor();
-        return;
-      default:
-        return;
+    try {
+      switch (action) {
+        case 'new-document':
+          await this.#createDocument();
+          return;
+        case 'delete-document':
+          await this.#deleteCurrent();
+          return;
+        case 'undo':
+          this.#editor?.undo();
+          return;
+        case 'redo':
+          this.#editor?.redo();
+          return;
+        case 'toggle-side':
+          this.#sideOpen = !this.#sideOpen;
+          this.#requestEditor();
+          return;
+        case 'toggle-status':
+          this.#bottomOpen = !this.#bottomOpen;
+          this.#requestEditor();
+          return;
+        default:
+          return;
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] menu action failed');
     }
   }
 
@@ -213,251 +225,20 @@ class ParsiPageHome extends PeyElement {
     this.#requestEditor();
   }
 
-  #railIcon(symbol) {
-    if (!this.#assetBaseUrl) {
-      return '';
-    }
-    try {
-      return createIconMarkup(this.#assetBaseUrl, symbol);
-    } catch {
-      return '';
-    }
-  }
-
-  #renderRail() {
-    const buttons = listViews().map((view) => `
-      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${this.#railIcon(view.icon)}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`).join('');
-    return `<nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${buttons}</nav>`;
-  }
-
-  #renderSide() {
-    if (!this.#sideOpen) {
-      return '';
-    }
-    const view = getView(this.#activeView) ?? getView(FILES_VIEW);
-    return `
-      <aside part="side">
-        <div part="side-header">
-          <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
-          <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
-        </div>
-        <div part="side-body">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.value })}</div>
-      </aside>`;
-  }
-
-  #renderMenubar() {
-    const menus = buildMenuModel({ t: this.#t, hasDocument: this.#currentId !== null });
-    const markup = menus.map((menu) => {
-      const open = this.#openMenu === menu.id;
-      return `
-        <div part="menu">
-          <button type="button" part="menu-button" data-menu="${menu.id}" aria-haspopup="true" aria-expanded="${open}">${escapeHtml(menu.label)}</button>
-          <div part="menu-dropdown" role="menu" ${open ? '' : 'hidden'}>${menu.items.map((item) => `
-            <button type="button" part="menu-item" role="menuitem" data-action="${item.id}" ${item.disabled ? 'disabled' : ''}>${escapeHtml(item.label)}</button>`).join('')}
-          </div>
-        </div>`;
-    }).join('');
-    return `<div part="menubar" role="menubar">${markup}</div>`;
-  }
-
-  #renderStatusbar() {
-    if (!this.#bottomOpen) {
-      return '';
-    }
-    const stats = countStats(this.value);
-    return `
-      <footer part="statusbar">
-        <span part="stat"><b part="stat-value" data-stat="chars">${stats.chars}</b> ${escapeHtml(this.#t('parsinegar.stats.chars'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="words">${stats.words}</b> ${escapeHtml(this.#t('parsinegar.stats.words'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="lines">${stats.lines}</b> ${escapeHtml(this.#t('parsinegar.stats.lines'))}</span>
-      </footer>`;
-  }
-
   render() {
     return `
-      <style>
-        :host {
-          display: block;
-          padding: 1rem 1rem 2rem;
-        }
-        [part="title"] {
-          font-size: 1.5rem;
-          margin: 0 0 0.25rem;
-        }
-        [part="subtitle"] {
-          margin: 0 0 1rem;
-          opacity: 0.75;
-        }
-        [part="workbench"] {
-          display: grid;
-          grid-template-columns: auto minmax(12rem, 17rem) minmax(0, 1fr);
-          grid-template-areas:
-            "menubar menubar menubar"
-            "rail side center"
-            "status status status";
-          gap: 0.75rem;
-          align-items: start;
-        }
-        [part="menubar"] {
-          grid-area: menubar;
-          display: flex;
-          gap: 0.25rem;
-        }
-        [part="menu"] {
-          position: relative;
-        }
-        [part="menu-button"] {
-          font: inherit;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          padding: 0.35rem 0.8rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="menu-button"][aria-expanded="true"] {
-          border-color: #c8c8d2;
-          background-color: #ffffff;
-        }
-        [part="menu-dropdown"] {
-          position: absolute;
-          inset-block-start: calc(100% + 0.25rem);
-          inset-inline-start: 0;
-          min-inline-size: 11rem;
-          z-index: 10;
-          display: flex;
-          flex-direction: column;
-          padding: 0.3rem;
-          border: 1px solid #e2e2e8;
-          border-radius: 10px;
-          background-color: #ffffff;
-          box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
-        }
-        [part="menu-dropdown"][hidden] {
-          display: none;
-        }
-        [part="menu-item"] {
-          font: inherit;
-          text-align: start;
-          border: 0;
-          border-radius: 6px;
-          background-color: transparent;
-          padding: 0.4rem 0.6rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="menu-item"]:hover {
-          background-color: #f1f1f5;
-        }
-        [part="menu-item"][disabled] {
-          opacity: 0.45;
-          cursor: default;
-        }
-        [part="rail"] {
-          grid-area: rail;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-        [part="rail-button"] {
-          font: inherit;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          inline-size: 2.75rem;
-          block-size: 2.75rem;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="rail-button"] svg {
-          inline-size: 1.4rem;
-          block-size: 1.4rem;
-        }
-        [part="rail-fallback"] {
-          display: none;
-        }
-        [part="rail-button"][aria-pressed="true"] {
-          border-color: #c8c8d2;
-          background-color: #ffffff;
-        }
-        [part="side"] {
-          grid-area: side;
-          border: 1px solid #e2e2e8;
-          border-radius: 12px;
-          background-color: #ffffff;
-          overflow: hidden;
-        }
-        [part="side-header"] {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.6rem 0.8rem;
-          border-block-end: 1px solid #ececf1;
-        }
-        [part="side-title"] {
-          font-size: 1rem;
-          margin: 0;
-        }
-        [part="side-body"] {
-          padding: 0.6rem 0.8rem;
-          max-block-size: 60vh;
-          overflow: auto;
-        }
-        [part="center"] {
-          grid-area: center;
-          min-inline-size: 0;
-        }
-        [part="doc-title"] {
-          inline-size: 100%;
-          box-sizing: border-box;
-          font: inherit;
-          font-weight: 700;
-          padding: 0.4rem 0.6rem;
-          margin-block-end: 0.75rem;
-          border: 1px solid #d8d8de;
-          border-radius: 8px;
-          background-color: #ffffff;
-        }
-        [part="editor-host"] {
-          overflow: hidden;
-          background-color: #ffffff;
-          border: 1px solid #e2e2e8;
-          border-radius: 12px;
-          box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.07);
-          padding: 2rem 2.25rem;
-          cursor: text;
-        }
-        [part="editor-host"] .cm-editor {
-          min-block-size: 65vh;
-        }
-        [part="statusbar"] {
-          grid-area: status;
-          display: flex;
-          gap: 1.25rem;
-          padding: 0.45rem 0.9rem;
-          border: 1px solid #e2e2e8;
-          border-radius: 10px;
-          background-color: #ffffff;
-          font-size: 0.85rem;
-        }
-        [part="stat-value"] {
-          font-weight: 700;
-        }
-      </style>
+      <style>${HOME_CSS}</style>
       <h1 part="title">${this.#t('parsinegar.app.title')}</h1>
       <p part="subtitle">${this.#t('parsinegar.app.subtitle')}</p>
       <div part="workbench">
-        ${this.#renderMenubar()}
-        ${this.#renderRail()}
-        ${this.#renderSide()}
+        ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
+        ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
+        ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value })}
         <div part="center">
           <input part="doc-title" value="${escapeHtml(this.#docTitle)}" aria-label="${escapeHtml(this.#t('parsinegar.documents.title-label'))}" />
           <div part="editor-host"></div>
         </div>
-        ${this.#renderStatusbar()}
+        ${renderStatusbar({ t: this.#t, bottomOpen: this.#bottomOpen, stats: countStats(this.value), formatNumber: (value) => this.#formatNumber(value) })}
       </div>
     `;
   }
@@ -501,38 +282,46 @@ class ParsiPageHome extends PeyElement {
     if (!id || id === this.#currentId || !this.#documents) {
       return;
     }
-    await this.#flushSave();
-    if (!this.isConnected) {
-      return;
+    try {
+      await this.#flushSave();
+      if (!this.isConnected) {
+        return;
+      }
+      const opened = await this.#documents.openDocument(id);
+      if (!this.isConnected || !opened) {
+        return;
+      }
+      const items = await this.#documents.listDocuments();
+      if (!this.isConnected) {
+        return;
+      }
+      this.#applyDocument(opened, items);
+    } catch (error) {
+      console.error('[parsi-page-home] document switch failed');
     }
-    const opened = await this.#documents.openDocument(id);
-    if (!this.isConnected || !opened) {
-      return;
-    }
-    const items = await this.#documents.listDocuments();
-    if (!this.isConnected) {
-      return;
-    }
-    this.#applyDocument(opened, items);
   }
 
   async #createDocument() {
     if (!this.#documents) {
       return;
     }
-    await this.#flushSave();
-    if (!this.isConnected) {
-      return;
+    try {
+      await this.#flushSave();
+      if (!this.isConnected) {
+        return;
+      }
+      const created = await this.#documents.createDocument(this.#t('parsinegar.documents.new-title'));
+      if (!this.isConnected) {
+        return;
+      }
+      const items = await this.#documents.listDocuments();
+      if (!this.isConnected) {
+        return;
+      }
+      this.#applyDocument({ ...created, content: '' }, items);
+    } catch (error) {
+      console.error('[parsi-page-home] document creation failed');
     }
-    const created = await this.#documents.createDocument(this.#t('parsinegar.documents.new-title'));
-    if (!this.isConnected) {
-      return;
-    }
-    const items = await this.#documents.listDocuments();
-    if (!this.isConnected) {
-      return;
-    }
-    this.#applyDocument({ ...created, content: '' }, items);
   }
 
   async #deleteCurrent() {
@@ -541,30 +330,34 @@ class ParsiPageHome extends PeyElement {
     }
     const removedId = this.#currentId;
     this.#clearSaveTimer();
-    await this.#documents.deleteDocument(removedId);
-    if (!this.isConnected) {
-      return;
-    }
-    const items = await this.#documents.listDocuments();
-    if (!this.isConnected) {
-      return;
-    }
-    if (items.length === 0) {
-      const created = await this.#documents.saveDocument({
-        title: this.#t('parsinegar.documents.new-title'),
-        content: '',
-      });
+    try {
+      await this.#documents.deleteDocument(removedId);
       if (!this.isConnected) {
         return;
       }
-      this.#applyDocument(created, [created]);
-      return;
+      const items = await this.#documents.listDocuments();
+      if (!this.isConnected) {
+        return;
+      }
+      if (items.length === 0) {
+        const created = await this.#documents.saveDocument({
+          title: this.#t('parsinegar.documents.new-title'),
+          content: '',
+        });
+        if (!this.isConnected) {
+          return;
+        }
+        this.#applyDocument(created, [created]);
+        return;
+      }
+      const opened = await this.#documents.openDocument(items[0].id);
+      if (!this.isConnected) {
+        return;
+      }
+      this.#applyDocument(opened ?? items[0], items);
+    } catch (error) {
+      console.error('[parsi-page-home] document deletion failed');
     }
-    const opened = await this.#documents.openDocument(items[0].id);
-    if (!this.isConnected) {
-      return;
-    }
-    this.#applyDocument(opened ?? items[0], items);
   }
 
   #applyDocument(document, items) {
@@ -610,12 +403,8 @@ class ParsiPageHome extends PeyElement {
         title: this.#docTitle,
         content: this.#editor?.getValue() ?? this.#draft ?? '',
       });
-      const index = this.#items.findIndex((item) => item.id === saved.id);
-      if (index >= 0) {
-        this.#items[index] = saved;
-      } else {
-        this.#items.unshift(saved);
-      }
+      void saved;
+      this.#items = await this.#documents.listDocuments();
     } catch (error) {
       console.error('[parsi-page-home] autosave failed');
     }
@@ -628,13 +417,30 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
+  /**
+   * Formats a number for the active language, falling back to plain text
+   * when no formatter was handed down.
+   * @param {number} value Number value.
+   * @returns {string} Formatted number.
+   */
+  #formatNumber(value) {
+    if (typeof this.#format === 'function') {
+      try {
+        return this.#format(value, 'number', {});
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
   #syncStats() {
     if (!this.#bottomOpen) {
       return;
     }
     const stats = countStats(this.value);
     for (const [key, value] of Object.entries({ chars: stats.chars, words: stats.words, lines: stats.lines })) {
-      this.shadowRoot.querySelector(`[data-stat="${key}"]`)?.replaceChildren(String(value));
+      this.shadowRoot.querySelector(`[data-stat="${key}"]`)?.replaceChildren(this.#formatNumber(value));
     }
   }
 
@@ -649,6 +455,7 @@ class ParsiPageHome extends PeyElement {
     this.#editor = createMarkdownView(host, {
       document: this.#draft ?? SAMPLE_DOCUMENT,
       label: this.#t('parsinegar.editor.label'),
+      direction: this.#direction,
       onChange: (value) => {
         this.#draft = value;
         this.dispatchEvent(

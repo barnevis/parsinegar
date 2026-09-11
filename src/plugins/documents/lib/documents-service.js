@@ -6,6 +6,18 @@ const CHANGED_EVENT = 'documents:changed';
 const UNTITLED_TITLE = 'بدون عنوان';
 
 /**
+ * Generates a document id. Prefers crypto.randomUUID, which is unavailable
+ * outside secure contexts (plain HTTP on a LAN).
+ * @returns {string} Unique-enough id.
+ */
+function generateId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.floor(Math.random() * 0xffffffff).toString(36)}`;
+}
+
+/**
  * Returns the bound storage service or fails clearly before activation.
  * @param {object} state Activation-bound references.
  * @returns {object} Bound pey.storage.service.
@@ -50,7 +62,7 @@ function createService(state) {
     },
     async saveDocument(input = {}) {
       const record = {
-        id: typeof input.id === 'string' && input.id.length > 0 ? input.id : crypto.randomUUID(),
+        id: typeof input.id === 'string' && input.id.length > 0 ? input.id : generateId(),
         title: typeof input.title === 'string' && input.title.length > 0 ? input.title : UNTITLED_TITLE,
         content: typeof input.content === 'string' ? input.content : '',
         updatedAt: Date.now(),

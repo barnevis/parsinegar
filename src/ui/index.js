@@ -66,6 +66,7 @@ export const setup = createApplicationSetup({
         t: i18n.t,
         format: i18n.format,
         assetBaseUrl: resources.config.assetBaseUrl,
+        direction: resources.config.direction,
       },
       config: resources.config,
     });
