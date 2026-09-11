@@ -7,7 +7,8 @@
 // listeners until destroy() releases them.
 import { EditorView, minimalSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { selectAll } from '@codemirror/commands';
+import { redo, selectAll, undo } from '@codemirror/commands';
+import { EditorSelection } from '@codemirror/state';
 import { livePreviewExtensions } from './live-preview.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
@@ -37,7 +38,7 @@ function isSelectAllEvent(event) {
  * @param {string} [options.label] Accessible label for the editor.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
- *   focus(), destroy().
+ *   focus(), undo(), redo(), gotoLine(line), destroy().
  * @throws {Error} When host is not an element.
  */
 export function createMarkdownView(host, options = {}) {
@@ -124,6 +125,42 @@ export function createMarkdownView(host, options = {}) {
       if (!destroyed) {
         view.focus();
       }
+    },
+    /**
+     * Undoes the last change. No-op after destroy or with empty history.
+     * @returns {void}
+     */
+    undo() {
+      if (!destroyed) {
+        undo(view);
+      }
+    },
+    /**
+     * Redoes the last undone change. No-op after destroy or with empty future.
+     * @returns {void}
+     */
+    redo() {
+      if (!destroyed) {
+        redo(view);
+      }
+    },
+    /**
+     * Moves the cursor to the start of the given 1-based line and focuses.
+     * Out-of-range lines clamp to the document. No-op after destroy.
+     * @param {number} line 1-based line number.
+     * @returns {void}
+     */
+    gotoLine(line) {
+      if (destroyed) {
+        return;
+      }
+      const total = view.state.doc.lines;
+      const safe = Math.min(Math.max(1, Math.trunc(line) || 1), total);
+      view.focus();
+      view.dispatch({
+        selection: EditorSelection.cursor(view.state.doc.line(safe).from),
+        scrollIntoView: true,
+      });
     },
     /**
      * Destroys the view and releases its listeners. Keeps the last text.

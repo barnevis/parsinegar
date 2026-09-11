@@ -121,3 +121,54 @@ test('should_select_all_when_ctrl_a_pressed_on_latin_layout', () => {
 test('should_fail_clearly_when_host_is_not_an_element', () => {
   assert.throws(() => createMarkdownView(null), /element host/);
 });
+
+function selectionLine(host) {
+  const anchor = document.getSelection()?.anchorNode ?? null;
+  const line = anchor?.parentElement?.closest?.('.cm-line') ?? null;
+  return line ? line.textContent : null;
+}
+
+test('should_undo_and_redo_when_called', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'اول' });
+  try {
+    editor.setDocument('دوم');
+    editor.undo();
+    assert.equal(editor.getValue(), 'اول');
+    editor.redo();
+    assert.equal(editor.getValue(), 'دوم');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_move_cursor_when_goto_line_is_called', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'یک\nدو\nسه' });
+  try {
+    editor.gotoLine(3);
+    const line = selectionLine(host);
+    assert.ok(line && line.includes('سه'), `expected cursor on third line, got: ${line}`);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_clamp_line_when_goto_line_is_out_of_range', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'یک\nدو' });
+  try {
+    editor.gotoLine(99);
+    assert.ok((selectionLine(host) ?? '').includes('دو'));
+    editor.gotoLine(0);
+    assert.ok((selectionLine(host) ?? '').includes('یک'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});

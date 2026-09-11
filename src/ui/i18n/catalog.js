@@ -23,6 +23,7 @@ const catalog = {
     'parsinegar.view.status': 'نوار وضعیت',
     'parsinegar.views.files': 'فایل‌ها',
     'parsinegar.views.outline': 'فهرست مطالب',
+    'parsinegar.views.outline-empty': 'سرفصلی در این سند نیست',
     'parsinegar.stats.chars': 'نویسه',
     'parsinegar.stats.words': 'واژه',
     'parsinegar.stats.lines': 'خط',

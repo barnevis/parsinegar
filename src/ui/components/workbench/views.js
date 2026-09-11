@@ -1,0 +1,33 @@
+// Side-panel view registry: metadata plus render references only.
+//
+// Holds no view logic itself — each view module owns its rendering; adding a
+// view means writing its module and appending one entry here.
+import { renderFilesView } from './views-files.js';
+import { renderOutlineView } from './views-outline.js';
+
+const FILES_VIEW = 'files';
+const OUTLINE_VIEW = 'outline';
+
+const registry = [
+  { id: FILES_VIEW, icon: 'files', labelKey: 'parsinegar.views.files', render: renderFilesView },
+  { id: OUTLINE_VIEW, icon: 'outline', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
+];
+
+/**
+ * Lists all registered views in rail order.
+ * @returns {Array<object>} View entries (copies).
+ */
+export function listViews() {
+  return [...registry];
+}
+
+/**
+ * Finds a view by id.
+ * @param {string} id View id.
+ * @returns {object|null} View entry or null.
+ */
+export function getView(id) {
+  return registry.find((view) => view.id === id) ?? null;
+}
+
+export { FILES_VIEW, OUTLINE_VIEW };
