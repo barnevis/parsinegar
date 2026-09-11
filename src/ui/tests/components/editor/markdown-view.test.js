@@ -1,6 +1,7 @@
 // Verifies the Markdown view controller (real CodeMirror in jsdom).
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../../sample-document.js';
@@ -171,4 +172,10 @@ test('should_clamp_line_when_goto_line_is_out_of_range', () => {
     editor.destroy();
     host.remove();
   }
+});
+
+test('should_set_relaxed_line_height_when_themed', async () => {
+  const source = await readFile(new URL('../../../components/editor/markdown-view.js', import.meta.url), 'utf8');
+  assert.ok(source.includes('lineHeight'));
+  assert.ok(source.includes("'1.5'"));
 });

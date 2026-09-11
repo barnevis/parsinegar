@@ -23,9 +23,18 @@ test('should_render_items_when_documents_are_given', () => {
 });
 
 test('should_render_actions_when_called', () => {
-  const html = renderFilesView({ t: translate, items: [], currentId: null });
+  const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/' });
   assert.ok(html.includes('part="docs-new"'));
   assert.ok(html.includes('part="docs-delete"'));
+  assert.ok(html.includes('aria-label="سند تازه"'));
+  assert.ok(html.includes('<svg'));
+  assert.ok(html.includes('#plus'));
+  assert.ok(html.includes('#trash'));
+});
+
+test('should_fall_back_to_text_when_no_sprite_is_available', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: null });
+  assert.ok(!html.includes('<svg'));
   assert.ok(html.includes('سند تازه'));
 });
 

@@ -395,8 +395,22 @@ test('should_use_icon_rail_with_styles_when_rendered', async () => {
     await flush();
     const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
     assert.ok(style, 'expected the attached kit stylesheet');
-    assert.ok(style.textContent.includes('inline-size: 18px'), 'expected 18px rail icons');
+    assert.ok(style.textContent.includes('inline-size: 20px'), 'expected 20px rail icons');
     assert.ok(style.textContent.includes('#5eead4'), 'expected accent color');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_size_panels_with_styles_when_rendered', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(style.textContent.includes('font-size: 14px'), 'expected 14px side titles');
+    assert.ok(style.textContent.includes('max-inline-size: 800px'), 'expected 800px writing area');
   } finally {
     element.remove();
   }

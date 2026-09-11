@@ -83,6 +83,9 @@ export function createMarkdownView(host, options = {}) {
         '& .cm-scroller': {
           fontFamily: PERSIAN_FONT,
         },
+        '& .cm-content': {
+          lineHeight: '1.5',
+        },
       }),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || destroyed) {

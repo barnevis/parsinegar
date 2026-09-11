@@ -135,8 +135,8 @@
 }
 
 [part="rail-button"] svg {
-  inline-size: 18px;
-  block-size: 18px;
+  inline-size: 20px;
+  block-size: 20px;
 }
 
 [part="rail-fallback"] {
@@ -169,7 +169,7 @@
 }
 
 [part="side-title"] {
-  font-size: 1rem;
+  font-size: 14px;
   margin: 0;
 }
 
@@ -239,6 +239,13 @@
   color: inherit;
 }
 
+[part="docs-new"] svg,
+[part="docs-delete"] svg {
+  inline-size: 18px;
+  block-size: 18px;
+  vertical-align: middle;
+}
+
 [part="docs-new"]:hover,
 [part="docs-delete"]:hover {
   background-color: var(--pey-color-canvas, #ffffff);
@@ -272,6 +279,8 @@
   overflow: hidden;
   box-sizing: border-box;
   min-block-size: 100%;
+  max-inline-size: 800px;
+  margin-inline: auto;
   padding: 2rem 2.25rem;
   cursor: text;
 }

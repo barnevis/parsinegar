@@ -2,27 +2,9 @@
 //
 // Each function takes explicit data and returns HTML strings; the owning page
 // supplies state and wires behavior elsewhere. No services, no DOM access.
-import { createIconMarkup } from 'pey.webui/base/icon-sprite';
-import { escapeHtml } from './html.js';
+import { escapeHtml, iconMarkup } from './html.js';
 import { buildMenuModel } from './menubar.js';
 import { FILES_VIEW, getView, listViews } from './views.js';
-
-/**
- * Builds an icon markup string, degrading to empty when no base is available.
- * @param {string|null} assetBaseUrl Resolved asset directory URL.
- * @param {string} symbol Icon symbol id.
- * @returns {string} Icon markup or ''.
- */
-function railIcon(assetBaseUrl, symbol) {
-  if (typeof assetBaseUrl !== 'string' || assetBaseUrl.length === 0) {
-    return '';
-  }
-  try {
-    return createIconMarkup(assetBaseUrl, symbol);
-  } catch {
-    return '';
-  }
-}
 
 /**
  * Renders the activity rail from the view registry.
@@ -35,7 +17,7 @@ function railIcon(assetBaseUrl, symbol) {
 export function renderRail({ t, assetBaseUrl, activeView }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const buttons = listViews().map((view) => `
-    <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === activeView}" aria-label="${escapeHtml(translate(view.labelKey))}" title="${escapeHtml(translate(view.labelKey))}">${railIcon(assetBaseUrl, view.icon)}<span part="rail-fallback">${escapeHtml(translate(view.labelKey))}</span></button>`).join('');
+    <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === activeView}" aria-label="${escapeHtml(translate(view.labelKey))}" title="${escapeHtml(translate(view.labelKey))}">${iconMarkup(assetBaseUrl, view.icon)}<span part="rail-fallback">${escapeHtml(translate(view.labelKey))}</span></button>`).join('');
   return `<nav part="rail" aria-label="${escapeHtml(translate('parsinegar.app.title'))}">${buttons}</nav>`;
 }
 
@@ -48,9 +30,10 @@ export function renderRail({ t, assetBaseUrl, activeView }) {
  * @param {Array<object>} options.items Documents for the files view.
  * @param {string|null} options.currentId Open document id.
  * @param {string} options.documentText Current document text for text views.
+ * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
  * @returns {string} Side panel markup or ''.
  */
-export function renderSide({ t, activeView, sideOpen, items, currentId, documentText }) {
+export function renderSide({ t, activeView, sideOpen, items, currentId, documentText, assetBaseUrl }) {
   if (!sideOpen) {
     return '';
   }
@@ -62,7 +45,7 @@ export function renderSide({ t, activeView, sideOpen, items, currentId, document
         <h2 part="side-title">${escapeHtml(translate(view.labelKey))}</h2>
         <button type="button" part="side-close" aria-label="${escapeHtml(translate('parsinegar.views.close'))}">×</button>
       </div>
-      <div part="side-body">${view.render({ t: translate, items, currentId, documentText })}</div>
+      <div part="side-body">${view.render({ t: translate, items, currentId, documentText, assetBaseUrl })}</div>
     </aside>`;
 }
 
