@@ -513,3 +513,31 @@ test('should_show_live_stats_when_mounted', async () => {
     element.remove();
   }
 });
+
+test('should_update_outline_live_when_headings_are_typed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-view="outline"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="outline-empty"]') !== null, true);
+    element.setDocument('# الف\nمتن');
+    assert.ok(element.shadowRoot.querySelector('[data-line="1"]'), 'expected the new heading without switching views');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_update_outline_targets_when_lines_shift_while_typing', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-view="outline"]').click();
+    await flush();
+    element.setDocument('مقدمه\n# الف');
+    const jump = element.shadowRoot.querySelector('[data-line="2"]');
+    assert.ok(jump, 'expected the shifted line number');
+  } finally {
+    element.remove();
+  }
+});

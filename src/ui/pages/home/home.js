@@ -13,7 +13,9 @@ import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
 import { escapeHtml } from '../../components/workbench/html.js';
-import { FILES_VIEW, getView } from '../../components/workbench/views.js';
+import { parseOutline } from '../../components/workbench/outline.js';
+import { FILES_VIEW, OUTLINE_VIEW, getView } from '../../components/workbench/views.js';
+import { renderOutlineView } from '../../components/workbench/views-outline.js';
 import { renderMenubar, renderRail, renderSide, renderStatusbar } from '../../components/workbench/regions.js';
 
 const TAG = 'parsi-page-home';
@@ -21,6 +23,16 @@ const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const AUTOSAVE_DELAY_MS = 1000;
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
+
+/**
+ * Derives a cheap change signature for the outline from raw text.
+ * Level, text and line all matter because navigation targets shift.
+ * @param {string} value Current document text.
+ * @returns {string} Signature string.
+ */
+function outlineSignature(value) {
+  return JSON.stringify(parseOutline(value ?? ''));
+}
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
@@ -40,6 +52,7 @@ class ParsiPageHome extends PeyElement {
   #openMenu = null;
   #renderObserver = null;
   #editorHost = null;
+  #outlineKey = null;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -480,6 +493,28 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
+  /**
+   * Refreshes the outline panel live when headings change, without a full
+   * render (which would drop editor focus and undo history). Only the side
+   * body subtree is rewritten, and only when its content actually changed.
+   * @returns {void}
+   */
+  #syncOutline() {
+    if (!this.#sideOpen || this.#activeView !== OUTLINE_VIEW || !this.isConnected) {
+      return;
+    }
+    const signature = outlineSignature(this.value);
+    if (signature === this.#outlineKey) {
+      return;
+    }
+    const body = this.shadowRoot.querySelector('[part="side-body"]');
+    if (!body) {
+      return;
+    }
+    body.innerHTML = renderOutlineView({ t: this.#t, documentText: this.value });
+    this.#outlineKey = signature;
+  }
+
   #mountEditor() {
     if (this.#editor || !this.isConnected) {
       return;
@@ -503,10 +538,12 @@ class ParsiPageHome extends PeyElement {
             }),
           );
           this.#syncStats();
+          this.#syncOutline();
           this.#scheduleSave();
         },
       });
       this.#editorHost = host;
+      this.#outlineKey = outlineSignature(this.value);
     } catch (error) {
       this.#editor = null;
       this.#editorHost = null;
