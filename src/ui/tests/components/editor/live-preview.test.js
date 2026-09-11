@@ -15,10 +15,6 @@ function destroy({ host, editor }) {
   host.remove();
 }
 
-function computed(element, property) {
-  return globalThis.getComputedStyle(element).getPropertyValue(property);
-}
-
 /**
  * Checks that an injected stylesheet rule targets a selector with a declaration.
  * @param {string} selector Fragment of the rule selector (e.g. '.parsi-h1').
@@ -57,8 +53,8 @@ test('should_hide_marks_when_rendered', () => {
   try {
     const marks = [...mounted.host.querySelectorAll('.parsi-mark')];
     assert.ok(marks.length > 0, 'expected mark spans');
-    const hidden = marks.filter((mark) => computed(mark, 'display') === 'none');
-    assert.ok(hidden.length > 0, 'expected hidden marks off the active line');
+    // jsdom does not compute font-size; the injected rule is authoritative.
+    assert.ok(hasRule('.parsi-mark', 'font-size', '0'));
   } finally {
     destroy(mounted);
   }
@@ -127,7 +123,7 @@ test('should_reveal_marks_on_active_line_when_focused', () => {
     assert.ok(firstLine?.classList.contains('cm-activeLine'), 'expected an active line');
     const mark = firstLine.querySelector('.parsi-mark');
     assert.ok(mark, 'expected a mark on the active line');
-    assert.equal(computed(mark, 'display'), 'inline');
+    assert.ok(hasRule('.cm-activeLine .parsi-mark', 'font-size', '1rem'));
   } finally {
     destroy(mounted);
   }

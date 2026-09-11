@@ -20,9 +20,15 @@ function translate(key) {
   return catalog.fa[key] ?? key;
 }
 
+const ASSET_BASE_URL = 'http://localhost/assets/';
+
+function baseRefs(extra = {}) {
+  return { t: translate, assetBaseUrl: ASSET_BASE_URL, ...extra };
+}
+
 test('should_render_title_and_editor_when_mounted', async () => {
   const element = document.createElement(TAG);
-  element.connect({ infrastructure: { events: createEvents() }, refs: { t: translate } });
+  element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
   document.body.append(element);
   await flush();
   try {
@@ -37,7 +43,7 @@ test('should_render_title_and_editor_when_mounted', async () => {
 
 test('should_focus_editor_when_card_is_clicked', async () => {
   const element = document.createElement(TAG);
-  element.connect({ infrastructure: { events: createEvents() }, refs: { t: translate } });
+  element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
   document.body.append(element);
   await flush();
   try {
@@ -53,7 +59,7 @@ test('should_focus_editor_when_card_is_clicked', async () => {
 
 test('should_emit_change_when_editor_content_changes', async () => {
   const element = document.createElement(TAG);
-  element.connect({ infrastructure: { events: createEvents() }, refs: { t: translate } });
+  element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
   document.body.append(element);
   await flush();
   try {
@@ -105,7 +111,7 @@ async function mountWithDocuments(documents) {
   const element = document.createElement(TAG);
   element.connect({
     infrastructure: { events: createEvents() },
-    refs: { t: translate, services: { 'parsinegar.documents.service': documents } },
+    refs: { t: translate, assetBaseUrl: ASSET_BASE_URL, services: { 'parsinegar.documents.service': documents } },
   });
   document.body.append(element);
   await flush();
@@ -200,6 +206,64 @@ test('should_delete_current_when_delete_is_clicked', async () => {
     await flush();
     const deletes = documents.calls.filter(([method]) => method === 'delete');
     assert.deepEqual(deletes, [['delete', 'd1']]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_render_rail_with_views_when_mounted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const rail = [...element.shadowRoot.querySelectorAll('[data-view]')];
+    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline']);
+    assert.equal(element.shadowRoot.querySelector('[data-view="files"]').getAttribute('aria-pressed'), 'true');
+    assert.ok(element.shadowRoot.querySelector('[part="side"]'), 'expected the side panel');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_switch_side_view_when_rail_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف\nمتن\n## ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-view="outline"]').click();
+    await flush();
+    const jumps = [...element.shadowRoot.querySelectorAll('[data-line]')];
+    assert.deepEqual(jumps.map((button) => button.getAttribute('data-line')), ['1', '3']);
+    assert.equal(element.shadowRoot.querySelector('[data-view="outline"]').getAttribute('aria-pressed'), 'true');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_toggle_side_when_active_rail_icon_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.ok(element.shadowRoot.querySelector('[part="side"]'));
+    element.shadowRoot.querySelector('[data-view="files"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="side"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_jump_to_line_when_outline_item_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف\nمتن\n## ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-view="outline"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-line="3"]').click();
+    await flush();
+    // jsdom cannot observe selections inside Shadow DOM; focus proves the
+    // handler reached gotoLine, cursor placement is verified in Chromium.
+    const inner = element.shadowRoot.activeElement;
+    assert.ok(inner, 'expected focus inside the editor');
+    assert.ok(element.shadowRoot.querySelector('.cm-editor').contains(inner));
   } finally {
     element.remove();
   }

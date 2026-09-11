@@ -50,12 +50,15 @@ const livePreviewTheme = EditorView.theme({
   // paper card it looks like a glitch, and the blinking caret already signals
   // focus — so it is explicitly removed.
   '&.cm-focused': { outline: 'none' },
-  '& .parsi-mark': { display: 'none' },
-  '& .parsi-url': { display: 'none' },
-  '& .parsi-label': { display: 'none' },
-  '& .cm-activeLine .parsi-mark': { display: 'inline' },
-  '& .cm-activeLine .parsi-url': { display: 'inline' },
-  '& .cm-activeLine .parsi-label': { display: 'inline' },
+  // Marks hide with zero font size instead of display:none: the boxes stay in
+  // layout, so cursor, selection and bidi ordering keep working at mark
+  // positions while nothing is painted.
+  '& .parsi-mark': { fontSize: '0' },
+  '& .parsi-url': { fontSize: '0' },
+  '& .parsi-label': { fontSize: '0' },
+  '& .cm-activeLine .parsi-mark': { fontSize: '1rem' },
+  '& .cm-activeLine .parsi-url': { fontSize: '1rem' },
+  '& .cm-activeLine .parsi-label': { fontSize: '1rem' },
   '& .parsi-heading': { fontWeight: '700', textDecoration: 'none' },
   '& .parsi-h1': { fontSize: '1.7em', fontWeight: '700' },
   '& .parsi-h2': { fontSize: '1.5em', fontWeight: '700' },

@@ -1,14 +1,16 @@
-// Home page: document list plus the Persian Markdown editor.
-//
-// The page (connected by the kit page host) renders the document chrome and
-// the editor host node in its template and mounts the CodeMirror view into
-// it; CodeMirror needs a live DOM node, so mounting happens after render and
-// release in disconnectedCallback. Document titles are user content and are
-// always escaped before entering the template. All DOM event handling stays
-// declarative on PeyElement.
+// Home page: workbench with activity rail, switchable side panel and editor.
+// The page (connected by the kit page host) renders all regions in its single
+// template and mounts the CodeMirror view into the editor host; CodeMirror
+// needs a live DOM node, so mounting happens after render and release in
+// disconnectedCallback. Views render through the side-panel registry, which
+// holds only metadata and references — each view owns its markup. Document
+// titles are user content and are always escaped before entering the template.
+// All DOM event handling stays declarative on PeyElement.
+import { createIconMarkup } from 'pey.webui/base/icon-sprite';
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
+import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 
 const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:change';
@@ -30,6 +32,7 @@ function escapeHtml(value) {
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
+  #assetBaseUrl = null;
   #documents = null;
   #editor = null;
   #items = [];
@@ -37,10 +40,15 @@ class ParsiPageHome extends PeyElement {
   #docTitle = '';
   #draft = null;
   #saveTimer = null;
+  #activeView = FILES_VIEW;
+  #sideOpen = true;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
       this.#t = refs.t;
+    }
+    if (typeof refs.assetBaseUrl === 'string' && refs.assetBaseUrl.length > 0) {
+      this.#assetBaseUrl = refs.assetBaseUrl;
     }
     const service = refs.services?.[DOCUMENTS_SERVICE] ?? null;
     if (service && typeof service.listDocuments === 'function') {
@@ -64,6 +72,21 @@ class ParsiPageHome extends PeyElement {
     const target = event.target;
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
+      return;
+    }
+    const railButton = target?.closest?.('[data-view]');
+    if (railButton) {
+      this.#switchView(railButton.getAttribute('data-view'));
+      return;
+    }
+    if (target?.closest?.('[part="side-close"]')) {
+      this.#sideOpen = false;
+      this.#requestEditor();
+      return;
+    }
+    const outlineButton = target?.closest?.('[data-line]');
+    if (outlineButton) {
+      this.#editor?.gotoLine(Number(outlineButton.getAttribute('data-line')));
       return;
     }
     const openButton = target?.closest?.('[data-doc-id]');
@@ -115,57 +138,137 @@ class ParsiPageHome extends PeyElement {
     this.#scheduleSave();
   }
 
+  #switchView(id) {
+    const view = getView(id);
+    if (!view) {
+      return;
+    }
+    if (id === this.#activeView) {
+      this.#sideOpen = !this.#sideOpen;
+    } else {
+      this.#activeView = id;
+      this.#sideOpen = true;
+    }
+    this.#requestEditor();
+  }
+
+  #railIcon(symbol) {
+    if (!this.#assetBaseUrl) {
+      return '';
+    }
+    try {
+      return createIconMarkup(this.#assetBaseUrl, symbol);
+    } catch {
+      return '';
+    }
+  }
+
+  #renderRail() {
+    const buttons = listViews().map((view) => `
+      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${this.#railIcon(view.icon)}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`).join('');
+    return `<nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${buttons}</nav>`;
+  }
+
+  #renderSide() {
+    if (!this.#sideOpen) {
+      return '';
+    }
+    const view = getView(this.#activeView) ?? getView(FILES_VIEW);
+    return `
+      <aside part="side">
+        <div part="side-header">
+          <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
+          <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
+        </div>
+        <div part="side-body">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.value })}</div>
+      </aside>`;
+  }
+
   render() {
-    const items = this.#items.map((item) => `
-      <li part="docs-item">
-        <button type="button" part="docs-open" data-doc-id="${escapeHtml(item.id)}" ${item.id === this.#currentId ? 'aria-current="true"' : ''}>${escapeHtml(item.title)}</button>
-      </li>`).join('');
     return `
       <style>
         :host {
           display: block;
-          max-inline-size: 60rem;
-          margin-inline: auto;
-          padding: 1.5rem 1rem 3rem;
+          padding: 1rem 1rem 2rem;
         }
         [part="title"] {
-          font-size: 1.75rem;
+          font-size: 1.5rem;
           margin: 0 0 0.25rem;
         }
         [part="subtitle"] {
-          margin: 0 0 1.5rem;
+          margin: 0 0 1rem;
           opacity: 0.75;
         }
-        [part="docs"] {
-          margin: 0 0 1rem;
+        [part="workbench"] {
+          display: grid;
+          grid-template-columns: auto minmax(12rem, 17rem) minmax(0, 1fr);
+          gap: 0.75rem;
+          align-items: start;
         }
-        [part="docs-heading"] {
-          font-size: 1rem;
-          margin: 0 0 0.5rem;
-        }
-        [part="docs-bar"] {
+        [part="rail"] {
           display: flex;
-          gap: 0.5rem;
-          margin-block-end: 0.5rem;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        [part="rail-button"] {
+          font: inherit;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          inline-size: 2.75rem;
+          block-size: 2.75rem;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          background-color: transparent;
+          cursor: pointer;
+          color: inherit;
+        }
+        [part="rail-button"] svg {
+          inline-size: 1.4rem;
+          block-size: 1.4rem;
+        }
+        [part="rail-fallback"] {
+          display: none;
+        }
+        [part="rail-button"][aria-pressed="true"] {
+          border-color: #c8c8d2;
+          background-color: #ffffff;
+        }
+        [part="side"] {
+          border: 1px solid #e2e2e8;
+          border-radius: 12px;
+          background-color: #ffffff;
+          overflow: hidden;
+        }
+        [part="side-header"] {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.6rem 0.8rem;
+          border-block-end: 1px solid #ececf1;
+        }
+        [part="side-title"] {
+          font-size: 1rem;
+          margin: 0;
+        }
+        [part="side-body"] {
+          padding: 0.6rem 0.8rem;
+          max-block-size: 60vh;
+          overflow: auto;
+        }
+        [part="center"] {
+          min-inline-size: 0;
         }
         [part="doc-title"] {
-          flex: 1;
+          inline-size: 100%;
+          box-sizing: border-box;
           font: inherit;
+          font-weight: 700;
           padding: 0.4rem 0.6rem;
+          margin-block-end: 0.75rem;
           border: 1px solid #d8d8de;
           border-radius: 8px;
           background-color: #ffffff;
-        }
-        [part="docs-list"] {
-          list-style: none;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-          margin: 0;
-          padding: 0;
-        }
-        [part="docs-open"][aria-current="true"] {
-          font-weight: 700;
         }
         [part="editor-host"] {
           overflow: hidden;
@@ -182,16 +285,14 @@ class ParsiPageHome extends PeyElement {
       </style>
       <h1 part="title">${this.#t('parsinegar.app.title')}</h1>
       <p part="subtitle">${this.#t('parsinegar.app.subtitle')}</p>
-      <section part="docs">
-        <h2 part="docs-heading">${this.#t('parsinegar.documents.title')}</h2>
-        <div part="docs-bar">
+      <div part="workbench">
+        ${this.#renderRail()}
+        ${this.#renderSide()}
+        <div part="center">
           <input part="doc-title" value="${escapeHtml(this.#docTitle)}" aria-label="${escapeHtml(this.#t('parsinegar.documents.title-label'))}" />
-          <button type="button" part="docs-new">${this.#t('parsinegar.documents.new')}</button>
-          <button type="button" part="docs-delete">${this.#t('parsinegar.documents.delete')}</button>
+          <div part="editor-host"></div>
         </div>
-        <ul part="docs-list">${items}</ul>
-      </section>
-      <div part="editor-host"></div>
+      </div>
     `;
   }
 
@@ -310,6 +411,7 @@ class ParsiPageHome extends PeyElement {
   }
 
   #requestEditor() {
+    this.#unmountEditor();
     this.requestRender();
     queueMicrotask(() => this.#mountEditor());
   }

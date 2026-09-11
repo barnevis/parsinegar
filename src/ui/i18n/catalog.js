@@ -24,6 +24,7 @@ const catalog = {
     'parsinegar.views.files': 'فایل‌ها',
     'parsinegar.views.outline': 'فهرست مطالب',
     'parsinegar.views.outline-empty': 'سرفصلی در این سند نیست',
+    'parsinegar.views.close': 'بستن پنل',
     'parsinegar.stats.chars': 'نویسه',
     'parsinegar.stats.words': 'واژه',
     'parsinegar.stats.lines': 'خط',

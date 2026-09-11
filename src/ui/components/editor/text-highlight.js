@@ -11,8 +11,8 @@ const HIGHLIGHT_PATTERN = /==([^=\n]+?)==/g;
 
 const highlightTheme = EditorView.theme({
   '& .parsi-highlight': { backgroundColor: '#fff3b0', borderRadius: '4px', paddingInline: '0.2em' },
-  '& .parsi-delim': { display: 'none' },
-  '& .cm-activeLine .parsi-delim': { display: 'inline' },
+  '& .parsi-delim': { fontSize: '0' },
+  '& .cm-activeLine .parsi-delim': { fontSize: '1rem' },
 });
 
 /**
