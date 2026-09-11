@@ -60,6 +60,19 @@ test('should_hide_marks_when_rendered', () => {
   }
 });
 
+test('should_hide_heading_marks_despite_heading_styles_when_rendered', () => {
+  const mounted = createEditor('# سلام');
+  try {
+    const mark = [...mounted.host.querySelectorAll('.parsi-mark')]
+      .find((span) => span.textContent === '#');
+    assert.ok(mark, 'expected a heading mark span');
+    assert.ok(mark.classList.contains('parsi-h1'), 'heading marks carry content classes too');
+    assert.ok(hasRule('.cm-line .parsi-mark', 'font-size', '0'));
+  } finally {
+    destroy(mounted);
+  }
+});
+
 test('should_style_heading_when_rendered', () => {
   const mounted = createEditor('# سلام');
   try {

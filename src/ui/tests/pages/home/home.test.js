@@ -297,6 +297,22 @@ test('should_toggle_side_when_active_rail_icon_is_clicked', async () => {
   }
 });
 
+test('should_collapse_grid_when_side_is_closed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const workbench = element.shadowRoot.querySelector('[part="workbench"]');
+    assert.equal(workbench?.getAttribute('data-side'), 'open');
+    element.shadowRoot.querySelector('[data-view="files"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="workbench"]')?.getAttribute('data-side'), 'closed');
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style?.textContent.includes('[part="workbench"][data-side="closed"]'));
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_jump_to_line_when_outline_item_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف\nمتن\n## ب', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);

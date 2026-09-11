@@ -267,7 +267,7 @@ class ParsiPageHome extends PeyElement {
 
   render() {
     return `
-      <div part="workbench">
+      <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
         ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
         ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
         ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value, assetBaseUrl: this.#assetBaseUrl })}

@@ -21,6 +21,14 @@
   align-items: stretch;
 }
 
+[part="workbench"][data-side="closed"] {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "menubar menubar"
+    "rail center"
+    "status status";
+}
+
 [part="menubar"] {
   grid-area: menubar;
   position: sticky;

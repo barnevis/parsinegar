@@ -52,10 +52,12 @@ const livePreviewTheme = EditorView.theme({
   '&.cm-focused': { outline: 'none' },
   // Marks hide with zero font size instead of display:none: the boxes stay in
   // layout, so cursor, selection and bidi ordering keep working at mark
-  // positions while nothing is painted.
-  '& .parsi-mark': { fontSize: '0' },
-  '& .parsi-url': { fontSize: '0' },
-  '& .parsi-label': { fontSize: '0' },
+  // positions while nothing is painted. The extra .cm-line scope beats
+  // content classes (a heading mark carries both parsi-h1 and parsi-mark)
+  // regardless of rule order.
+  '& .cm-line .parsi-mark': { fontSize: '0' },
+  '& .cm-line .parsi-url': { fontSize: '0' },
+  '& .cm-line .parsi-label': { fontSize: '0' },
   '& .cm-activeLine .parsi-mark': { fontSize: '1rem' },
   '& .cm-activeLine .parsi-url': { fontSize: '1rem' },
   '& .cm-activeLine .parsi-label': { fontSize: '1rem' },
