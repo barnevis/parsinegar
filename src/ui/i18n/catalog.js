@@ -14,6 +14,18 @@ const catalog = {
     'parsinegar.documents.new-title': 'سند تازه',
     'parsinegar.documents.welcome-title': 'خوش آمدید',
     'parsinegar.documents.delete': 'حذف سند',
+    'parsinegar.menu.file': 'پرونده',
+    'parsinegar.menu.edit': 'ویرایش',
+    'parsinegar.menu.view': 'نمایش',
+    'parsinegar.action.undo': 'واگرد',
+    'parsinegar.action.redo': 'ازنو',
+    'parsinegar.view.side': 'پنل کناری',
+    'parsinegar.view.status': 'نوار وضعیت',
+    'parsinegar.views.files': 'فایل‌ها',
+    'parsinegar.views.outline': 'فهرست مطالب',
+    'parsinegar.stats.chars': 'نویسه',
+    'parsinegar.stats.words': 'واژه',
+    'parsinegar.stats.lines': 'خط',
   },
 };
 
