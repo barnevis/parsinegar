@@ -4,7 +4,6 @@
 const catalog = {
   fa: {
     'parsinegar.app.title': 'پارسی‌نگار',
-    'parsinegar.app.subtitle': 'ویرایشگر فارسی مارک‌داون',
     'parsinegar.editor.label': 'متن مارک‌داون',
     'parsinegar.not-found.title': 'این صفحه پیدا نشد',
     'parsinegar.not-found.action': 'بازگشت به ویرایشگر',

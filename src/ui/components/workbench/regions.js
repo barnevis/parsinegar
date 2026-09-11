@@ -85,8 +85,8 @@ export function renderMenubar({ t, openMenu, hasDocument }) {
           <button type="button" part="menu-item" role="menuitem" data-action="${item.id}" ${item.disabled ? 'disabled' : ''}>${escapeHtml(item.label)}</button>`).join('')}
         </div>
       </div>`;
-  }).join('');
-  return `<div part="menubar" role="menubar">${markup}</div>`;
+    }).join('');
+    return `<div part="menubar" role="menubar"><span part="brand">${escapeHtml(translate('parsinegar.app.title'))}</span>${markup}</div>`;
 }
 
 /**

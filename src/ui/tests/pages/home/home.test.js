@@ -32,8 +32,10 @@ test('should_render_title_and_editor_when_mounted', async () => {
   document.body.append(element);
   await flush();
   try {
-    const title = element.shadowRoot.querySelector('[part="title"]');
-    assert.equal(title?.textContent, 'پارسی‌نگار');
+    const brand = element.shadowRoot.querySelector('[part="brand"]');
+    assert.equal(brand?.textContent, 'پارسی‌نگار');
+    assert.equal(element.shadowRoot.querySelector('[part="title"]'), null);
+    assert.equal(element.shadowRoot.querySelector('[part="subtitle"]'), null);
     assert.ok(element.shadowRoot.querySelector('[part="editor-host"] .cm-editor'));
     assert.ok(element.value.includes('پارسی‌نگار'));
   } finally {
@@ -338,6 +340,14 @@ test('should_hide_dropdown_with_styles_when_closed', async () => {
   const { HOME_CSS } = await import('../../../pages/home/home-styles.js');
   assert.ok(HOME_CSS.includes('[part="menu-dropdown"][hidden]'));
   assert.ok(HOME_CSS.includes('display: none'));
+});
+
+test('should_stick_panels_with_styles_when_rendered', async () => {
+  const { HOME_CSS } = await import('../../../pages/home/home-styles.js');
+  for (const part of ['menubar', 'rail', 'side', 'statusbar']) {
+    assert.ok(HOME_CSS.includes(`[part="${part}"]`), `expected styles for ${part}`);
+  }
+  assert.equal((HOME_CSS.match(/position: sticky/g) ?? []).length, 4);
 });
 
 test('should_close_menu_when_escape_is_pressed', async () => {

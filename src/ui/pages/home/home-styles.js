@@ -4,23 +4,14 @@
 // (stylesheetHref) gates the first render on an async fetch, which makes
 // jsdom tests non-deterministic, while our renders are infrequent enough
 // that re-parsing is negligible. Revisit if render frequency grows.
-const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.stylesheetHref().
+const HOME_CSS = `/* Home page stylesheet.
    Surfaces map to --pey-* design tokens with fallbacks so the page follows
-   the kit theme when tokens are overridden. */
+   the kit theme when tokens are overridden. Panels stick to the viewport
+   edges; only the editor column and the side body scroll. */
 
 :host {
   display: block;
   padding: 1rem 1rem 2rem;
-}
-
-[part="title"] {
-  font-size: 1.5rem;
-  margin: 0 0 0.25rem;
-}
-
-[part="subtitle"] {
-  margin: 0 0 1rem;
-  color: var(--pey-color-text-muted, #55555f);
 }
 
 [part="workbench"] {
@@ -36,8 +27,25 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
 
 [part="menubar"] {
   grid-area: menubar;
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
+  align-items: center;
   gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 10px;
+  background-color: var(--pey-color-canvas, #ffffff);
+}
+
+[part="brand"] {
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding-inline-end: 0.75rem;
+  margin-inline-end: 0.5rem;
+  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
+  white-space: nowrap;
 }
 
 [part="menu"] {
@@ -54,9 +62,13 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
   color: inherit;
 }
 
+[part="menu-button"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+
 [part="menu-button"][aria-expanded="true"] {
   border-color: var(--pey-color-border, #c8c8d2);
-  background-color: var(--pey-color-canvas, #ffffff);
+  background-color: var(--pey-color-surface, #f1f1f5);
 }
 
 [part="menu-dropdown"] {
@@ -100,9 +112,15 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
 
 [part="rail"] {
   grid-area: rail;
+  position: sticky;
+  top: 3.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  padding: 0.3rem;
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 10px;
+  background-color: var(--pey-color-canvas, #ffffff);
 }
 
 [part="rail-button"] {
@@ -119,6 +137,10 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
   color: inherit;
 }
 
+[part="rail-button"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+
 [part="rail-button"] svg {
   inline-size: 1.4rem;
   block-size: 1.4rem;
@@ -130,11 +152,13 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
 
 [part="rail-button"][aria-pressed="true"] {
   border-color: var(--pey-color-border, #c8c8d2);
-  background-color: var(--pey-color-canvas, #ffffff);
+  background-color: var(--pey-color-surface, #f1f1f5);
 }
 
 [part="side"] {
   grid-area: side;
+  position: sticky;
+  top: 3.75rem;
   border: 1px solid var(--pey-color-border, #e2e2e8);
   border-radius: 12px;
   background-color: var(--pey-color-canvas, #ffffff);
@@ -158,6 +182,84 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
   padding: 0.6rem 0.8rem;
   max-block-size: 60vh;
   overflow: auto;
+}
+
+[part="docs-list"],
+[part="outline-list"] {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+}
+
+[part="docs-open"],
+[part="outline-jump"] {
+  font: inherit;
+  inline-size: 100%;
+  text-align: start;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: transparent;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+[part="docs-open"]:hover,
+[part="outline-jump"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+
+[part="docs-open"][aria-current="true"] {
+  border-color: var(--pey-color-border, #c8c8d2);
+  background-color: var(--pey-color-surface, #f1f1f5);
+  font-weight: 700;
+}
+
+[part="outline-level-2"] { padding-inline-start: 1rem; }
+[part="outline-level-3"] { padding-inline-start: 2rem; }
+[part="outline-level-4"] { padding-inline-start: 3rem; }
+[part="outline-level-5"] { padding-inline-start: 4rem; }
+[part="outline-level-6"] { padding-inline-start: 5rem; }
+
+[part="files-bar"] {
+  display: flex;
+  gap: 0.4rem;
+  margin-block-end: 0.6rem;
+}
+
+[part="docs-new"],
+[part="docs-delete"] {
+  font: inherit;
+  flex: 1;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: transparent;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+[part="docs-new"]:hover,
+[part="docs-delete"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+
+[part="side-close"] {
+  font: inherit;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: transparent;
+  inline-size: 2rem;
+  block-size: 2rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+[part="side-close"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
 }
 
 [part="center"] {
@@ -194,6 +296,9 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
 
 [part="statusbar"] {
   grid-area: status;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
   display: flex;
   gap: 1.25rem;
   padding: 0.45rem 0.9rem;
@@ -212,7 +317,10 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
 [part="rail-button"]:focus-visible,
 [part="doc-title"]:focus-visible,
 [part="docs-open"]:focus-visible,
-[part="outline-jump"]:focus-visible {
+[part="outline-jump"]:focus-visible,
+[part="docs-new"]:focus-visible,
+[part="docs-delete"]:focus-visible,
+[part="side-close"]:focus-visible {
   outline: 2px solid var(--pey-color-focus-ring, #0b5bd3);
   outline-offset: 2px;
 }
@@ -226,6 +334,10 @@ const HOME_CSS = `/* Home page stylesheet, attached through PeyElement.styleshee
       "center"
       "side"
       "status";
+  }
+
+  [part="menubar"] {
+    flex-wrap: wrap;
   }
 
   [part="rail"] {

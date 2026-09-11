@@ -228,8 +228,6 @@ class ParsiPageHome extends PeyElement {
   render() {
     return `
       <style>${HOME_CSS}</style>
-      <h1 part="title">${this.#t('parsinegar.app.title')}</h1>
-      <p part="subtitle">${this.#t('parsinegar.app.subtitle')}</p>
       <div part="workbench">
         ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
         ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}

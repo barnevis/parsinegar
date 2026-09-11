@@ -45,6 +45,12 @@ test('should_mark_open_menu_when_menubar_is_rendered', () => {
   assert.equal((html.match(/aria-expanded="true"/g) ?? []).length, 1);
 });
 
+test('should_render_brand_when_menubar_is_rendered', () => {
+  const html = renderMenubar({ t: translate, openMenu: null, hasDocument: false });
+  assert.ok(html.includes('part="brand"'));
+  assert.ok(html.includes('پارسی‌نگار'));
+});
+
 test('should_render_stats_when_status_is_open', () => {
   const html = renderStatusbar({
     t: translate,
