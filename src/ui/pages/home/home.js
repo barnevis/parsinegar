@@ -14,25 +14,13 @@ import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { buildMenuModel } from '../../components/workbench/menubar.js';
 import { countStats } from '../../components/workbench/stats.js';
+import { escapeHtml } from '../../components/workbench/html.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 
 const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:change';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const AUTOSAVE_DELAY_MS = 1000;
-
-/**
- * Escapes user content for safe template interpolation.
- * @param {string} value Raw text.
- * @returns {string} Escaped text.
- */
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
