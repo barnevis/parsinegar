@@ -223,11 +223,9 @@
   font-weight: 700;
 }
 
-[part="outline-level-2"] { padding-inline-start: 1rem; }
-[part="outline-level-3"] { padding-inline-start: 2rem; }
-[part="outline-level-4"] { padding-inline-start: 3rem; }
-[part="outline-level-5"] { padding-inline-start: 4rem; }
-[part="outline-level-6"] { padding-inline-start: 5rem; }
+[part="outline-list"] [part="outline-list"] {
+  padding-inline-start: 1rem;
+}
 
 [part="files-bar"] {
   display: flex;
