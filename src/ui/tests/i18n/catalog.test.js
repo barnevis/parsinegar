@@ -19,6 +19,9 @@ test('should_cover_product_keys_when_loaded', () => {
   for (const key of [
     'parsinegar.app.title',
     'parsinegar.documents.new',
+    'parsinegar.documents.delete-confirm',
+    'parsinegar.documents.delete-yes',
+    'parsinegar.documents.delete-no',
     'parsinegar.menu.file',
     'parsinegar.action.undo',
     'parsinegar.views.files',

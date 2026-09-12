@@ -50,6 +50,7 @@ class ParsiPageHome extends PeyElement {
   #sideOpen = true;
   #bottomOpen = true;
   #openMenu = null;
+  #confirmDeleteId = null;
   #renderObserver = null;
   #editorHost = null;
   #outlineKey = null;
@@ -146,7 +147,17 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     if (target?.closest?.('[part="docs-delete"]')) {
-      void this.#deleteCurrent();
+      this.#armDeleteConfirm();
+      return;
+    }
+    const confirmButton = target?.closest?.('[data-confirm-delete]');
+    if (confirmButton) {
+      if (confirmButton.getAttribute('data-confirm-delete') === 'yes') {
+        void this.#deleteCurrent();
+      } else {
+        this.#confirmDeleteId = null;
+        this.#requestEditor();
+      }
     }
   }
 
@@ -226,7 +237,7 @@ class ParsiPageHome extends PeyElement {
           await this.#createDocument();
           return;
         case 'delete-document':
-          await this.#deleteCurrent();
+          this.#armDeleteConfirm();
           return;
         case 'undo':
           this.#editor?.undo();
@@ -283,7 +294,7 @@ class ParsiPageHome extends PeyElement {
       <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
         ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
         ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
-        ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value, assetBaseUrl: this.#assetBaseUrl })}
+        ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value, assetBaseUrl: this.#assetBaseUrl, confirmId: this.#confirmDeleteId })}
         <div part="center">
           <div part="editor-host"></div>
         </div>
@@ -331,6 +342,7 @@ class ParsiPageHome extends PeyElement {
     if (!id || id === this.#currentId || !this.#documents) {
       return;
     }
+    this.#confirmDeleteId = null;
     try {
       await this.#flushSave();
       if (!this.isConnected) {
@@ -354,6 +366,7 @@ class ParsiPageHome extends PeyElement {
     if (!this.#documents) {
       return;
     }
+    this.#confirmDeleteId = null;
     try {
       await this.#flushSave();
       if (!this.isConnected) {
@@ -373,12 +386,26 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
+  /**
+   * Arms the inline delete confirmation for the current document instead of
+   * deleting immediately. Re-render shows the question with the doc name.
+   * @returns {void}
+   */
+  #armDeleteConfirm() {
+    if (!this.#documents || !this.#currentId) {
+      return;
+    }
+    this.#confirmDeleteId = this.#currentId;
+    this.#requestEditor();
+  }
+
   async #deleteCurrent() {
     if (!this.#documents || !this.#currentId) {
       return;
     }
     const removedId = this.#currentId;
     this.#clearSaveTimer();
+    this.#confirmDeleteId = null;
     try {
       await this.#documents.deleteDocument(removedId);
       if (!this.isConnected) {

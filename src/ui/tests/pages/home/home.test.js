@@ -17,8 +17,9 @@ function flush() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function translate(key) {
-  return catalog.fa[key] ?? key;
+function translate(key, params) {
+  const template = catalog.fa[key] ?? key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => params?.[name] ?? `{${name}}`);
 }
 
 const ASSET_BASE_URL = 'http://localhost/assets/';
@@ -243,15 +244,51 @@ test('should_create_document_when_new_is_clicked', async () => {
   }
 });
 
-test('should_delete_current_when_delete_is_clicked', async () => {
+test('should_ask_confirmation_with_name_when_delete_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'سند مهم', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[part="docs-delete"]').click();
+    await flush();
+    await flush();
+    const confirm = element.shadowRoot.querySelector('[part="docs-confirm"]');
+    assert.ok(confirm, 'expected the confirmation row');
+    assert.ok(confirm.textContent.includes('سند مهم'), 'expected the doc name');
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_delete_current_when_confirmation_is_accepted', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
     element.shadowRoot.querySelector('[part="docs-delete"]').click();
     await flush();
     await flush();
+    element.shadowRoot.querySelector('[data-confirm-delete="yes"]').click();
+    await flush();
+    await flush();
     const deletes = documents.calls.filter(([method]) => method === 'delete');
     assert.deepEqual(deletes, [['delete', 'd1']]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_document_when_confirmation_is_cancelled', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[part="docs-delete"]').click();
+    await flush();
+    await flush();
+    element.shadowRoot.querySelector('[data-confirm-delete="no"]').click();
+    await flush();
+    await flush();
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
+    assert.equal(element.shadowRoot.querySelector('[part="docs-confirm"]'), null);
   } finally {
     element.remove();
   }
@@ -457,6 +494,24 @@ test('should_create_document_when_menu_action_is_clicked', async () => {
     await flush();
     await flush();
     assert.equal(element.shadowRoot.querySelectorAll('[data-doc-id]').length, 2);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_ask_confirmation_when_menu_delete_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'سند مهم', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-action="delete-document"]').click();
+    await flush();
+    await flush();
+    const confirm = element.shadowRoot.querySelector('[part="docs-confirm"]');
+    assert.ok(confirm, 'expected the confirmation row');
+    assert.ok(confirm.textContent.includes('سند مهم'), 'expected the doc name');
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
   } finally {
     element.remove();
   }

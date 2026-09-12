@@ -11,14 +11,26 @@ import { escapeHtml, iconMarkup } from './html.js';
  * @param {Array<object>} options.items Documents with `{ id, title }`.
  * @param {string|null} options.currentId Open document id.
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
+ * @param {string|null} options.confirmId Id awaiting delete confirmation.
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, currentId, assetBaseUrl }) {
+export function renderFilesView({ t, items, currentId, assetBaseUrl, confirmId }) {
   const translate = typeof t === 'function' ? t : (key) => key;
-  const rows = (Array.isArray(items) ? items : []).map((item) => `
+  const rows = (Array.isArray(items) ? items : []).map((item) => {
+    const openButton = `
     <li part="docs-item">
       <button type="button" part="docs-open" data-doc-id="${escapeHtml(item.id)}" ${item.id === currentId ? 'aria-current="true"' : ''}>${escapeHtml(item.title)}</button>
-    </li>`).join('');
+    </li>`;
+    if (item.id !== confirmId) {
+      return openButton;
+    }
+    return `${openButton}
+    <li part="docs-confirm" role="alert">
+      <span part="docs-confirm-text">${escapeHtml(translate('parsinegar.documents.delete-confirm', { title: item.title }))}</span>
+      <button type="button" part="docs-confirm-yes" data-confirm-delete="yes">${escapeHtml(translate('parsinegar.documents.delete-yes'))}</button>
+      <button type="button" part="docs-confirm-no" data-confirm-delete="no">${escapeHtml(translate('parsinegar.documents.delete-no'))}</button>
+    </li>`;
+  }).join('');
   const newLabel = escapeHtml(translate('parsinegar.documents.new'));
   const deleteLabel = escapeHtml(translate('parsinegar.documents.delete'));
   const newIcon = iconMarkup(assetBaseUrl, 'plus') || newLabel;

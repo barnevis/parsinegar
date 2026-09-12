@@ -258,6 +258,39 @@
   border-color: var(--pey-color-border, #c8c8d2);
 }
 
+[part="docs-confirm"] {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+}
+
+[part="docs-confirm-text"] {
+  flex-basis: 100%;
+}
+
+[part="docs-confirm-yes"],
+[part="docs-confirm-no"] {
+  font: inherit;
+  flex: 1;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: transparent;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+[part="docs-confirm-yes"]:hover,
+[part="docs-confirm-no"]:hover {
+  border-color: var(--pey-color-border, #c8c8d2);
+}
+
 [part="side-close"] {
   font: inherit;
   border: 1px solid transparent;

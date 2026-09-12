@@ -31,9 +31,10 @@ export function renderRail({ t, assetBaseUrl, activeView }) {
  * @param {string|null} options.currentId Open document id.
  * @param {string} options.documentText Current document text for text views.
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
+ * @param {string|null} options.confirmId Id awaiting delete confirmation.
  * @returns {string} Side panel markup or ''.
  */
-export function renderSide({ t, activeView, sideOpen, items, currentId, documentText, assetBaseUrl }) {
+export function renderSide({ t, activeView, sideOpen, items, currentId, documentText, assetBaseUrl, confirmId }) {
   if (!sideOpen) {
     return '';
   }
@@ -45,7 +46,7 @@ export function renderSide({ t, activeView, sideOpen, items, currentId, document
         <h2 part="side-title">${escapeHtml(translate(view.labelKey))}</h2>
         <button type="button" part="side-close" aria-label="${escapeHtml(translate('parsinegar.views.close'))}">×</button>
       </div>
-      <div part="side-body">${view.render({ t: translate, items, currentId, documentText, assetBaseUrl })}</div>
+      <div part="side-body">${view.render({ t: translate, items, currentId, documentText, assetBaseUrl, confirmId })}</div>
     </aside>`;
 }
 

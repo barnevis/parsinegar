@@ -3,8 +3,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderFilesView } from '../../../components/workbench/views-files.js';
 
-function translate(key) {
-  return { 'parsinegar.documents.new': 'سند تازه', 'parsinegar.documents.delete': 'حذف سند' }[key] ?? key;
+function translate(key, params) {
+  const template = {
+    'parsinegar.documents.new': 'سند تازه',
+    'parsinegar.documents.delete': 'حذف سند',
+    'parsinegar.documents.delete-confirm': '«{title}» حذف شود؟',
+    'parsinegar.documents.delete-yes': 'بله، حذف شود',
+    'parsinegar.documents.delete-no': 'انصراف',
+  }[key] ?? key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => params?.[name] ?? `{${name}}`);
 }
 
 test('should_render_items_when_documents_are_given', () => {
@@ -46,4 +53,39 @@ test('should_escape_titles_when_malicious', () => {
 
 test('should_render_empty_list_when_no_items', () => {
   assert.ok(renderFilesView({ t: translate, items: [], currentId: null }).includes('<ul part="docs-list"></ul>'));
+});
+
+test('should_render_confirm_with_name_when_confirm_matches', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'a', title: 'سند مهم' }],
+    currentId: 'a',
+    confirmId: 'a',
+  });
+  assert.ok(html.includes('part="docs-confirm"'));
+  assert.ok(html.includes('سند مهم'));
+  assert.ok(html.includes('data-confirm-delete="yes"'));
+  assert.ok(html.includes('data-confirm-delete="no"'));
+  assert.ok(html.includes('بله، حذف شود'));
+});
+
+test('should_render_no_confirm_when_confirm_matches_nothing', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'a', title: 'سند مهم' }],
+    currentId: 'a',
+    confirmId: null,
+  });
+  assert.equal(html.includes('part="docs-confirm"'), false);
+});
+
+test('should_escape_name_in_confirm_when_malicious', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'a', title: '<img src=x>' }],
+    currentId: 'a',
+    confirmId: 'a',
+  });
+  assert.ok(!html.includes('<img src=x>'));
+  assert.ok(html.includes('&lt;img'));
 });
