@@ -13,6 +13,7 @@ import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
 import { escapeHtml } from '../../components/workbench/html.js';
+import { renderConfirmModal } from '../../components/workbench/modal.js';
 import { parseOutline } from '../../components/workbench/outline.js';
 import { FILES_VIEW, OUTLINE_VIEW, getView } from '../../components/workbench/views.js';
 import { renderOutlineView } from '../../components/workbench/views-outline.js';
@@ -89,6 +90,11 @@ class ParsiPageHome extends PeyElement {
 
   handleEvent(event) {
     if (event.type === 'keydown') {
+      if (event.key === 'Escape' && this.#confirmDeleteId !== null) {
+        this.#confirmDeleteId = null;
+        this.#requestEditor();
+        return;
+      }
       if (event.key === 'Escape' && this.#openMenu !== null) {
         this.#openMenu = null;
         this.#syncMenu();
@@ -158,6 +164,12 @@ class ParsiPageHome extends PeyElement {
         this.#confirmDeleteId = null;
         this.#requestEditor();
       }
+      return;
+    }
+    if (target?.closest?.('[part="modal-backdrop"]') && !target?.closest?.('[part="modal-dialog"]')) {
+      this.#confirmDeleteId = null;
+      this.#requestEditor();
+      return;
     }
   }
 
@@ -294,13 +306,30 @@ class ParsiPageHome extends PeyElement {
       <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
         ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
         ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
-        ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value, assetBaseUrl: this.#assetBaseUrl, confirmId: this.#confirmDeleteId })}
+        ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value, assetBaseUrl: this.#assetBaseUrl })}
         <div part="center">
           <div part="editor-host"></div>
         </div>
         ${renderStatusbar({ t: this.#t, bottomOpen: this.#bottomOpen, stats: countStats(this.value), formatNumber: (value) => this.#formatNumber(value) })}
       </div>
+      ${this.#renderModal()}
     `;
+  }
+
+  /**
+   * Renders the delete-confirmation modal for the pending document, if any.
+   * @returns {string} Modal markup or ''.
+   */
+  #renderModal() {
+    if (this.#confirmDeleteId === null) {
+      return '';
+    }
+    const pending = this.#items.find((item) => item.id === this.#confirmDeleteId) ?? null;
+    return renderConfirmModal({
+      t: this.#t,
+      title: pending?.title ?? null,
+      assetBaseUrl: this.#assetBaseUrl,
+    });
   }
 
   async #initialLoad() {

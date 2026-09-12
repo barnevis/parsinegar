@@ -54,38 +54,3 @@ test('should_escape_titles_when_malicious', () => {
 test('should_render_empty_list_when_no_items', () => {
   assert.ok(renderFilesView({ t: translate, items: [], currentId: null }).includes('<ul part="docs-list"></ul>'));
 });
-
-test('should_render_confirm_with_name_when_confirm_matches', () => {
-  const html = renderFilesView({
-    t: translate,
-    items: [{ id: 'a', title: 'سند مهم' }],
-    currentId: 'a',
-    confirmId: 'a',
-  });
-  assert.ok(html.includes('part="docs-confirm"'));
-  assert.ok(html.includes('سند مهم'));
-  assert.ok(html.includes('data-confirm-delete="yes"'));
-  assert.ok(html.includes('data-confirm-delete="no"'));
-  assert.ok(html.includes('بله، حذف شود'));
-});
-
-test('should_render_no_confirm_when_confirm_matches_nothing', () => {
-  const html = renderFilesView({
-    t: translate,
-    items: [{ id: 'a', title: 'سند مهم' }],
-    currentId: 'a',
-    confirmId: null,
-  });
-  assert.equal(html.includes('part="docs-confirm"'), false);
-});
-
-test('should_escape_name_in_confirm_when_malicious', () => {
-  const html = renderFilesView({
-    t: translate,
-    items: [{ id: 'a', title: '<img src=x>' }],
-    currentId: 'a',
-    confirmId: 'a',
-  });
-  assert.ok(!html.includes('<img src=x>'));
-  assert.ok(html.includes('&lt;img'));
-});

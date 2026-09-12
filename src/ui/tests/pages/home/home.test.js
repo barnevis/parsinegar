@@ -251,9 +251,10 @@ test('should_ask_confirmation_with_name_when_delete_is_clicked', async () => {
     element.shadowRoot.querySelector('[part="docs-delete"]').click();
     await flush();
     await flush();
-    const confirm = element.shadowRoot.querySelector('[part="docs-confirm"]');
-    assert.ok(confirm, 'expected the confirmation row');
-    assert.ok(confirm.textContent.includes('سند مهم'), 'expected the doc name');
+    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    assert.ok(dialog, 'expected the confirmation modal');
+    assert.equal(dialog.getAttribute('role'), 'alertdialog');
+    assert.ok(dialog.textContent.includes('سند مهم'), 'expected the doc name');
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
   } finally {
     element.remove();
@@ -288,7 +289,42 @@ test('should_keep_document_when_confirmation_is_cancelled', async () => {
     await flush();
     await flush();
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
-    assert.equal(element.shadowRoot.querySelector('[part="docs-confirm"]'), null);
+    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_cancel_confirmation_when_backdrop_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[part="docs-delete"]').click();
+    await flush();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[part="modal-dialog"]'));
+    element.shadowRoot.querySelector('[part="modal-backdrop"]').click();
+    await flush();
+    await flush();
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
+    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_cancel_confirmation_when_escape_is_pressed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[part="docs-delete"]').click();
+    await flush();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[part="modal-dialog"]'));
+    element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
+    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }
@@ -508,8 +544,8 @@ test('should_ask_confirmation_when_menu_delete_is_clicked', async () => {
     element.shadowRoot.querySelector('[data-action="delete-document"]').click();
     await flush();
     await flush();
-    const confirm = element.shadowRoot.querySelector('[part="docs-confirm"]');
-    assert.ok(confirm, 'expected the confirmation row');
+    const confirm = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    assert.ok(confirm, 'expected the confirmation modal');
     assert.ok(confirm.textContent.includes('سند مهم'), 'expected the doc name');
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
   } finally {
