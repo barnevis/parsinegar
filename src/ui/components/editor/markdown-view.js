@@ -8,10 +8,11 @@
 import { EditorView, minimalSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { redo, selectAll, undo } from '@codemirror/commands';
-import { EditorSelection } from '@codemirror/state';
+import { EditorSelection, Prec } from '@codemirror/state';
 import { livePreviewExtensions } from './live-preview.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
+import { shortcutCommand } from './toggle-mark.js';
 
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 
@@ -62,16 +63,26 @@ export function createMarkdownView(host, options = {}) {
       ...livePreviewExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
-      EditorView.domEventHandlers({
+      // High precedence so our layout-independent shortcuts win over
+      // defaultKeymap bindings for the same gesture (e.g. Mod-i, which the
+      // default keymap claims for selectParentSyntax). Returning true stops
+      // further handling, including the keymap.
+      Prec.high(EditorView.domEventHandlers({
         keydown(event, editorView) {
           if (isSelectAllEvent(event)) {
             event.preventDefault();
             selectAll(editorView);
             return true;
           }
+          const command = shortcutCommand(event);
+          if (command) {
+            event.preventDefault();
+            command(editorView);
+            return true;
+          }
           return false;
         },
-      }),
+      })),
       EditorView.editorAttributes.of({ dir: direction, 'aria-label': options.label ?? '' }),
       EditorView.theme({
         '&': {

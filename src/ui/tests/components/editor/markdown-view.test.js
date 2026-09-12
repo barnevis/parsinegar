@@ -147,6 +147,48 @@ test('should_fail_clearly_when_host_is_not_an_element', () => {
   assert.throws(() => createMarkdownView(null), /element host/);
 });
 
+test('should_toggle_bold_when_ctrl_b_pressed_on_persian_layout', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن' });
+  try {
+    const content = host.querySelector('.cm-content');
+    content.focus();
+    content.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ش', code: 'KeyA', ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    content.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ذ', code: 'KeyB', ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    assert.equal(editor.getValue(), '**متن**');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_toggle_italic_when_ctrl_i_pressed_on_persian_layout', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن' });
+  try {
+    const content = host.querySelector('.cm-content');
+    content.focus();
+    content.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ش', code: 'KeyA', ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    // The default keymap claims Mod-i for selectParentSyntax; our shortcut
+    // must win through higher precedence (Persian key 'ه' on the I position).
+    content.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ه', code: 'KeyI', ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    assert.equal(editor.getValue(), '*متن*');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 function selectionLine(host) {
   const anchor = document.getSelection()?.anchorNode ?? null;
   const line = anchor?.parentElement?.closest?.('.cm-line') ?? null;
