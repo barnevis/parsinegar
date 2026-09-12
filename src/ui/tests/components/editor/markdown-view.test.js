@@ -6,6 +6,30 @@ import test from 'node:test';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../../sample-document.js';
 
+/**
+ * Checks that an injected stylesheet rule targets a selector with a declaration.
+ * @param {string} selector Fragment of the rule selector (e.g. '.cm-line').
+ * @param {string} property CSS property name.
+ * @param {string} expected Substring of the declared value.
+ * @returns {boolean} True when such a rule exists.
+ */
+function hasRule(selector, property, expected) {
+  for (const sheet of document.styleSheets) {
+    let rules = [];
+    try {
+      rules = [...sheet.cssRules];
+    } catch {
+      continue;
+    }
+    for (const rule of rules) {
+      if (rule.selectorText?.includes(selector) && rule.style?.getPropertyValue(property).includes(expected)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 test('should_show_document_when_created_with_text', () => {
   const host = document.createElement('div');
   const editor = createMarkdownView(host, { document: SAMPLE_DOCUMENT });
@@ -178,4 +202,18 @@ test('should_set_relaxed_line_height_when_themed', async () => {
   const source = await readFile(new URL('../../../components/editor/markdown-view.js', import.meta.url), 'utf8');
   assert.ok(source.includes('lineHeight'));
   assert.ok(source.includes("'1.5'"));
+});
+
+test('should_detect_line_direction_when_themed', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'سلام\nHello' });
+  try {
+    assert.ok(host.querySelectorAll('.cm-line').length >= 2);
+    // jsdom does not compute bidi; the injected rule is authoritative.
+    assert.ok(hasRule('.cm-line', 'unicode-bidi', 'plaintext'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
 });

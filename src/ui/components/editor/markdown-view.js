@@ -86,6 +86,12 @@ export function createMarkdownView(host, options = {}) {
         '& .cm-content': {
           lineHeight: '1.5',
         },
+        '& .cm-line': {
+          // Each line detects its own base direction from its first strong
+          // character (Persian lines align right, English lines align left),
+          // while textAlign start follows that direction.
+          unicodeBidi: 'plaintext',
+        },
       }),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || destroyed) {
