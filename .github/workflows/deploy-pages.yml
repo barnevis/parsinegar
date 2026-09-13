@@ -38,6 +38,9 @@ jobs:
         run: |
           sed -i 's/"basePath": "\/"/"basePath": "\/parsinegar\/"/' bootstrap.json
 
+      - name: Create .nojekyll
+        run: touch .nojekyll
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
