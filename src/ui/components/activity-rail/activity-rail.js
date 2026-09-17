@@ -69,6 +69,8 @@ class ParsiActivityRail extends PeyElement {
           flex-direction: column;
           gap: 0.25rem;
           block-size: 100%;
+          background-color: var(--pey-color-surface, #f1f1f5);
+          border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
         }
         [part="rail-end"] {
           display: flex;

@@ -106,6 +106,8 @@ class ParsiMenuBar extends PeyElement {
           display: flex;
           align-items: center;
           gap: 0.25rem;
+          background-color: var(--pey-color-surface, #f1f1f5);
+          border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
         }
         @media (max-width: 56rem) {
           [part="menubar"] {

@@ -111,3 +111,15 @@ test('should_close_dropdown_when_outside_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_paint_chrome_surface_when_mounted', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const styles = element.shadowRoot.querySelector('style')?.textContent ?? '';
+    assert.ok(styles.includes('background-color: var(--pey-color-surface'));
+    assert.ok(styles.includes('border-block-end: 1px solid var(--pey-color-border'));
+  } finally {
+    element.remove();
+  }
+});

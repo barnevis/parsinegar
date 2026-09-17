@@ -96,3 +96,15 @@ test('should_omit_end_group_when_no_end_views_exist', async () => {
     element.remove();
   }
 });
+
+test('should_paint_chrome_surface_when_mounted', async () => {
+  const element = mount({ views: VIEWS, activeView: 'files' });
+  try {
+    await flush();
+    const styles = element.shadowRoot.querySelector('style')?.textContent ?? '';
+    assert.ok(styles.includes('background-color: var(--pey-color-surface'));
+    assert.ok(styles.includes('border-inline-end: 1px solid var(--pey-color-border'));
+  } finally {
+    element.remove();
+  }
+});
