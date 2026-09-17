@@ -6,7 +6,7 @@
 // for the parent to map to behavior.
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml } from './html.js';
-import { buildMenuModel } from './menubar.js';
+import { buildMenuModel } from './menu-model.js';
 
 const TAG = 'parsi-menu-bar';
 

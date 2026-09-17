@@ -17,7 +17,7 @@ back only through bubbled `CustomEvent`s the page handles declaratively.
 - `views.js` — side-panel registry: metadata plus render references only (`listViews()`, `getView(id)`); holds no view logic itself, so a future view is one module plus one entry here.
 - `views-files.js` — `renderFilesView({ t, items, currentId })`: document list with management actions.
 - `views-outline.js` — `renderOutlineView({ t, documentText })`: heading outline with navigation targets.
-- `menubar.js` — `buildMenuModel({ t, hasDocument })`: menu bar as pure data consumed by `parsi-menu-bar`.
+- `menu-model.js` — `buildMenuModel({ t, hasDocument })`: menu bar as pure data consumed by `parsi-menu-bar`.
 - `stats.js` — `countStats(text)`: characters (with spaces), whitespace-split words (half-space safe), lines.
 - `outline.js` — `parseOutline(text)`: ATX headings as `[{ level, text, line }]` with 1-based lines; `outlineSignature(value)` for cheap change detection.
 - `html.js` — `escapeHtml(value)` shared by every template that interpolates user content; `iconMarkup(base, name)` for sprite icons.

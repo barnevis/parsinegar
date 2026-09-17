@@ -1,7 +1,7 @@
 // Verifies the menu bar model (pure data, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildMenuModel } from '../../../components/workbench/menubar.js';
+import { buildMenuModel } from '../../../components/workbench/menu-model.js';
 
 const LABELS = {
   'parsinegar.menu.file': 'پرونده',
