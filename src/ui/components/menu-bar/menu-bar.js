@@ -106,6 +106,7 @@ class ParsiMenuBar extends PeyElement {
           display: flex;
           align-items: center;
           gap: 0.25rem;
+          font-size: 12px;
           background-color: var(--pey-color-surface, #f1f1f5);
           border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
         }
@@ -116,7 +117,7 @@ class ParsiMenuBar extends PeyElement {
         }
         [part="brand"] {
           font-weight: 700;
-          font-size: 0.95rem;
+          font-size: inherit;
           padding-inline-end: 0.75rem;
           margin-inline-end: 0.5rem;
           border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
@@ -139,7 +140,6 @@ class ParsiMenuBar extends PeyElement {
         }
         [part="menu-button"][aria-expanded="true"] {
           border-color: var(--pey-color-border, #c8c8d2);
-          background-color: var(--pey-color-surface, #f1f1f5);
         }
         [part="menu-dropdown"] {
           position: absolute;

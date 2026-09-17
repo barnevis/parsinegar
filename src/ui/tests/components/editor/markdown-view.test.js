@@ -315,3 +315,42 @@ test('should_apply_sepia_selection_when_color_scheme_is_sepia', () => {
     editor.destroy();
   }
 });
+
+test('should_insert_bold_marks_when_insert_mark_is_called', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: '' });
+  try {
+    assert.equal(editor.insertMark('bold'), true);
+    assert.equal(editor.getValue(), '****');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_insert_mark_pair_when_selection_is_empty', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: '' });
+  try {
+    assert.equal(editor.insertMark('italic'), true);
+    assert.equal(editor.getValue(), '**');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_reject_unknown_kind_when_insert_mark_is_called', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن' });
+  try {
+    assert.equal(editor.insertMark('mermaid'), false);
+    assert.equal(editor.getValue(), 'متن');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});

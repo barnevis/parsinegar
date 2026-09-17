@@ -29,7 +29,7 @@ Everything received through `connect(refs)`:
 
 Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `handleEvent`):
 
-- `menu-action` with `detail: { action }` — string action ids (`new-document`, `delete-document`, `undo`, `redo`, `toggle-side`, `toggle-status`).
+- `menu-action` with `detail: { action }` — string action ids (`new-document`, `delete-document`, `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused).
 - `view-select` with `detail: { id }` — rail view switch.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.

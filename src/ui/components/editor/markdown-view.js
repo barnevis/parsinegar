@@ -13,12 +13,23 @@ import { editorColorScheme } from './editor-theme.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
-import { shortcutCommand } from './toggle-mark.js';
+import { shortcutCommand, toggleBold, toggleCode, toggleHeading, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleUnorderedList, insertLink } from './toggle-mark.js';
 
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const DEFAULT_FONT_SIZE = 16;
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 24;
+const INSERT_COMMANDS = {
+  heading: toggleHeading,
+  bold: toggleBold,
+  italic: toggleItalic,
+  strikethrough: toggleStrikethrough,
+  quote: toggleQuote,
+  link: insertLink,
+  code: toggleCode,
+  'unordered-list': toggleUnorderedList,
+  'ordered-list': toggleOrderedList,
+};
 
 /**
  * Matches the select-all gesture on any keyboard layout. Shortcut matching in
@@ -46,7 +57,7 @@ function isSelectAllEvent(event) {
  * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
- *   focus(), undo(), redo(), gotoLine(line), destroy().
+ *   focus(), undo(), redo(), gotoLine(line), insertMark(kind), destroy().
  * @throws {Error} When host is not an element.
  */
 export function createMarkdownView(host, options = {}) {
@@ -193,6 +204,24 @@ export function createMarkdownView(host, options = {}) {
         selection: EditorSelection.cursor(view.state.doc.line(safe).from),
         scrollIntoView: true,
       });
+    },
+    /**
+     * Inserts a Markdown mark at the cursor or wraps the selection, using
+     * the same toggle commands as the keyboard shortcuts.
+     * @param {string} kind Mark kind (heading, bold, italic, strikethrough,
+     *   quote, link, code, unordered-list, ordered-list).
+     * @returns {boolean} True when a mark was inserted.
+     */
+    insertMark(kind) {
+      if (destroyed) {
+        return false;
+      }
+      const command = INSERT_COMMANDS[kind] ?? null;
+      if (typeof command !== 'function') {
+        return false;
+      }
+      view.focus();
+      return command(view) === true;
     },
     /**
      * Destroys the view and releases its listeners. Keeps the last text.

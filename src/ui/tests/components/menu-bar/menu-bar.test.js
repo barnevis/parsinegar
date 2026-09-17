@@ -30,7 +30,7 @@ test('should_render_menus_and_brand_when_mounted', async () => {
   try {
     await flush();
     const buttons = [...element.shadowRoot.querySelectorAll('[data-menu]')];
-    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'view']);
+    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'insert', 'view']);
     assert.ok(element.shadowRoot.querySelector('[part="brand"]'));
     assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
   } finally {

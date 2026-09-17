@@ -7,22 +7,32 @@ const LABELS = {
   'parsinegar.menu.file': 'پرونده',
   'parsinegar.menu.edit': 'ویرایش',
   'parsinegar.menu.view': 'نمایش',
+  'parsinegar.menu.insert': 'افزودن',
   'parsinegar.documents.new': 'سند تازه',
   'parsinegar.documents.delete': 'حذف سند',
   'parsinegar.action.undo': 'واگرد',
   'parsinegar.action.redo': 'ازنو',
   'parsinegar.view.side': 'پنل کناری',
   'parsinegar.view.status': 'نوار وضعیت',
+  'parsinegar.insert.heading': 'عنوان',
+  'parsinegar.insert.bold': 'پررنگ',
+  'parsinegar.insert.italic': 'مورب',
+  'parsinegar.insert.strikethrough': 'خط‌خورده',
+  'parsinegar.insert.quote': 'نقل‌قول',
+  'parsinegar.insert.link': 'پیوند',
+  'parsinegar.insert.code': 'کد',
+  'parsinegar.insert.unordered-list': 'فهرست نامرتب',
+  'parsinegar.insert.ordered-list': 'فهرست مرتب',
 };
 
 function translate(key) {
   return LABELS[key] ?? key;
 }
 
-test('should_build_three_menus_when_called', () => {
+test('should_build_four_menus_when_called', () => {
   const menus = buildMenuModel({ t: translate, hasDocument: true });
-  assert.deepEqual(menus.map(({ id }) => id), ['file', 'edit', 'view']);
-  assert.deepEqual(menus.map(({ label }) => label), ['پرونده', 'ویرایش', 'نمایش']);
+  assert.deepEqual(menus.map(({ id }) => id), ['file', 'edit', 'insert', 'view']);
+  assert.deepEqual(menus.map(({ label }) => label), ['پرونده', 'ویرایش', 'افزودن', 'نمایش']);
   for (const menu of menus) {
     assert.ok(menu.items.length > 0, `expected items in ${menu.id}`);
     for (const item of menu.items) {
@@ -30,6 +40,22 @@ test('should_build_three_menus_when_called', () => {
       assert.equal(typeof item.disabled, 'boolean');
     }
   }
+});
+
+test('should_offer_every_mark_when_insert_menu_is_read', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true });
+  const insert = menus.find(({ id }) => id === 'insert');
+  assert.deepEqual(insert.items.map(({ action }) => action), [
+    'insert-heading',
+    'insert-bold',
+    'insert-italic',
+    'insert-strikethrough',
+    'insert-quote',
+    'insert-link',
+    'insert-code',
+    'insert-unordered-list',
+    'insert-ordered-list',
+  ]);
 });
 
 test('should_disable_delete_when_no_document_is_open', () => {

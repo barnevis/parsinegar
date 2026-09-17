@@ -475,7 +475,7 @@ test('should_render_menubar_when_mounted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const buttons = inChildAll(element, 'parsi-menu-bar', '[data-menu]');
-    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'view']);
+    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'insert', 'view']);
     assert.ok(inChild(element, 'parsi-menu-bar', '[part="menu-dropdown"][hidden]'), 'expected hidden dropdowns');
   } finally {
     element.remove();
@@ -814,6 +814,25 @@ test('should_apply_rapid_changes_in_order_when_events_arrive_together', async ()
     await settled();
     await settled();
     assert.deepEqual(settings.calls, [{ fontSize: 17 }, { fontSize: 18 }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_insert_mark_when_insert_action_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-menu-bar').dispatchEvent(
+      new CustomEvent('menu-action', { bubbles: true, detail: { action: 'insert-bold' } }),
+    );
+    await settled();
+    assert.ok(element.value.startsWith('****'));
+    child(element, 'parsi-menu-bar').dispatchEvent(
+      new CustomEvent('menu-action', { bubbles: true, detail: { action: 'insert-mermaid' } }),
+    );
+    await settled();
+    assert.ok(!element.value.includes('mermaid'));
   } finally {
     element.remove();
   }

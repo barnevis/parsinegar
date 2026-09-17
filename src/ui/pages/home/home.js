@@ -19,6 +19,18 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
+const INSERT_ACTION_PREFIX = 'insert-';
+const INSERT_MARK_KINDS = [
+  'heading',
+  'bold',
+  'italic',
+  'strikethrough',
+  'quote',
+  'link',
+  'code',
+  'unordered-list',
+  'ordered-list',
+];
 const AUTOSAVE_DELAY_MS = 1000;
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
 
@@ -330,6 +342,13 @@ class ParsiPageHome extends PeyElement {
           this.#requestEditor();
           return;
         default:
+          if (typeof action === 'string' && action.startsWith(INSERT_ACTION_PREFIX)) {
+            const kind = action.slice(INSERT_ACTION_PREFIX.length);
+            if (INSERT_MARK_KINDS.includes(kind)) {
+              this.#editor?.insertMark(kind);
+              this.#editor?.focus();
+            }
+          }
           return;
       }
     } catch (error) {
