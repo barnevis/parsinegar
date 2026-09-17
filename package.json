@@ -1,6 +1,6 @@
 {
   "name": "parsinegar",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Parsinegar — a Persian Markdown editor built on the Pey plugin architecture",
   "type": "module",
   "scripts": {

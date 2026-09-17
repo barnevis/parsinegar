@@ -4,19 +4,22 @@
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bonyan Architecture](https://img.shields.io/badge/bonyan-0.11-56c3bf)](https://github.com/barnevis/bonyan)
 
-ویرایشگر فارسی Markdown بر پایهٔ معماری Pey — سند معماری: `docs/architecture.md`.
+ویرایشگر فارسی Markdown بر پایهٔ معماری Pey — سند معماری: `docs/architecture.md`. تاریخچهٔ نسخه‌ها: `CHANGELOG.md`.
 
-نسخهٔ نخست (`0.1.0`) فقط یک صفحهٔ ساده با یک محیط نوشتن Markdown است (CodeMirror درون لایهٔ UI). بدون نوار ابزار، پیش‌نمایش، تنظیمات و مدیریت فایل.
+میزکار تک‌صفحه‌ای راست‌به‌چپ: ویرایشگر زندهٔ CodeMirror، نوار منو (پرونده/ویرایش/افزودن/نمایش)، ریل فعالیت با پنل‌های فایل‌ها/فهرست مطالب/تنظیمات، مدیریت چندسند با autosave روی IndexedDB، نوار وضعیت زنده (نویسه/حرف/واژه/خط/حجم با ارقام فارسی) و چهار پوسته (روشن/تیره/دستگاه/سپیا) با ترجیحات پایدار.
 
 ## ساختار
 
 ```text
 parsinegar/
 ├── src/app/          # Runtime Host (ConfigSource / EnvSource / ModuleLoader + core.start)
-├── src/ui/           # رابط کاربری روی pey.webui (کامپوننت ویرایشگر + CodeMirror)
-├── src/plugins/app/ # افزونهٔ اختصاصی پارسی‌نگار (مالک مسیر `/`)
-├── public/           # فایل‌های ایستا (فونت وزیرمتن)
-├── tests/            # آزمون‌ها (node:test + jsdom)
+├── src/ui/           # رابط کاربری روی pey.webui (صفحات، کامپوننت‌ها، هلپرها + تست‌ها)
+├── src/plugins/app/ # افزونهٔ اختصاصی پارسی‌نگار (مالک مسیرها)
+├── src/plugins/documents/ # مدیریت چندسند روی pey.storage
+├── src/plugins/settings/  # ترجیحات کاربر (پوسته، جهت، قلم) روی pey.storage
+├── public/           # فایل‌های ایستا (فونت وزیرمتن، تم‌های سطح سند)
+├── tests/            # آزمون‌های سطح اپ و یکپارچه‌سازی (node:test + jsdom)
+├── imp/              # نیازمندی‌ها و پلن‌ها
 ├── bootstrap.json    # تنها محل تعریف Adapterها، Pluginها و مسیر UI
 └── index.html        # لودر Host + importmap (بدون ابزار ساخت)
 ```
