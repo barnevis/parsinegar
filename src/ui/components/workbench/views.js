@@ -1,7 +1,9 @@
 // Side-panel view registry: metadata plus render references only.
 //
 // Holds no view logic itself — each view module owns its rendering; adding a
-// view means writing its module and appending one entry here.
+// view means writing its module and appending one entry here. Entries listed
+// first render first; an entry with `align: 'end'` renders pinned to the far
+// end of the rail (e.g. settings below the document views).
 import { renderFilesView } from './views-files.js';
 import { renderOutlineView } from './views-outline.js';
 import { renderSettingsView } from './views-settings.js';
@@ -13,7 +15,7 @@ const SETTINGS_VIEW = 'settings';
 const registry = [
   { id: FILES_VIEW, icon: 'files', labelKey: 'parsinegar.views.files', render: renderFilesView },
   { id: OUTLINE_VIEW, icon: 'outline', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
-  { id: SETTINGS_VIEW, icon: 'gear', labelKey: 'parsinegar.views.settings', render: renderSettingsView },
+  { id: SETTINGS_VIEW, icon: 'gear', labelKey: 'parsinegar.views.settings', render: renderSettingsView, align: 'end' },
 ];
 
 /**

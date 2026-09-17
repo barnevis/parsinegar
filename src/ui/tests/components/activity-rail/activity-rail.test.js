@@ -69,3 +69,30 @@ test('should_update_active_view_when_configured', async () => {
     element.remove();
   }
 });
+
+test('should_pin_end_aligned_views_when_mounted', async () => {
+  const element = mount({
+    views: [...VIEWS, { id: 'settings', icon: 'gear', labelKey: 'parsinegar.views.settings', align: 'end' }],
+    activeView: 'files',
+  });
+  try {
+    await flush();
+    const end = element.shadowRoot.querySelector('[part="rail-end"]');
+    assert.ok(end, 'expected the end group');
+    assert.equal(end.querySelector('[data-view="settings"]')?.getAttribute('data-view'), 'settings');
+    assert.equal(element.shadowRoot.querySelector('[part="rail"] > [data-view="settings"]'), null);
+    assert.ok(element.shadowRoot.querySelector('[part="rail"] > [data-view="files"]'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_omit_end_group_when_no_end_views_exist', async () => {
+  const element = mount({ views: VIEWS, activeView: 'files' });
+  try {
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="rail-end"]'), null);
+  } finally {
+    element.remove();
+  }
+});

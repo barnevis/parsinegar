@@ -60,14 +60,21 @@ class ParsiActivityRail extends PeyElement {
   }
 
   render() {
-    const buttons = this.#views.map((view) => `
-      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${iconMarkup(this.#assetBaseUrl, view.icon)}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`).join('');
+    const start = this.#views.filter((view) => view.align !== 'end');
+    const end = this.#views.filter((view) => view.align === 'end');
     return `
       <style>
         [part="rail"] {
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
+          block-size: 100%;
+        }
+        [part="rail-end"] {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          margin-block-start: auto;
         }
         [part="rail-button"] {
           font: inherit;
@@ -96,7 +103,17 @@ class ParsiActivityRail extends PeyElement {
           outline-offset: 2px;
         }
       </style>
-      <nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${buttons}</nav>`;
+      <nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${start.map((view) => this.#renderButton(view)).join('')}${end.length > 0 ? `<div part="rail-end">${end.map((view) => this.#renderButton(view)).join('')}</div>` : ''}</nav>`;
+  }
+
+  /**
+   * Renders one rail button for a view entry.
+   * @param {object} view Registry entry with `{ id, icon, labelKey }`.
+   * @returns {string} Button markup.
+   */
+  #renderButton(view) {
+    return `
+      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${iconMarkup(this.#assetBaseUrl, view.icon)}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`;
   }
 
   #storeViews(views) {

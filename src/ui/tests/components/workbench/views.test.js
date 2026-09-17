@@ -14,6 +14,9 @@ test('should_list_files_outline_and_settings_when_listed', () => {
     assert.equal(typeof view.labelKey, 'string');
     assert.equal(typeof view.render, 'function');
   }
+  assert.equal(getView(SETTINGS_VIEW).align, 'end');
+  assert.notEqual(getView(FILES_VIEW).align, 'end');
+  assert.notEqual(getView(OUTLINE_VIEW).align, 'end');
 });
 
 test('should_reference_view_modules_when_render_is_read', () => {

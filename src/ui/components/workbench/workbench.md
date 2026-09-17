@@ -4,7 +4,7 @@ This folder owns the pure helper modules behind the workbench page: no services,
 
 ## Pure helper modules
 
-- `views.js` — side-panel registry: metadata plus render references only (`listViews()`, `getView(id)`); holds no view logic itself, so a future view is one module plus one entry here. Order is rail order: files, outline, settings.
+- `views.js` — side-panel registry: metadata plus render references only (`listViews()`, `getView(id)`); holds no view logic itself, so a future view is one module plus one entry here. Order is rail order: files, outline, settings; an entry with `align: 'end'` pins its rail button to the far end.
 - `views-files.js` — `renderFilesView({ t, items, currentId })`: document list with management actions.
 - `views-outline.js` — `renderOutlineView({ t, documentText })`: heading outline with navigation targets.
 - `views-settings.js` — `renderSettingsView({ t, settings, formatNumber })`: theme/direction radio groups plus the font-size stepper. Pure display; controls report through `settings-change` (`{ key, value }`) and `settings-step` (`{ key, delta }`) events that `parsi-side-panel` forwards to the page. Validation and persistence live in the settings service, never here; out-of-range steps simply reject there and change nothing.

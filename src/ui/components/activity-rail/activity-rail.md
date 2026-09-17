@@ -4,14 +4,14 @@ Regular component: icon buttons switching the side-panel view. Mounted by `parsi
 
 ## Purpose
 
-Stateless display of the available side-panel views, driven entirely by `configure()`. Selection changes leave as `view-select` `CustomEvent`s; the parent owns the active view and toggles panel visibility, so this element never stores selection authoritatively.
+Stateless display of the available side-panel views, driven entirely by `configure()`. Views with `align: 'end'` in their registry entry render pinned to the far end of the rail (below the document views); all others stack from the start. Selection changes leave as `view-select` `CustomEvent`s; the parent owns the active view and toggles panel visibility, so this element never stores selection authoritatively.
 
 ## Dependencies
 
 Everything received through `connect(refs)`:
 
 - **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `assetBaseUrl` (icon sprite resolution, optional — without it buttons degrade to text labels via `rail-fallback`), `views` (array of `{ id, icon, labelKey }` entries, optional — defaults to `[]`), `activeView` (active view id, optional).
+- **Config values:** `t` (translation, required — falls back to identity), `assetBaseUrl` (icon sprite resolution, optional — without it buttons degrade to text labels via `rail-fallback`), `views` (array of `{ id, icon, labelKey }` entries with optional `align: 'end'` pinning, optional — defaults to `[]`), `activeView` (active view id, optional).
 
 ## Public API
 

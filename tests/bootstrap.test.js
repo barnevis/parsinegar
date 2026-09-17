@@ -46,6 +46,9 @@ test('should_configure_settings_store_when_loaded', async () => {
   const settings = stores.find((store) => store.name === 'settings');
   assert.ok(settings, 'expected a settings store');
   assert.equal(settings.keyPath, 'id');
+  // Version 2 migrates pre-settings databases: the upgrade creates the
+  // missing store while preserving existing documents.
+  assert.equal(bootstrap.config['pey.storage'].schemaVersion, 2);
 });
 
 test('should_carry_persian_ui_config_when_loaded', async () => {

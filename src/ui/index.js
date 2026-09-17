@@ -23,6 +23,9 @@ const THEMES = ['light', 'dark', 'device'];
 async function applyStoredTheme(resources) {
   const settings = resources.required[SETTINGS_SERVICE];
   const stored = await settings.getSettings();
+  if (!resources.shell?.isConnected) {
+    return;
+  }
   const theme = THEMES.includes(stored?.theme) ? stored.theme : 'device';
   resources.sharedState?.set('theme', theme);
   document.documentElement.dataset.theme = theme;

@@ -45,7 +45,7 @@
     },
     "pey.storage": {
       "databaseName": "parsinegar-db",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "stores": [
         {
           "name": "documents",
