@@ -72,3 +72,23 @@ test('should_update_stats_when_configured', async () => {
     element.remove();
   }
 });
+
+test('should_render_label_before_value_when_mounted', async () => {
+  const element = mount({
+    t: (key) => ({ 'parsinegar.stats.words': 'واژه' }[key] ?? key),
+  });
+  try {
+    await flush();
+    element.configure({ stats: { chars: 0, letters: 0, words: 250, lines: 0, bytes: 0 } });
+    await flush();
+    const stats = [...element.shadowRoot.querySelectorAll('[part="stat"]')];
+    assert.deepEqual(
+      stats.map((node) => node.querySelector('[data-stat]')?.getAttribute('data-stat')),
+      ['chars', 'letters', 'words', 'lines', 'size'],
+    );
+    const words = stats[2]?.textContent ?? '';
+    assert.ok(words.indexOf('واژه') < words.indexOf('250'), `expected label first, got: ${words}`);
+  } finally {
+    element.remove();
+  }
+});

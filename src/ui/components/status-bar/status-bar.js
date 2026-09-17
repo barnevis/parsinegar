@@ -53,11 +53,11 @@ class ParsiStatusBar extends PeyElement {
         }
       </style>
       <footer part="statusbar">
-        <span part="stat"><b part="stat-value" data-stat="chars">${format(safe.chars ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.chars'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="letters">${format(safe.letters ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.letters'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="words">${format(safe.words ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.words'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="lines">${format(safe.lines ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.lines'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="size">${escapeHtml(formatFileSize(safe.bytes ?? 0, format, this.#t))}</b> ${escapeHtml(this.#t('parsinegar.stats.size'))}</span>
+        <span part="stat">${escapeHtml(this.#t('parsinegar.stats.chars'))} <b part="stat-value" data-stat="chars">${format(safe.chars ?? 0)}</b></span>
+        <span part="stat">${escapeHtml(this.#t('parsinegar.stats.letters'))} <b part="stat-value" data-stat="letters">${format(safe.letters ?? 0)}</b></span>
+        <span part="stat">${escapeHtml(this.#t('parsinegar.stats.words'))} <b part="stat-value" data-stat="words">${format(safe.words ?? 0)}</b></span>
+        <span part="stat">${escapeHtml(this.#t('parsinegar.stats.lines'))} <b part="stat-value" data-stat="lines">${format(safe.lines ?? 0)}</b></span>
+        <span part="stat">${escapeHtml(this.#t('parsinegar.stats.size'))} <b part="stat-value" data-stat="size">${escapeHtml(formatFileSize(safe.bytes ?? 0, format, this.#t))}</b></span>
       </footer>`;
   }
 }
