@@ -520,7 +520,9 @@ test('should_stick_panels_with_styles_when_rendered', async () => {
     for (const part of ['workbench', 'center']) {
       assert.ok(style.textContent.includes(`[part="${part}"]`), `expected styles for ${part}`);
     }
-    assert.equal((style.textContent.match(/position: sticky/g) ?? []).length, 4);
+    // Only the menubar (top) and status bar (bottom) stick; rail and side
+    // slots stay static so rows join flush without a height-coupled offset.
+    assert.equal((style.textContent.match(/position: sticky/g) ?? []).length, 2);
     assert.ok(style.textContent.includes('gap: 0'), 'expected flush panels without gaps');
   } finally {
     element.remove();

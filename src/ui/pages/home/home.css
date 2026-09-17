@@ -46,16 +46,12 @@ parsi-status-bar {
 
 [data-slot="rail"] {
   grid-area: rail;
-  position: sticky;
-  top: 2.75rem;
   align-self: stretch;
   min-block-size: 0;
 }
 
 [data-slot="side"] {
   grid-area: side;
-  position: sticky;
-  top: 2.75rem;
   align-self: stretch;
   min-block-size: 0;
   min-inline-size: 0;
@@ -191,7 +187,10 @@ parsi-status-bar {
       "status";
   }
 
-  [data-slot="rail"] {
+/* Rail and side slots are intentionally not sticky: a sticky `top` offset
+   would couple to the menubar height and open a gap when they drift apart.
+   The center column scrolls internally, so nothing needs to stick here. */
+[data-slot="rail"] {
     position: static;
   }
 
