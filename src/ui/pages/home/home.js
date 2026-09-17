@@ -18,6 +18,7 @@ import '../../components/status-bar/status-bar.js';
 const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
+const SETTINGS_SERVICE = 'parsinegar.settings.service';
 const AUTOSAVE_DELAY_MS = 1000;
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
 
@@ -25,8 +26,12 @@ class ParsiPageHome extends PeyElement {
   #t = (key) => key;
   #format = null;
   #assetBaseUrl = null;
-  #direction = 'rtl';
   #documents = null;
+  #settingsApi = null;
+  #settings = null;
+  #settingsWrite = Promise.resolve();
+  #documentDirection = 'rtl';
+  #fontSize = 16;
   #editor = null;
   #items = [];
   #currentId = null;
@@ -39,6 +44,13 @@ class ParsiPageHome extends PeyElement {
   #confirmDeleteId = null;
   #renderObserver = null;
   #editorHost = null;
+  #colorSchemeQuery = null;
+  #onColorSchemeChange = () => {
+    const settings = this.#settings;
+    if (settings && settings.theme === 'device') {
+      this.#requestEditor();
+    }
+  };
   #menuEl = null;
   #railEl = null;
   #sideEl = null;
@@ -52,9 +64,8 @@ class ParsiPageHome extends PeyElement {
     if (typeof refs.format === 'function') {
       this.#format = refs.format;
     }
-    if (refs.direction === 'ltr' || refs.direction === 'rtl') {
-      this.#direction = refs.direction;
-    }
+    // Note: refs.direction (app-chrome direction) is intentionally ignored;
+    // the shell owns it and the edited document follows stored settings.
     if (typeof refs.assetBaseUrl === 'string' && refs.assetBaseUrl.length > 0) {
       this.#assetBaseUrl = refs.assetBaseUrl;
     }
@@ -71,6 +82,10 @@ class ParsiPageHome extends PeyElement {
     if (service && typeof service.listDocuments === 'function') {
       this.#documents = service;
     }
+    const settings = refs.services?.[SETTINGS_SERVICE] ?? null;
+    if (settings && typeof settings.getSettings === 'function' && typeof settings.saveSettings === 'function') {
+      this.#settingsApi = settings;
+    }
   }
 
   eventTypes() {
@@ -84,6 +99,8 @@ class ParsiPageHome extends PeyElement {
       'document-open',
       'document-create',
       'document-delete',
+      'settings-change',
+      'settings-step',
     ];
   }
 
@@ -135,6 +152,14 @@ class ParsiPageHome extends PeyElement {
         this.#armDeleteConfirm();
         return;
       }
+      if (event.type === 'settings-change') {
+        void this.#applySettingChange(event.detail?.key, event.detail?.value);
+        return;
+      }
+      if (event.type === 'settings-step') {
+        void this.#applySettingStep(event.detail?.key, event.detail?.delta);
+        return;
+      }
       return;
     }
     const target = event.target;
@@ -166,12 +191,14 @@ class ParsiPageHome extends PeyElement {
     // Mounting CodeMirror needs the live host node, so instead of guessing
     // microtask order, observe render completion and mount then.
     this.#ensureRenderObserver();
+    this.#watchColorScheme();
     queueMicrotask(() => void this.#initialLoad());
   }
 
   disconnectedCallback() {
     this.#clearSaveTimer();
     this.#unmountEditor();
+    this.#unwatchColorScheme();
     this.#renderObserver?.disconnect();
     this.#renderObserver = null;
     super.disconnectedCallback();
@@ -204,6 +231,54 @@ class ParsiPageHome extends PeyElement {
       }
     });
     this.#renderObserver.observe(this.shadowRoot, { childList: true, subtree: false });
+  }
+
+  /**
+   * Starts watching the operating-system color scheme so a `device` theme
+   * remounts the editor when the system flips between light and dark.
+   * @returns {void}
+   */
+  #watchColorScheme() {
+    const matchMedia = globalThis.matchMedia;
+    if (typeof matchMedia !== 'function' || this.#colorSchemeQuery) {
+      return;
+    }
+    try {
+      this.#colorSchemeQuery = matchMedia('(prefers-color-scheme: dark)');
+      this.#colorSchemeQuery.addEventListener('change', this.#onColorSchemeChange);
+    } catch {
+      this.#colorSchemeQuery = null;
+    }
+  }
+
+  #unwatchColorScheme() {
+    try {
+      this.#colorSchemeQuery?.removeEventListener('change', this.#onColorSchemeChange);
+    } catch {
+      // Listener removal is best-effort during teardown.
+    }
+    this.#colorSchemeQuery = null;
+  }
+
+  /**
+   * Resolves the editor color scheme from the stored theme.
+   * @returns {string} 'dark' or 'light'.
+   */
+  #resolveColorScheme() {
+    if (this.#settings?.theme === 'dark') {
+      return 'dark';
+    }
+    if (this.#settings?.theme === 'device') {
+      try {
+        if (typeof globalThis.matchMedia === 'function'
+          && globalThis.matchMedia('(prefers-color-scheme: dark)').matches) {
+          return 'dark';
+        }
+      } catch {
+        // Media query unavailable — fall through to light.
+      }
+    }
+    return 'light';
   }
 
   /**
@@ -334,12 +409,15 @@ class ParsiPageHome extends PeyElement {
           items: this.#items,
           currentId: this.#currentId,
           documentText: this.value,
+          settings: this.#settings,
+          formatNumber: (value) => this.#formatNumber(value),
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
           items: this.#items,
           currentId: this.#currentId,
           documentText: this.value,
+          settings: this.#settings,
         }),
       });
     } else {
@@ -384,6 +462,10 @@ class ParsiPageHome extends PeyElement {
   }
 
   async #initialLoad() {
+    if (!this.isConnected) {
+      return;
+    }
+    await this.#loadSettings();
     if (!this.isConnected) {
       return;
     }
@@ -516,6 +598,28 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
+  /**
+   * Loads stored preferences before the first editor mount. A failed load
+   * keeps the built-in fallbacks (rtl, 16px) and never blocks documents.
+   * @returns {Promise<void>}
+   */
+  async #loadSettings() {
+    if (!this.#settingsApi) {
+      return;
+    }
+    try {
+      const settings = await this.#settingsApi.getSettings();
+      if (!this.isConnected) {
+        return;
+      }
+      this.#settings = settings;
+      this.#documentDirection = settings.direction;
+      this.#fontSize = settings.fontSize;
+    } catch (error) {
+      console.error('[parsi-page-home] settings load failed');
+    }
+  }
+
   #applyDocument(document, items) {
     this.#unmountEditor();
     this.#items = items;
@@ -523,6 +627,81 @@ class ParsiPageHome extends PeyElement {
     this.#docTitle = document.title ?? '';
     this.#draft = document.content ?? '';
     this.#requestEditor();
+  }
+
+  /**
+   * Queues a settings write behind earlier ones so rapid changes apply in
+   * order instead of racing on stale reads. The chain itself never rejects;
+   * the caller still sees the real outcome.
+   * @param {Function} task Async write task.
+   * @returns {Promise} Task outcome.
+   */
+  #chainSettingWrite(task) {
+    const run = this.#settingsWrite.then(task, task);
+    this.#settingsWrite = run.catch(() => {});
+    return run;
+  }
+
+  /**
+   * Persists one radio-group setting (theme or direction) and applies the
+   * saved result. Theme reaches the shell through the `settings:changed`
+   * domain event handled by the entry point; direction remounts the editor.
+   * @param {unknown} key Setting key from the event detail.
+   * @param {unknown} value Setting value from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #applySettingChange(key, value) {
+    if (!this.#settingsApi || (key !== 'theme' && key !== 'direction')) {
+      return;
+    }
+    if (typeof value !== 'string' || value.length === 0) {
+      return;
+    }
+    try {
+      await this.#chainSettingWrite(async () => {
+        const saved = await this.#settingsApi.saveSettings({ [key]: value });
+        if (!this.isConnected) {
+          return;
+        }
+        this.#settings = saved;
+        this.#documentDirection = saved.direction;
+        this.#fontSize = saved.fontSize;
+        this.#requestEditor();
+      });
+    } catch (error) {
+      console.error('[parsi-page-home] setting save failed');
+    }
+  }
+
+  /**
+   * Persists one font-size step and remounts the editor with the saved size.
+   * Out-of-range steps reject in the service and leave everything unchanged.
+   * @param {unknown} key Setting key from the event detail.
+   * @param {unknown} delta Step delta from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #applySettingStep(key, delta) {
+    if (!this.#settingsApi || key !== 'fontSize') {
+      return;
+    }
+    const step = Number(delta);
+    if (step !== 1 && step !== -1) {
+      return;
+    }
+    try {
+      await this.#chainSettingWrite(async () => {
+        const saved = await this.#settingsApi.saveSettings({ fontSize: this.#fontSize + step });
+        if (!this.isConnected) {
+          return;
+        }
+        this.#settings = saved;
+        this.#documentDirection = saved.direction;
+        this.#fontSize = saved.fontSize;
+        this.#requestEditor();
+      });
+    } catch (error) {
+      console.error('[parsi-page-home] setting save failed');
+    }
   }
 
   #requestEditor() {
@@ -603,6 +782,7 @@ class ParsiPageHome extends PeyElement {
       items: this.#items,
       currentId: this.#currentId,
       documentText: this.value,
+      settings: this.#settings,
     });
   }
 
@@ -618,7 +798,9 @@ class ParsiPageHome extends PeyElement {
       this.#editor = createMarkdownView(host, {
         document: this.#draft ?? SAMPLE_DOCUMENT,
         label: this.#t('parsinegar.editor.label'),
-        direction: this.#direction,
+        direction: this.#documentDirection,
+        fontSize: this.#fontSize,
+        colorScheme: this.#resolveColorScheme(),
         onChange: (value) => {
           this.#draft = value;
           this.dispatchEvent(

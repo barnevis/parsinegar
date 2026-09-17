@@ -4,13 +4,16 @@
 // view means writing its module and appending one entry here.
 import { renderFilesView } from './views-files.js';
 import { renderOutlineView } from './views-outline.js';
+import { renderSettingsView } from './views-settings.js';
 
 const FILES_VIEW = 'files';
 const OUTLINE_VIEW = 'outline';
+const SETTINGS_VIEW = 'settings';
 
 const registry = [
   { id: FILES_VIEW, icon: 'files', labelKey: 'parsinegar.views.files', render: renderFilesView },
   { id: OUTLINE_VIEW, icon: 'outline', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
+  { id: SETTINGS_VIEW, icon: 'gear', labelKey: 'parsinegar.views.settings', render: renderSettingsView },
 ];
 
 /**
@@ -30,4 +33,4 @@ export function getView(id) {
   return registry.find((view) => view.id === id) ?? null;
 }
 
-export { FILES_VIEW, OUTLINE_VIEW };
+export { FILES_VIEW, OUTLINE_VIEW, SETTINGS_VIEW };

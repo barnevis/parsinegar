@@ -5,9 +5,40 @@ import { createPageHost } from 'pey.webui/routing/page-host';
 import { createPageLoaderRegistry } from 'pey.webui/routing/page-loader';
 import { TAG as APP_SHELL_TAG } from 'pey.webui/shell/app-shell';
 import { createApplicationSetup } from 'pey.webui/shell/create-application-setup';
+import { createSharedState } from 'pey.webui/shared-state';
 import appCatalog from './i18n/catalog.js';
 
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
+const SETTINGS_SERVICE = 'parsinegar.settings.service';
+const SETTINGS_CHANGED_EVENT = 'settings:changed';
+const THEMES = ['light', 'dark', 'device'];
+
+/**
+ * Reads the stored theme and reflects it onto the shell (through the
+ * UI-local shared-state store the shell subscribes to) and the document
+ * element (so document-level styles and head-injected editor styles see it).
+ * @param {object} resources Application setup resources.
+ * @returns {Promise<void>}
+ */
+async function applyStoredTheme(resources) {
+  const settings = resources.required[SETTINGS_SERVICE];
+  const stored = await settings.getSettings();
+  const theme = THEMES.includes(stored?.theme) ? stored.theme : 'device';
+  resources.sharedState?.set('theme', theme);
+  document.documentElement.dataset.theme = theme;
+}
+
+/**
+ * Serializes theme applications so rapid `settings:changed` events converge
+ * on the latest stored value instead of racing reads.
+ * @param {object} resources Application setup resources.
+ * @returns {Promise<void>}
+ */
+function queueThemeApply(resources) {
+  const run = (resources.themeWrite ?? Promise.resolve()).then(() => applyStoredTheme(resources));
+  resources.themeWrite = run.catch(() => {});
+  return run;
+}
 
 /**
  * Starts the Parsinegar UI: single home route plus the not-found slot.
@@ -18,19 +49,34 @@ const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
  */
 export const setup = createApplicationSetup({
   assetBaseUrlBase: import.meta.url,
-  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE],
+  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE, SETTINGS_SERVICE],
   optionalServices: [],
   mountShell(resources) {
+    const sharedState = createSharedState();
+    resources.sharedState = sharedState;
     const shell = document.createElement(APP_SHELL_TAG);
     shell.connect({
       infrastructure: { events: resources.events },
       refs: {
         theme: resources.config.theme,
         direction: resources.config.direction,
+        sharedState,
       },
     });
     document.body.append(shell);
     resources.shell = shell;
+
+    queueThemeApply(resources).catch(() => {
+      console.error('[parsinegar] initial theme read failed');
+    });
+    const unsubscribeSettings = resources.events.subscribe(SETTINGS_CHANGED_EVENT, () => {
+      queueThemeApply(resources).catch(() => {
+        console.error('[parsinegar] theme apply failed');
+      });
+    });
+    if (typeof unsubscribeSettings === 'function') {
+      resources.unsubscribeSettings = unsubscribeSettings;
+    }
 
     const i18n = createI18n({
       language: resources.config.language,
@@ -89,6 +135,17 @@ export const setup = createApplicationSetup({
     }
   },
   cleanup(resources) {
+    try {
+      resources.unsubscribeSettings?.();
+    } catch {
+      // Unsubscribe is best-effort during teardown.
+    }
+    try {
+      resources.sharedState?.clear();
+    } catch {
+      // Store release is best-effort during teardown.
+    }
+    delete document.documentElement.dataset.theme;
     resources.pageHost?.dispose();
     resources.shell?.remove();
   },

@@ -259,3 +259,49 @@ test('should_detect_line_direction_when_themed', () => {
     host.remove();
   }
 });
+
+test('should_use_auto_direction_when_requested', () => {
+  const host = document.createElement('div');
+  const editor = createMarkdownView(host, { document: 'x', direction: 'auto' });
+  try {
+    assert.equal(host.querySelector('.cm-editor').getAttribute('dir'), 'auto');
+  } finally {
+    editor.destroy();
+  }
+});
+
+test('should_apply_font_size_when_given', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'x', fontSize: 20 });
+  try {
+    const size = globalThis.getComputedStyle(host.querySelector('.cm-editor')).fontSize;
+    assert.equal(size, '20px');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_fall_back_to_default_font_size_when_out_of_range', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'x', fontSize: 99 });
+  try {
+    const size = globalThis.getComputedStyle(host.querySelector('.cm-editor')).fontSize;
+    assert.equal(size, '16px');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_apply_dark_selection_when_color_scheme_is_dark', () => {
+  const host = document.createElement('div');
+  const editor = createMarkdownView(host, { document: 'x', colorScheme: 'dark' });
+  try {
+    assert.ok(hasRule('cm-selectionBackground', 'background-color', '#26436e'));
+  } finally {
+    editor.destroy();
+  }
+});

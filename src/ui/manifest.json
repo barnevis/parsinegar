@@ -6,7 +6,8 @@
   "dependencies": {
     "required": [
       "pey.router.service",
-      "parsinegar.documents.service"
+      "parsinegar.documents.service",
+      "parsinegar.settings.service"
     ],
     "optional": []
   },

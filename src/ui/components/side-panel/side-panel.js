@@ -15,10 +15,12 @@ const TAG = 'parsi-side-panel';
 class ParsiSidePanel extends PeyElement {
   #t = (key) => key;
   #assetBaseUrl = null;
+  #formatNumber = null;
   #activeView = FILES_VIEW;
   #items = [];
   #currentId = null;
   #documentText = '';
+  #settings = null;
   #applied = null;
 
   onConnect(refs = {}) {
@@ -27,6 +29,9 @@ class ParsiSidePanel extends PeyElement {
     }
     if (typeof refs.assetBaseUrl === 'string' && refs.assetBaseUrl.length > 0) {
       this.#assetBaseUrl = refs.assetBaseUrl;
+    }
+    if (typeof refs.formatNumber === 'function') {
+      this.#formatNumber = refs.formatNumber;
     }
     // The imminent first render paints exactly these refs.
     this.#applied = this.#store(refs);
@@ -37,7 +42,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText } = {}) {
+  #store({ activeView, items, currentId, documentText, settings } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -50,11 +55,15 @@ class ParsiSidePanel extends PeyElement {
     if (typeof documentText === 'string') {
       this.#documentText = documentText;
     }
+    if (settings !== undefined) {
+      this.#settings = settings;
+    }
     return {
       activeView: this.#activeView,
       items: this.#items,
       currentId: this.#currentId,
       documentText: this.#documentText,
+      settings: this.#settings,
       signature: outlineSignature(this.#documentText),
     };
   }
@@ -69,15 +78,17 @@ class ParsiSidePanel extends PeyElement {
    * @param {Array<object>} [data.items] Documents for the files view.
    * @param {string|null} [data.currentId] Open document id.
    * @param {string} [data.documentText] Current document text for text views.
+   * @param {object|null} [data.settings] Preferences for the settings view.
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText });
+  configure({ activeView, items, currentId, documentText, settings } = {}) {
+    const next = this.#store({ activeView, items, currentId, documentText, settings });
     const prev = this.#applied;
     const same = prev !== null
       && prev.activeView === next.activeView
       && prev.items === next.items
       && prev.currentId === next.currentId
+      && prev.settings === next.settings
       && prev.signature === next.signature;
     if (!same) {
       this.#applied = next;
@@ -86,10 +97,40 @@ class ParsiSidePanel extends PeyElement {
   }
 
   eventTypes() {
-    return ['click'];
+    return ['click', 'change'];
   }
 
   handleEvent(event) {
+    if (event.type === 'change') {
+      const input = event.target?.closest?.('input[data-setting]');
+      const key = input?.getAttribute('data-setting') ?? '';
+      const value = input?.value ?? '';
+      if (key.length > 0 && value.length > 0) {
+        this.dispatchEvent(
+          new CustomEvent('settings-change', {
+            bubbles: true,
+            composed: true,
+            detail: { key, value },
+          }),
+        );
+      }
+      return;
+    }
+    const stepButton = event.target?.closest?.('[data-setting-step]');
+    if (stepButton) {
+      const key = stepButton.getAttribute('data-setting-key') ?? '';
+      const delta = Number(stepButton.getAttribute('data-setting-step'));
+      if (key.length > 0 && Number.isFinite(delta)) {
+        this.dispatchEvent(
+          new CustomEvent('settings-step', {
+            bubbles: true,
+            composed: true,
+            detail: { key, delta },
+          }),
+        );
+      }
+      return;
+    }
     const closeButton = event.target?.closest?.('[part="side-close"]');
     if (closeButton) {
       this.dispatchEvent(new CustomEvent('side-close', { bubbles: true, composed: true }));
@@ -230,6 +271,57 @@ class ParsiSidePanel extends PeyElement {
         [part="side-close"]:hover {
           background-color: var(--pey-color-canvas, #ffffff);
         }
+        [part="settings-view"] {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        [part="settings-group"] {
+          margin: 0;
+          padding: 0.6rem 0.7rem 0.75rem;
+          border: 1px solid var(--pey-color-border, #e2e2e8);
+          border-radius: 10px;
+        }
+        [part="settings-legend"] {
+          font-size: 0.85rem;
+          font-weight: 700;
+          padding-inline: 0.35rem;
+        }
+        [part="settings-option"] {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.3rem 0.2rem;
+          cursor: pointer;
+        }
+        [part="settings-option"] input {
+          accent-color: var(--pey-color-accent, #0f6fff);
+        }
+        [part="settings-stepper"] {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+        [part="settings-less"],
+        [part="settings-more"] {
+          font: inherit;
+          flex: 1;
+          border: 1px solid var(--pey-color-border, #d8d8de);
+          border-radius: 8px;
+          background-color: var(--pey-color-canvas, #ffffff);
+          padding: 0.35rem 0.5rem;
+          cursor: pointer;
+          color: inherit;
+        }
+        [part="settings-less"]:hover,
+        [part="settings-more"]:hover {
+          border-color: var(--pey-color-border, #c8c8d2);
+        }
+        [part="settings-value"] {
+          min-inline-size: 2.5rem;
+          text-align: center;
+          font-weight: 700;
+        }
         [part="docs-open"]:focus-visible,
         [part="outline-jump"]:focus-visible,
         [part="docs-new"]:focus-visible,
@@ -244,7 +336,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, assetBaseUrl: this.#assetBaseUrl })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
       </aside>`;
   }
 }

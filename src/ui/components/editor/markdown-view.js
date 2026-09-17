@@ -9,12 +9,16 @@ import { EditorView, minimalSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { redo, selectAll, undo } from '@codemirror/commands';
 import { EditorSelection, Prec } from '@codemirror/state';
+import { editorColorScheme } from './editor-theme.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
 import { shortcutCommand } from './toggle-mark.js';
 
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
+const DEFAULT_FONT_SIZE = 16;
+const FONT_SIZE_MIN = 12;
+const FONT_SIZE_MAX = 24;
 
 /**
  * Matches the select-all gesture on any keyboard layout. Shortcut matching in
@@ -37,7 +41,9 @@ function isSelectAllEvent(event) {
  * @param {object} [options] View options.
  * @param {string} [options.document] Initial Markdown text.
  * @param {string} [options.label] Accessible label for the editor.
- * @param {string} [options.direction] Writing direction: 'rtl' (default) or 'ltr'.
+ * @param {string} [options.direction] Writing direction: 'rtl' (default), 'ltr', or 'auto'.
+ * @param {number} [options.fontSize] Editor font size in pixels (12-24, default 16).
+ * @param {string} [options.colorScheme] Editor colors: 'light' (default) or 'dark'.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
  *   focus(), undo(), redo(), gotoLine(line), destroy().
@@ -49,7 +55,10 @@ export function createMarkdownView(host, options = {}) {
     throw new Error('createMarkdownView requires an element host');
   }
   const onChange = typeof options.onChange === 'function' ? options.onChange : null;
-  const direction = options.direction === 'ltr' ? 'ltr' : 'rtl';
+  const direction = options.direction === 'ltr' || options.direction === 'auto' ? options.direction : 'rtl';
+  const fontSize = Number.isInteger(options.fontSize) && options.fontSize >= FONT_SIZE_MIN && options.fontSize <= FONT_SIZE_MAX
+    ? options.fontSize
+    : DEFAULT_FONT_SIZE;
   let current = typeof options.document === 'string' ? options.document : '';
   let destroyed = false;
 
@@ -63,6 +72,7 @@ export function createMarkdownView(host, options = {}) {
       ...livePreviewExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
+      ...editorColorScheme(options.colorScheme),
       // High precedence so our layout-independent shortcuts win over
       // defaultKeymap bindings for the same gesture (e.g. Mod-i, which the
       // default keymap claims for selectParentSyntax). Returning true stops
@@ -86,10 +96,10 @@ export function createMarkdownView(host, options = {}) {
       EditorView.editorAttributes.of({ dir: direction, 'aria-label': options.label ?? '' }),
       EditorView.theme({
         '&': {
-          direction,
+          ...(direction === 'auto' ? {} : { direction }),
           textAlign: 'start',
           fontFamily: PERSIAN_FONT,
-          fontSize: '1rem',
+          fontSize: `${fontSize}px`,
         },
         '& .cm-scroller': {
           fontFamily: PERSIAN_FONT,

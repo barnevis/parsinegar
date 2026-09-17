@@ -1,0 +1,43 @@
+{
+  "name": "parsinegar.settings",
+  "version": "0.1.0",
+  "architecture": "0.11",
+  "description": "Parsinegar user preferences: theme, document direction and editor font size over pey.storage.service",
+  "type": "product",
+  "dependencies": {
+    "required": ["pey.storage.service"],
+    "optional": []
+  },
+  "provides": [
+    {
+      "name": "parsinegar.settings.service",
+      "description": "Validated user preferences with defaults; single preferences record.",
+      "methods": [
+        {
+          "name": "getSettings",
+          "description": "Reads the stored preferences merged over defaults; missing record returns defaults.",
+          "params": [],
+          "returns": "Promise<object>",
+          "errors": []
+        },
+        {
+          "name": "saveSettings",
+          "description": "Validates the patch, merges it over current settings, stores and publishes settings:changed.",
+          "params": [
+            { "name": "patch", "type": "object" }
+          ],
+          "returns": "Promise<object>",
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "settings:changed",
+      "description": "Published after preferences are saved.",
+      "data": ["id"]
+    }
+  ],
+  "config": {}
+}

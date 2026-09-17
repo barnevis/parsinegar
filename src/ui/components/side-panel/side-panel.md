@@ -11,11 +11,11 @@ Renders view markup through the `../workbench/views.js` registry, which holds on
 Everything received through `connect(refs)`:
 
 - **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `assetBaseUrl` (icon sprite resolution, optional), `activeView` (view id, optional — defaults to `files`), `items` (documents for the files view, optional), `currentId` (open document id, optional), `documentText` (current document text for text views, optional — defaults to `''`).
+- **Config values:** `t` (translation, required — falls back to identity), `assetBaseUrl` (icon sprite resolution, optional), `formatNumber` (number formatter for the settings view, optional — falls back to `String`), `activeView` (view id, optional — defaults to `files`), `items` (documents for the files view, optional), `currentId` (open document id, optional), `documentText` (current document text for text views, optional — defaults to `''`), `settings` (preferences snapshot for the settings view, optional).
 
 ## Public API
 
-- `configure({ activeView, items, currentId, documentText })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. Example: `side.configure({ items, currentId, documentText: page.value })`.
+- `configure({ activeView, items, currentId, documentText, settings })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. Example: `side.configure({ items, currentId, documentText: page.value })`.
 
 ## Events
 
@@ -26,14 +26,17 @@ Everything received through `connect(refs)`:
 - `document-open` with `detail: { id }` — files-view open request.
 - `document-create` — files-view create request, no detail.
 - `document-delete` — files-view delete request, no detail.
+- `settings-change` with `detail: { key, value }` — settings radio change (`key` is `theme` or `direction`); syntactic shape only, the parent and service validate.
+- `settings-step` with `detail: { key, delta }` — font-size stepper intent (`key` is `fontSize`, `delta` is `+1`/`-1`); the parent computes and persists, the service clamps.
 
-**Listened to:** `click` (declared in `eventTypes()`).
+**Listened to:** `click` and `change` (declared in `eventTypes()`; `change` carries the radio-group selections).
 
 ## Local State
 
 - `#t` — translation function.
 - `#assetBaseUrl` — icon sprite base URL, or `null`.
-- `#activeView`, `#items`, `#currentId`, `#documentText` — last applied panel data.
+- `#formatNumber` — number formatter for the settings view, or `null`.
+- `#activeView`, `#items`, `#currentId`, `#documentText`, `#settings` — last applied panel data.
 - `#applied` — last rendered snapshot including the outline signature; the imminent first render paints exactly the `connect()` refs.
 
 ## Config

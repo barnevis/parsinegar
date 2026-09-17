@@ -28,7 +28,8 @@ test('should_wire_router_adapter_and_plugins_when_loaded', async () => {
   assert.ok(names.includes('pey.storage'));
   assert.ok(names.includes('parsinegar.app'));
   assert.ok(names.includes('parsinegar.documents'));
-  assert.equal(bootstrap.plugins.length, 4);
+  assert.ok(names.includes('parsinegar.settings'));
+  assert.equal(bootstrap.plugins.length, 5);
 });
 
 test('should_configure_documents_store_when_loaded', async () => {
@@ -37,6 +38,14 @@ test('should_configure_documents_store_when_loaded', async () => {
   const documents = stores.find((store) => store.name === 'documents');
   assert.ok(documents, 'expected a documents store');
   assert.equal(documents.keyPath, 'id');
+});
+
+test('should_configure_settings_store_when_loaded', async () => {
+  const bootstrap = await loadBootstrap();
+  const stores = bootstrap.config['pey.storage'].stores;
+  const settings = stores.find((store) => store.name === 'settings');
+  assert.ok(settings, 'expected a settings store');
+  assert.equal(settings.keyPath, 'id');
 });
 
 test('should_carry_persian_ui_config_when_loaded', async () => {

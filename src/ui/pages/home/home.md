@@ -10,8 +10,9 @@ Page-level component: the single workbench page, mounted by the kit page host on
 
 Everything received through `connect(refs)`:
 
-- **Services:** the full required-services map (currently `pey.router.service` + `parsinegar.documents.service`, both `required` in `src/ui/manifest.json`). This component uses only `parsinegar.documents.service` (list/open/save/create/delete); the router entry is present but unused. Without the documents service it degrades to in-memory editing of the sample (no save) — an explicit fallback, since the manifest still requires the service for the UI as a whole.
-- **Config values:** `t` (translation, required — falls back to identity), `format` (locale-aware formatting, optional — falls back to `String`), `assetBaseUrl` (icon sprite resolution, optional — rail degrades to text labels), `direction` (`ltr`/`rtl`, optional — defaults to `rtl`).
+- **Services:** the full required-services map (`pey.router.service` + `parsinegar.documents.service` + `parsinegar.settings.service`, all `required` in `src/ui/manifest.json`). This component uses documents (list/open/save/create/delete) and settings (`getSettings`/`saveSettings`); the router entry is present but unused. Without the documents service it degrades to in-memory editing of the sample (no save) — an explicit fallback, since the manifest still requires the service for the UI as a whole. Without the settings service, direction and font size stay on built-in fallbacks (`rtl`, `16px`) and settings events are ignored; editing never breaks.
+- **Config values:** `t` (translation, required — falls back to identity), `format` (locale-aware formatting, optional — falls back to `String`), `assetBaseUrl` (icon sprite resolution, optional — rail degrades to text labels). `direction` arrives but is intentionally ignored: the shell owns app-chrome direction while the edited document follows stored settings (see `../../../docs/decisions.md` §12).
+- **Config values:** `t` (translation, required — falls back to identity), `format` (locale-aware formatting, optional — falls back to `String`), `assetBaseUrl` (icon sprite resolution, optional — rail degrades to text labels). `direction` arrives but is intentionally ignored (see above).
 - **Event Bus facade:** `events` (scoped `{ subscribe, publish }`, optional — forwarded to children as `infrastructure.events`; see `../../../docs/decisions.md` §11). Without it only the editor is available; editing never breaks.
 - **Route params:** `routeParams`/`routeQuery` arrive via `defaultConnect` but are ignored; the page has no parameterized routes.
 
@@ -33,6 +34,10 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.
 - `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management.
+- `settings-change` with `detail: { key, value }` — persisted through the settings service (whitelisted to `theme`/`direction` with non-empty strings); the saved snapshot replaces `#settings` and remounts the editor. Theme itself reaches the shell through the `settings:changed` domain event handled by the entry point.
+- `settings-step` with `detail: { key, delta }` — persisted as a single font-size step (`fontSize` key, `±1` delta); out-of-range steps reject in the service and change nothing.
+
+Rapid settings events serialize through a write chain (`#chainSettingWrite`) so back-to-back changes apply in order instead of racing on stale reads.
 
 DOM page-level notification (not a bus event, declared nowhere because the manifest only governs `ui:*`): `parsi-page-home:changed` with `detail: { value }`, `bubbles: true`, `composed: true`, dispatched on every edit for future consumers.
 
@@ -49,6 +54,11 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
   be relied on); disconnected on disconnect.
 - `#saveTimer` — pending autosave handle (cleared on disconnect).
 - `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
+- `#settingsApi` — bound settings service, or `null` when absent.
+- `#settings` — last saved preferences snapshot (drives the side panel and the editor); `null` until loaded.
+- `#documentDirection`, `#fontSize` — applied document direction and editor font size (built-in fallbacks `rtl`/`16` until settings load).
+- `#settingsWrite` — serialization chain for settings writes (never rejects itself).
+- `#colorSchemeQuery`, `#onColorSchemeChange` — operating-system scheme watcher; remounts the editor only while the stored theme is `device`. Registered in `connectedCallback`, released in `disconnectedCallback`.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
 - `#confirmDeleteId` — pending delete-confirmation target rendered as a modal by the page itself.
 - `#events` — scoped Event Bus facade forwarded to children (see Dependencies).
@@ -66,5 +76,5 @@ Covered under Dependencies above (`t`, `format`, `assetBaseUrl`, `direction` wit
 
 ## Related Decisions and Flows
 
-- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception).
+- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception), §12 (settings).
 - `../../../docs/ui/user-flows.md`: boot → editor, edit → autosave, switch/create/delete, outline jump.

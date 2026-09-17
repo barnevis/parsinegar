@@ -142,3 +142,59 @@ test('should_skip_render_when_outline_is_unchanged', async () => {
     element.remove();
   }
 });
+
+test('should_render_settings_when_settings_view_is_active', async () => {
+  const element = mount({
+    activeView: 'settings',
+    settings: { theme: 'dark', direction: 'rtl', fontSize: 18 },
+    formatNumber: (value) => `【${value}】`,
+  });
+  try {
+    await flush();
+    const checked = element.shadowRoot.querySelector('input[data-setting="theme"]:checked');
+    assert.equal(checked?.value, 'dark');
+    assert.equal(
+      element.shadowRoot.querySelector('input[data-setting="direction"]:checked')?.value,
+      'rtl',
+    );
+    assert.equal(element.shadowRoot.querySelector('[part="settings-value"]')?.textContent, '【18】');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_setting_change_when_radio_changes', async () => {
+  const element = mount({
+    activeView: 'settings',
+    settings: { theme: 'dark', direction: 'rtl', fontSize: 18 },
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('settings-change', (event) => seen.push(event.detail));
+    const input = element.shadowRoot.querySelector('input[data-setting="theme"][value="light"]');
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    assert.deepEqual(seen, [{ key: 'theme', value: 'light' }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_setting_step_when_stepper_is_clicked', async () => {
+  const element = mount({
+    activeView: 'settings',
+    settings: { theme: 'dark', direction: 'rtl', fontSize: 18 },
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('settings-step', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[part="settings-more"]').click();
+    await flush();
+    assert.deepEqual(seen, [{ key: 'fontSize', delta: 1 }]);
+  } finally {
+    element.remove();
+  }
+});

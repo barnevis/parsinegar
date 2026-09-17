@@ -401,7 +401,7 @@ test('should_render_rail_with_views_when_mounted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const rail = inChildAll(element, 'parsi-activity-rail', '[data-view]');
-    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline']);
+    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'settings']);
     assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="files"]').getAttribute('aria-pressed'), 'true');
     assert.ok(child(element, 'parsi-side-panel'), 'expected the side panel');
   } finally {
@@ -690,6 +690,128 @@ test('should_update_outline_targets_when_lines_shift_while_typing', async () => 
     await settled();
     const jump = inChild(element, 'parsi-side-panel', '[data-line="2"]');
     assert.ok(jump, 'expected the shifted line number');
+  } finally {
+    element.remove();
+  }
+});
+
+function createSettings(initial = { theme: 'device', direction: 'auto', fontSize: 16 }) {
+  let current = { ...initial };
+  const service = {
+    calls: [],
+    async getSettings() {
+      return { ...current };
+    },
+    async saveSettings(patch = {}) {
+      current = { ...current, ...patch };
+      service.calls.push({ ...patch });
+      return { ...current };
+    },
+  };
+  return service;
+}
+
+async function mountWithSettings(documents, settings) {
+  const element = document.createElement(TAG);
+  element.connect({
+    infrastructure: { events: createEvents() },
+    refs: {
+      t: translate,
+      assetBaseUrl: ASSET_BASE_URL,
+      events: createEvents(),
+      services: {
+        'parsinegar.documents.service': documents,
+        'parsinegar.settings.service': settings,
+      },
+    },
+  });
+  document.body.append(element);
+  await settled();
+  return element;
+}
+
+test('should_apply_stored_direction_and_font_size_when_mounted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'ltr', fontSize: 20 });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    assert.equal(element.shadowRoot.querySelector('.cm-editor')?.getAttribute('dir'), 'ltr');
+    inChild(element, 'parsi-activity-rail', '[data-view="settings"]').click();
+    await settled();
+    assert.equal(inChild(element, 'parsi-side-panel', '[part="settings-value"]')?.textContent, '20');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_persist_direction_when_settings_change_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('settings-change', { bubbles: true, detail: { key: 'direction', value: 'ltr' } }),
+    );
+    await settled();
+    await settled();
+    assert.deepEqual(settings.calls, [{ direction: 'ltr' }]);
+    assert.equal(element.shadowRoot.querySelector('.cm-editor')?.getAttribute('dir'), 'ltr');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_step_font_size_when_settings_step_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('settings-step', { bubbles: true, detail: { key: 'fontSize', delta: 1 } }),
+    );
+    await settled();
+    await settled();
+    assert.deepEqual(settings.calls, [{ fontSize: 17 }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_ignore_unknown_setting_keys_when_event_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings();
+  const element = await mountWithSettings(documents, settings);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('settings-change', { bubbles: true, detail: { key: 'nope', value: 'x' } }),
+    );
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('settings-step', { bubbles: true, detail: { key: 'fontSize', delta: 5 } }),
+    );
+    await settled();
+    await settled();
+    assert.deepEqual(settings.calls, []);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_apply_rapid_changes_in_order_when_events_arrive_together', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    const side = child(element, 'parsi-side-panel');
+    side.dispatchEvent(
+      new CustomEvent('settings-step', { bubbles: true, detail: { key: 'fontSize', delta: 1 } }),
+    );
+    side.dispatchEvent(
+      new CustomEvent('settings-step', { bubbles: true, detail: { key: 'fontSize', delta: 1 } }),
+    );
+    await settled();
+    await settled();
+    await settled();
+    assert.deepEqual(settings.calls, [{ fontSize: 17 }, { fontSize: 18 }]);
   } finally {
     element.remove();
   }

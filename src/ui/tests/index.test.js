@@ -46,15 +46,29 @@ function createDocuments(initial = []) {
   };
 }
 
-function createContext({ router, documents } = {}) {
+function createContext({ router, documents, settings } = {}) {
   return {
     services: {
       [PEY_ROUTER_SERVICE]: router ?? createRouter(),
       'parsinegar.documents.service': documents ?? createDocuments(),
+      'parsinegar.settings.service': settings ?? createSettings(),
     },
     events: createEvents(),
     config: { theme: 'system', language: 'fa', direction: 'rtl', fallbackPath: '/', assetBaseUrl: './assets' },
     onShutdown: null,
+  };
+}
+
+function createSettings(initial = { theme: 'device', direction: 'auto', fontSize: 16 }) {
+  let current = { ...initial };
+  return {
+    async getSettings() {
+      return { ...current };
+    },
+    async saveSettings(patch = {}) {
+      current = { ...current, ...patch };
+      return { ...current };
+    },
   };
 }
 
@@ -150,4 +164,33 @@ test('should_fail_clearly_when_documents_service_is_missing', async () => {
   delete context.services['parsinegar.documents.service'];
   const error = await setup(context).then(() => null, (failure) => failure);
   assert.equal(error?.code, 'PEY_WEBUI_REQUIRED_SERVICE_UNAVAILABLE');
+});
+
+test('should_apply_stored_theme_when_setup_runs', async () => {
+  const settings = createSettings({ theme: 'dark', direction: 'rtl', fontSize: 16 });
+  const context = createContext({ settings });
+  await setup(context);
+  try {
+    await settled();
+    assert.equal(document.querySelector('pey-app-shell')?.getAttribute('data-theme'), 'dark');
+    assert.equal(document.documentElement.dataset.theme, 'dark');
+  } finally {
+    context.onShutdown?.();
+    document.querySelector('pey-app-shell')?.remove();
+    document.querySelector('parsi-page-home')?.remove();
+  }
+});
+
+test('should_clear_document_theme_when_shutdown_runs', async () => {
+  const context = createContext();
+  await setup(context);
+  try {
+    await settled();
+    assert.equal(document.documentElement.dataset.theme, 'device');
+  } finally {
+    context.onShutdown?.();
+    document.querySelector('pey-app-shell')?.remove();
+    document.querySelector('parsi-page-home')?.remove();
+  }
+  assert.equal(document.documentElement.dataset.theme, undefined);
 });

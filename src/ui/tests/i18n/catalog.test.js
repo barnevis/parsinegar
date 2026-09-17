@@ -25,6 +25,18 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.menu.file',
     'parsinegar.action.undo',
     'parsinegar.views.files',
+    'parsinegar.views.settings',
+    'parsinegar.settings.theme',
+    'parsinegar.settings.theme-light',
+    'parsinegar.settings.theme-dark',
+    'parsinegar.settings.theme-device',
+    'parsinegar.settings.direction',
+    'parsinegar.settings.direction-auto',
+    'parsinegar.settings.direction-rtl',
+    'parsinegar.settings.direction-ltr',
+    'parsinegar.settings.font-size',
+    'parsinegar.settings.decrease',
+    'parsinegar.settings.increase',
     'parsinegar.stats.words',
   ]) {
     assert.ok(typeof catalog.fa[key] === 'string' && catalog.fa[key].length > 0, `missing key: ${key}`);
