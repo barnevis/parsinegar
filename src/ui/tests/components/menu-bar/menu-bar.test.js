@@ -123,3 +123,18 @@ test('should_paint_chrome_surface_when_mounted', async () => {
     element.remove();
   }
 });
+
+test('should_keep_button_plain_when_menu_is_open', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const openButton = () => element.shadowRoot.querySelector('[data-menu="file"]');
+    openButton().click();
+    await flush();
+    assert.equal(openButton().getAttribute('aria-expanded'), 'true');
+    const styles = element.shadowRoot.querySelector('style')?.textContent ?? '';
+    assert.ok(!styles.includes('aria-expanded'), 'expected no expanded-state styling');
+  } finally {
+    element.remove();
+  }
+});

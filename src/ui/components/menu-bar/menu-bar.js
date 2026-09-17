@@ -138,9 +138,6 @@ class ParsiMenuBar extends PeyElement {
         [part="menu-button"]:hover {
           background-color: var(--pey-color-surface, #f1f1f5);
         }
-        [part="menu-button"][aria-expanded="true"] {
-          border-color: var(--pey-color-border, #c8c8d2);
-        }
         [part="menu-dropdown"] {
           position: absolute;
           inset-block-start: calc(100% + 0.25rem);
