@@ -186,7 +186,9 @@ test('should_clear_document_theme_when_shutdown_runs', async () => {
   await setup(context);
   try {
     await settled();
-    assert.equal(document.documentElement.dataset.theme, 'device');
+    // Default settings say `device`; the document reflects the kit
+    // vocabulary `system` so the media-query scope resolves it.
+    assert.equal(document.documentElement.dataset.theme, 'system');
   } finally {
     context.onShutdown?.();
     document.querySelector('pey-app-shell')?.remove();

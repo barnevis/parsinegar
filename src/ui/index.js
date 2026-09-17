@@ -27,8 +27,12 @@ async function applyStoredTheme(resources) {
     return;
   }
   const theme = THEMES.includes(stored?.theme) ? stored.theme : 'device';
-  resources.sharedState?.set('theme', theme);
-  document.documentElement.dataset.theme = theme;
+  // The settings domain says `device`; the kit config and the stylesheets
+  // say `system` — normalize once here so both resolve through the same
+  // media-query scope instead of matching nothing.
+  const presentation = theme === 'device' ? 'system' : theme;
+  resources.sharedState?.set('theme', presentation);
+  document.documentElement.dataset.theme = presentation;
 }
 
 /**
