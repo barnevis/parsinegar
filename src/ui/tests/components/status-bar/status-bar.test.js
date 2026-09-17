@@ -27,14 +27,26 @@ function mount(refs = {}) {
 
 function statsOf(element) {
   const value = (part) => element.shadowRoot.querySelector(`[data-stat="${part}"]`)?.textContent;
-  return { chars: value('chars'), words: value('words'), lines: value('lines') };
+  return {
+    chars: value('chars'),
+    letters: value('letters'),
+    words: value('words'),
+    lines: value('lines'),
+    size: value('size'),
+  };
 }
 
 test('should_render_zero_stats_when_mounted', async () => {
   const element = mount();
   try {
     await flush();
-    assert.deepEqual(statsOf(element), { chars: '0', words: '0', lines: '0' });
+    assert.deepEqual(statsOf(element), {
+      chars: '0',
+      letters: '0',
+      words: '0',
+      lines: '0',
+      size: '0 parsinegar.stats.bytes',
+    });
   } finally {
     element.remove();
   }
@@ -44,9 +56,18 @@ test('should_update_stats_when_configured', async () => {
   const element = mount();
   try {
     await flush();
-    element.configure({ stats: { chars: 10, words: 2, lines: 1 }, formatNumber: (value) => `#${value}` });
+    element.configure({
+      stats: { chars: 10, letters: 8, words: 2, lines: 1, bytes: 2048 },
+      formatNumber: (value) => `#${value}`,
+    });
     await flush();
-    assert.deepEqual(statsOf(element), { chars: '#10', words: '#2', lines: '#1' });
+    assert.deepEqual(statsOf(element), {
+      chars: '#10',
+      letters: '#8',
+      words: '#2',
+      lines: '#1',
+      size: '#2 parsinegar.stats.kilobytes',
+    });
   } finally {
     element.remove();
   }

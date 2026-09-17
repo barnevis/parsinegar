@@ -39,6 +39,10 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.settings.decrease',
     'parsinegar.settings.increase',
     'parsinegar.stats.words',
+    'parsinegar.stats.letters',
+    'parsinegar.stats.size',
+    'parsinegar.stats.bytes',
+    'parsinegar.stats.kilobytes',
   ]) {
     assert.ok(typeof catalog.fa[key] === 'string' && catalog.fa[key].length > 0, `missing key: ${key}`);
   }

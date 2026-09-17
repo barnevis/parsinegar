@@ -3,12 +3,13 @@
 // Pure display driven entirely by configure(); emits nothing.
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml } from '../workbench/html.js';
+import { formatFileSize } from '../workbench/stats.js';
 
 const TAG = 'parsi-status-bar';
 
 class ParsiStatusBar extends PeyElement {
   #t = (key) => key;
-  #stats = { chars: 0, words: 0, lines: 0 };
+  #stats = { chars: 0, letters: 0, words: 0, lines: 0, bytes: 0 };
   #formatNumber = null;
 
   onConnect(refs = {}) {
@@ -20,7 +21,7 @@ class ParsiStatusBar extends PeyElement {
   /**
    * Updates the displayed statistics.
    * @param {object} data New data.
-   * @param {object} [data.stats] `{ chars, words, lines }`.
+   * @param {object} [data.stats] `{ chars, letters, words, lines, bytes }`.
    * @param {Function} [data.formatNumber] Number formatter.
    * @returns {void}
    */
@@ -36,7 +37,7 @@ class ParsiStatusBar extends PeyElement {
 
   render() {
     const format = typeof this.#formatNumber === 'function' ? this.#formatNumber : String;
-    const safe = this.#stats ?? { chars: 0, words: 0, lines: 0 };
+    const safe = this.#stats ?? { chars: 0, letters: 0, words: 0, lines: 0, bytes: 0 };
     return `
       <style>
         [part="statusbar"] {
@@ -52,9 +53,11 @@ class ParsiStatusBar extends PeyElement {
         }
       </style>
       <footer part="statusbar">
-        <span part="stat"><b part="stat-value" data-stat="chars">${format(safe.chars)}</b> ${escapeHtml(this.#t('parsinegar.stats.chars'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="words">${format(safe.words)}</b> ${escapeHtml(this.#t('parsinegar.stats.words'))}</span>
-        <span part="stat"><b part="stat-value" data-stat="lines">${format(safe.lines)}</b> ${escapeHtml(this.#t('parsinegar.stats.lines'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="chars">${format(safe.chars ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.chars'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="letters">${format(safe.letters ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.letters'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="words">${format(safe.words ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.words'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="lines">${format(safe.lines ?? 0)}</b> ${escapeHtml(this.#t('parsinegar.stats.lines'))}</span>
+        <span part="stat"><b part="stat-value" data-stat="size">${escapeHtml(formatFileSize(safe.bytes ?? 0, format, this.#t))}</b> ${escapeHtml(this.#t('parsinegar.stats.size'))}</span>
       </footer>`;
   }
 }

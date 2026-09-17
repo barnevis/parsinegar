@@ -9,7 +9,7 @@ This folder owns the pure helper modules behind the workbench page: no services,
 - `views-outline.js` — `renderOutlineView({ t, documentText })`: heading outline with navigation targets.
 - `views-settings.js` — `renderSettingsView({ t, settings, formatNumber })`: theme/direction radio groups plus the font-size stepper. Pure display; controls report through `settings-change` (`{ key, value }`) and `settings-step` (`{ key, delta }`) events that `parsi-side-panel` forwards to the page. Validation and persistence live in the settings service, never here; out-of-range steps simply reject there and change nothing.
 - `menu-model.js` — `buildMenuModel({ t, hasDocument })`: menu bar as pure data consumed by `parsi-menu-bar`.
-- `stats.js` — `countStats(text)`: characters (with spaces), whitespace-split words (half-space safe), lines.
+- `stats.js` — `countStats(text)`: characters (with spaces), Unicode letters (no whitespace, digits, punctuation or half-space joiners), whitespace-split words (half-space safe), lines, UTF-8 bytes; `formatFileSize(bytes, formatNumber, t)`: bytes or kilobytes with one decimal.
 - `outline.js` — `parseOutline(text)`: ATX headings as `[{ level, text, line }]` with 1-based lines; `outlineSignature(value)` for cheap change detection.
 - `html.js` — `escapeHtml(value)` shared by every template that interpolates user content; `iconMarkup(base, name)` for sprite icons.
 - `modal.js` — `renderConfirmModal({ t, title, assetBaseUrl })`: delete-confirmation dialog rendered by the page itself.

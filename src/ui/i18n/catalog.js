@@ -40,8 +40,12 @@ const catalog = {
     'parsinegar.settings.decrease': 'کوچک‌تر',
     'parsinegar.settings.increase': 'بزرگ‌تر',
     'parsinegar.stats.chars': 'نویسه',
+    'parsinegar.stats.letters': 'حرف',
     'parsinegar.stats.words': 'واژه',
     'parsinegar.stats.lines': 'خط',
+    'parsinegar.stats.size': 'حجم',
+    'parsinegar.stats.bytes': 'بایت',
+    'parsinegar.stats.kilobytes': 'کیلوبایت',
   },
 };
 

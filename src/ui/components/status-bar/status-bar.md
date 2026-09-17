@@ -11,7 +11,7 @@ Pure display driven entirely by `configure()`; emits nothing. Number formatting 
 Everything received through `connect(refs)` plus `configure()`:
 
 - **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `stats` (`{ chars, words, lines }`, via `configure()` — defaults to zeros), `formatNumber` (number formatter, via `configure()` — falls back to `String`).
+- **Config values:** `t` (translation, required — falls back to identity), `stats` (`{ chars, letters, words, lines, bytes }`, via `configure()` — defaults to zeros), `formatNumber` (number formatter, via `configure()` — falls back to `String`). The byte count renders through `formatFileSize` as bytes or kilobytes.
 
 ## Public API
 
@@ -26,7 +26,7 @@ Everything received through `connect(refs)` plus `configure()`:
 ## Local State
 
 - `#t` — translation function.
-- `#stats` — last received `{ chars, words, lines }` (never computed here).
+- `#stats` — last received `{ chars, letters, words, lines, bytes }` (never computed here).
 - `#formatNumber` — last received formatter, or `null`.
 
 ## Config
