@@ -30,6 +30,7 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.settings.theme-light',
     'parsinegar.settings.theme-dark',
     'parsinegar.settings.theme-device',
+    'parsinegar.settings.theme-sepia',
     'parsinegar.settings.direction',
     'parsinegar.settings.direction-auto',
     'parsinegar.settings.direction-rtl',

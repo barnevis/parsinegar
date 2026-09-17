@@ -22,7 +22,7 @@ Application plugin for Parsinegar: validated user preferences over `pey.storage.
 
 **Service:** `parsinegar.settings.service`. Settings are `{ theme, direction, fontSize }`:
 
-- `theme`: `'light'`, `'dark'` or `'device'` (follow the operating system).
+- `theme`: `'light'`, `'dark'`, `'device'` (follow the operating system) or `'sepia'`.
 - `direction`: `'auto'`, `'rtl'` or `'ltr'` — base direction of the edited document.
 - `fontSize`: integer editor font size in pixels, `12`–`24`.
 

@@ -17,3 +17,8 @@ test('should_return_theme_extensions_when_scheme_is_dark', () => {
   const extensions = editorColorScheme('dark');
   assert.equal(extensions.length, 1);
 });
+
+test('should_return_theme_extensions_when_scheme_is_sepia', () => {
+  const extensions = editorColorScheme('sepia');
+  assert.equal(extensions.length, 1);
+});

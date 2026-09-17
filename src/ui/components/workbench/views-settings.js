@@ -47,6 +47,7 @@ export function renderSettingsView({ t, settings, formatNumber }) {
         ${renderOption(translate, 'parsi-settings-theme', 'theme', 'light', 'parsinegar.settings.theme-light', snapshot.theme)}
         ${renderOption(translate, 'parsi-settings-theme', 'theme', 'dark', 'parsinegar.settings.theme-dark', snapshot.theme)}
         ${renderOption(translate, 'parsi-settings-theme', 'theme', 'device', 'parsinegar.settings.theme-device', snapshot.theme)}
+        ${renderOption(translate, 'parsi-settings-theme', 'theme', 'sepia', 'parsinegar.settings.theme-sepia', snapshot.theme)}
       </fieldset>
       <fieldset part="settings-group">
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.settings.direction'))}</legend>

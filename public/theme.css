@@ -1,9 +1,10 @@
 /* Document-level theme scopes (light DOM only; components style themselves).
    The UI entry point reflects the stored theme onto both the document element
    (this file) and the shell host (kit shared-state subscription), from the
-   same value. Dark tokens live here at :root scope so head-injected editor
+   same value. Tokens live here at :root scope so head-injected editor
    styles resolve them too — shell-scoped overrides would be invisible there.
-   The two blocks below must stay in sync: explicit dark plus system-follows-OS. */
+   Scopes: explicit `dark`, `system`-follows-OS (mirrors the dark block, kept
+   in sync), and explicit `sepia`. */
 
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -12,9 +13,9 @@ html[data-theme="dark"] {
   --pey-color-text: #e8eaf0;
   --pey-color-text-muted: #9aa3b2;
   --pey-color-border: #2e3642;
-  --pey-color-accent: #6ea8ff;
+  --pey-color-accent: #5eead4;
   --pey-color-status-error: #e07070;
-  --pey-color-focus-ring: rgb(110 168 255 / 0.5);
+  --pey-color-focus-ring: rgb(94 234 212 / 0.45);
 }
 
 html[data-theme="dark"] body {
@@ -39,4 +40,20 @@ html[data-theme="dark"] body {
     color: #e8eaf0;
     background-color: #10141a;
   }
+}
+
+html[data-theme="sepia"] {
+  --pey-color-canvas: #f4ecd8;
+  --pey-color-surface: #e8dcca;
+  --pey-color-text: #5f4b32;
+  --pey-color-text-muted: #8c6d46;
+  --pey-color-border: #d3c4b3;
+  --pey-color-accent: #8c6d46;
+  --pey-color-status-error: #b3402e;
+  --pey-color-focus-ring: rgb(95 75 50 / 0.45);
+}
+
+html[data-theme="sepia"] body {
+  color: #5f4b32;
+  background-color: #efe3cb;
 }

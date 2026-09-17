@@ -31,6 +31,7 @@ const catalog = {
     'parsinegar.settings.theme-light': 'روشن',
     'parsinegar.settings.theme-dark': 'تیره',
     'parsinegar.settings.theme-device': 'دستگاه',
+    'parsinegar.settings.theme-sepia': 'سپیا',
     'parsinegar.settings.direction': 'جهت متن',
     'parsinegar.settings.direction-auto': 'خودکار',
     'parsinegar.settings.direction-rtl': 'راست‌به‌چپ',

@@ -21,6 +21,7 @@ test('should_translate_every_label_when_rendered', () => {
     'parsinegar.settings.theme-light',
     'parsinegar.settings.theme-dark',
     'parsinegar.settings.theme-device',
+    'parsinegar.settings.theme-sepia',
     'parsinegar.settings.direction',
     'parsinegar.settings.direction-auto',
     'parsinegar.settings.direction-rtl',
@@ -51,4 +52,15 @@ test('should_use_stepper_buttons_for_font_size_when_rendered', () => {
   const markup = renderSettingsView({ t: (key) => key, settings, formatNumber: String });
   assert.ok(markup.includes('data-setting-key="fontSize" data-setting-step="-1"'));
   assert.ok(markup.includes('data-setting-key="fontSize" data-setting-step="1"'));
+});
+
+test('should_offer_four_themes_when_rendered', () => {
+  const markup = renderSettingsView({
+    t: (key) => key,
+    settings: { theme: 'sepia', direction: 'auto', fontSize: 16 },
+    formatNumber: String,
+  });
+  const checked = markup.match(/value="(light|dark|device|sepia)" checked/g) ?? [];
+  assert.deepEqual(checked, ['value="sepia" checked']);
+  assert.equal((markup.match(/data-setting="theme"/g) ?? []).length, 4);
 });

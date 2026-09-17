@@ -9,7 +9,7 @@ const COLLECTION = 'settings';
 const RECORD_ID = 'preferences';
 const CHANGED_EVENT = 'settings:changed';
 
-const THEMES = ['light', 'dark', 'device'];
+const THEMES = ['light', 'dark', 'device', 'sepia'];
 const DIRECTIONS = ['auto', 'rtl', 'ltr'];
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 24;

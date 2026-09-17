@@ -1,5 +1,11 @@
 # Changelog — parsinegar.settings
 
+## [0.2.0]
+
+### Added
+
+- Accepted `sepia` theme value (validated like the other themes).
+
 ## [0.1.0]
 
 ### Added

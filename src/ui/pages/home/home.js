@@ -262,11 +262,14 @@ class ParsiPageHome extends PeyElement {
 
   /**
    * Resolves the editor color scheme from the stored theme.
-   * @returns {string} 'dark' or 'light'.
+   * @returns {string} 'dark', 'sepia' or 'light'.
    */
   #resolveColorScheme() {
     if (this.#settings?.theme === 'dark') {
       return 'dark';
+    }
+    if (this.#settings?.theme === 'sepia') {
+      return 'sepia';
     }
     if (this.#settings?.theme === 'device') {
       try {

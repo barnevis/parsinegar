@@ -11,7 +11,7 @@ import appCatalog from './i18n/catalog.js';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
 const SETTINGS_CHANGED_EVENT = 'settings:changed';
-const THEMES = ['light', 'dark', 'device'];
+const THEMES = ['light', 'dark', 'device', 'sepia'];
 
 /**
  * Reads the stored theme and reflects it onto the shell (through the

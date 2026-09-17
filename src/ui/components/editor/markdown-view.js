@@ -43,7 +43,7 @@ function isSelectAllEvent(event) {
  * @param {string} [options.label] Accessible label for the editor.
  * @param {string} [options.direction] Writing direction: 'rtl' (default), 'ltr', or 'auto'.
  * @param {number} [options.fontSize] Editor font size in pixels (12-24, default 16).
- * @param {string} [options.colorScheme] Editor colors: 'light' (default) or 'dark'.
+ * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
  *   focus(), undo(), redo(), gotoLine(line), destroy().

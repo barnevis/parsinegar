@@ -96,3 +96,8 @@ test('should_fail_with_structured_error_when_storage_is_missing', async () => {
   assert.equal(error?.code, 'SETTINGS_STORAGE_UNAVAILABLE');
   assert.equal(typeof error?.timestamp, 'string');
 });
+
+test('should_save_sepia_theme_when_saving', async () => {
+  const service = createService(createState());
+  assert.deepEqual(await service.saveSettings({ theme: 'sepia' }), { ...DEFAULT_SETTINGS, theme: 'sepia' });
+});

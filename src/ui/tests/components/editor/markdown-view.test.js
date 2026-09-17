@@ -305,3 +305,13 @@ test('should_apply_dark_selection_when_color_scheme_is_dark', () => {
     editor.destroy();
   }
 });
+
+test('should_apply_sepia_selection_when_color_scheme_is_sepia', () => {
+  const host = document.createElement('div');
+  const editor = createMarkdownView(host, { document: 'x', colorScheme: 'sepia' });
+  try {
+    assert.ok(hasRule('cm-selectionBackground', 'background-color', '#d3c4b3'));
+  } finally {
+    editor.destroy();
+  }
+});
