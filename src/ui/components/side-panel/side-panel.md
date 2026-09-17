@@ -15,7 +15,7 @@ Everything received through `connect(refs)`:
 
 ## Public API
 
-- `configure({ activeView, items, currentId, documentText, settings })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. Example: `side.configure({ items, currentId, documentText: page.value })`.
+- `configure({ activeView, items, currentId, documentText, settings, activeLine })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. Example: `side.configure({ items, currentId, documentText: page.value })`.
 
 ## Events
 
@@ -37,6 +37,7 @@ Everything received through `connect(refs)`:
 - `#assetBaseUrl` — icon sprite base URL, or `null`.
 - `#formatNumber` — number formatter for the settings view, or `null`.
 - `#activeView`, `#items`, `#currentId`, `#documentText`, `#settings` — last applied panel data.
+- `#activeLine` — highlighted outline heading line for scrollspy (compared by value in the snapshot).
 - `#applied` — last rendered snapshot including the outline signature; the imminent first render paints exactly the `connect()` refs.
 
 ## Config

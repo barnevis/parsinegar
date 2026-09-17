@@ -198,3 +198,33 @@ test('should_emit_setting_step_when_stepper_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_highlight_outline_heading_when_active_line_is_configured', async () => {
+  const element = mount({ activeView: 'outline', documentText: '# الف\nمتن\n## ب' });
+  try {
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[aria-current="true"]'), null);
+    element.configure({ activeLine: 3 });
+    await flush();
+    const current = element.shadowRoot.querySelector('[aria-current="true"]');
+    assert.equal(current?.getAttribute('data-line'), '3');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_skip_render_when_active_line_is_unchanged', async () => {
+  const element = mount({ activeView: 'outline', documentText: '# الف\nمتن' });
+  try {
+    await flush();
+    element.configure({ activeLine: 1 });
+    await flush();
+    const first = element.shadowRoot.querySelector('[data-line="1"]');
+    assert.ok(first);
+    element.configure({ activeLine: 1 });
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-line="1"]'), first);
+  } finally {
+    element.remove();
+  }
+});

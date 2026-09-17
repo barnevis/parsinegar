@@ -35,3 +35,19 @@ test('should_render_empty_state_when_no_headings', () => {
   assert.ok(html.includes('part="outline-empty"'));
   assert.ok(html.includes('خالی'));
 });
+
+test('should_highlight_active_heading_when_active_line_is_given', () => {
+  const html = renderOutlineView({ t: translate, documentText: '# یک\nمتن\n## دو', activeLine: 3 });
+  assert.ok(html.includes('data-line="3" aria-current="true"'), 'expected current on line 3');
+  assert.ok(!html.includes('data-line="1" aria-current'), 'expected no current on line 1');
+});
+
+test('should_highlight_nothing_when_active_line_matches_no_heading', () => {
+  const html = renderOutlineView({ t: translate, documentText: '# یک\nمتن', activeLine: 2 });
+  assert.ok(!html.includes('aria-current'), 'expected no highlight');
+});
+
+test('should_highlight_nothing_when_active_line_is_absent', () => {
+  const html = renderOutlineView({ t: translate, documentText: '# یک\nمتن' });
+  assert.ok(!html.includes('aria-current'), 'expected no highlight');
+});

@@ -354,3 +354,28 @@ test('should_reject_unknown_kind_when_insert_mark_is_called', () => {
     host.remove();
   }
 });
+
+test('should_report_first_line_when_visible_line_is_read', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'a\nb' });
+  try {
+    // jsdom has no layout, so the viewport always resolves to line 1.
+    assert.equal(editor.visibleLine(), 1);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_fall_back_to_first_line_when_destroyed', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'a\nb' });
+  try {
+    editor.destroy();
+    assert.equal(editor.visibleLine(), 1);
+  } finally {
+    host.remove();
+  }
+});

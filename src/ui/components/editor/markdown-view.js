@@ -57,7 +57,8 @@ function isSelectAllEvent(event) {
  * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
- *   focus(), undo(), redo(), gotoLine(line), insertMark(kind), destroy().
+ *   focus(), undo(), redo(), gotoLine(line), visibleLine(),
+ *   insertMark(kind), destroy().
  * @throws {Error} When host is not an element.
  */
 export function createMarkdownView(host, options = {}) {
@@ -204,6 +205,28 @@ export function createMarkdownView(host, options = {}) {
         selection: EditorSelection.cursor(view.state.doc.line(safe).from),
         scrollIntoView: true,
       });
+    },
+    /**
+     * Returns the 1-based line number visible at the given viewport offset,
+     * so it works no matter which ancestor scrolls. Falls back to 1.
+     * @param {number} [viewportTop] Viewport Y of the visible area top.
+     * @returns {number} Visible line number, 1 on failure or after destroy.
+     */
+    visibleLine(viewportTop = 0) {
+      if (destroyed) {
+        return 1;
+      }
+      try {
+        const top = typeof viewportTop === 'number' && Number.isFinite(viewportTop) ? viewportTop : 0;
+        const box = view.scrollDOM.getBoundingClientRect();
+        const pos = view.posAtCoords({ x: box.left + box.width / 2, y: top + 2 });
+        if (typeof pos !== 'number') {
+          return 1;
+        }
+        return view.state.doc.lineAt(pos).number;
+      } catch {
+        return 1;
+      }
     },
     /**
      * Inserts a Markdown mark at the cursor or wraps the selection, using

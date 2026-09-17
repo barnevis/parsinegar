@@ -7,6 +7,7 @@ import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
+import { parseOutline } from '../../components/workbench/outline.js';
 import { renderConfirmModal } from '../../components/workbench/modal.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
@@ -44,6 +45,7 @@ class ParsiPageHome extends PeyElement {
   #settingsWrite = Promise.resolve();
   #documentDirection = 'rtl';
   #fontSize = 16;
+  #outlineActiveLine = null;
   #editor = null;
   #items = [];
   #currentId = null;
@@ -56,6 +58,21 @@ class ParsiPageHome extends PeyElement {
   #confirmDeleteId = null;
   #renderObserver = null;
   #editorHost = null;
+  #centerEl = null;
+  #scrollFrame = 0;
+  #onCenterScroll = () => {
+    if (this.#scrollFrame !== 0) {
+      return;
+    }
+    if (typeof globalThis.requestAnimationFrame === 'function') {
+      this.#scrollFrame = globalThis.requestAnimationFrame(() => {
+        this.#scrollFrame = 0;
+        this.#reportScrollPosition();
+      });
+    } else {
+      this.#reportScrollPosition();
+    }
+  };
   #colorSchemeQuery = null;
   #onColorSchemeChange = () => {
     const settings = this.#settings;
@@ -211,6 +228,7 @@ class ParsiPageHome extends PeyElement {
     this.#clearSaveTimer();
     this.#unmountEditor();
     this.#unwatchColorScheme();
+    this.#unwatchCenterScroll();
     this.#renderObserver?.disconnect();
     this.#renderObserver = null;
     super.disconnectedCallback();
@@ -231,6 +249,12 @@ class ParsiPageHome extends PeyElement {
     this.#renderObserver = new MutationObserver(() => {
       if (!this.isConnected) {
         return;
+      }
+      const center = this.shadowRoot.querySelector('[part="center"]');
+      if (center && center !== this.#centerEl) {
+        this.#unwatchCenterScroll();
+        this.#centerEl = center;
+        center.addEventListener('scroll', this.#onCenterScroll, { passive: true });
       }
       const host = this.shadowRoot.querySelector('[part="editor-host"]');
       if (!host) {
@@ -270,6 +294,40 @@ class ParsiPageHome extends PeyElement {
       // Listener removal is best-effort during teardown.
     }
     this.#colorSchemeQuery = null;
+  }
+
+  /**
+   * Detaches the center-column scroll listener and drops a pending frame.
+   * @returns {void}
+   */
+  #unwatchCenterScroll() {
+    this.#centerEl?.removeEventListener('scroll', this.#onCenterScroll);
+    if (this.#scrollFrame !== 0 && typeof globalThis.cancelAnimationFrame === 'function') {
+      globalThis.cancelAnimationFrame(this.#scrollFrame);
+    }
+    this.#centerEl = null;
+    this.#scrollFrame = 0;
+  }
+
+  /**
+   * Reads the visible editor line and forwards it to the heading mapping.
+   * The center column (not the editor scroller) scrolls in this layout, so
+   * the measurement starts at the center top in viewport coordinates.
+   * @returns {void}
+   */
+  #reportScrollPosition() {
+    if (!this.isConnected || !this.#editor) {
+      return;
+    }
+    const box = this.#centerEl?.getBoundingClientRect();
+    const top = box && typeof box.top === 'number' ? box.top : 0;
+    let line = 1;
+    try {
+      line = this.#editor.visibleLine(top);
+    } catch {
+      line = 1;
+    }
+    this.#handleVisibleLine(line);
   }
 
   /**
@@ -440,6 +498,7 @@ class ParsiPageHome extends PeyElement {
           currentId: this.#currentId,
           documentText: this.value,
           settings: this.#settings,
+          activeLine: this.#outlineActiveLine,
         }),
       });
     } else {
@@ -648,7 +707,33 @@ class ParsiPageHome extends PeyElement {
     this.#currentId = document.id;
     this.#docTitle = document.title ?? '';
     this.#draft = document.content ?? '';
+    this.#outlineActiveLine = null;
     this.#requestEditor();
+  }
+
+  /**
+   * Maps a visible editor line to its heading and pushes highlight changes
+   * to the side panel. Re-renders only when the active heading changes, so
+   * scroll bursts stay cheap and never steal focus.
+   * @param {unknown} line First visible 1-based line number.
+   * @returns {void}
+   */
+  #handleVisibleLine(line) {
+    if (!this.isConnected || !Number.isInteger(line) || line < 1) {
+      return;
+    }
+    let active = null;
+    for (const heading of parseOutline(this.value)) {
+      if (heading.line <= line) {
+        active = heading.line;
+      } else {
+        break;
+      }
+    }
+    if (active !== this.#outlineActiveLine) {
+      this.#outlineActiveLine = active;
+      this.#sideEl?.configure({ activeLine: active });
+    }
   }
 
   /**
@@ -837,6 +922,7 @@ class ParsiPageHome extends PeyElement {
         },
       });
       this.#editorHost = host;
+      this.#reportScrollPosition();
     } catch (error) {
       this.#editor = null;
       this.#editorHost = null;

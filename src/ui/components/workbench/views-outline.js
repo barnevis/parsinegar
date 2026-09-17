@@ -32,12 +32,13 @@ export function buildOutlineTree(headings) {
 /**
  * Renders heading nodes as a nested list.
  * @param {Array<object>} nodes Tree nodes.
+ * @param {number|null} activeLine Highlighted heading line, if any.
  * @returns {string} Nested list markup.
  */
-function renderNodes(nodes) {
+function renderNodes(nodes, activeLine) {
   return nodes.map((node) => `
     <li part="outline-item">
-      <button type="button" part="outline-jump" data-line="${node.line}">${escapeHtml(node.text)}</button>${node.children.length > 0 ? `<ul part="outline-list">${renderNodes(node.children)}</ul>` : ''}
+      <button type="button" part="outline-jump" data-line="${node.line}"${node.line === activeLine ? ' aria-current="true"' : ''}>${escapeHtml(node.text)}</button>${node.children.length > 0 ? `<ul part="outline-list">${renderNodes(node.children, activeLine)}</ul>` : ''}
     </li>`).join('');
 }
 
@@ -46,13 +47,15 @@ function renderNodes(nodes) {
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
  * @param {string} options.documentText Raw document text.
+ * @param {number|null} [options.activeLine] Heading line to highlight.
  * @returns {string} Outline markup.
  */
-export function renderOutlineView({ t, documentText }) {
+export function renderOutlineView({ t, documentText, activeLine }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const headings = parseOutline(documentText);
   if (headings.length === 0) {
     return `<p part="outline-empty">${escapeHtml(translate('parsinegar.views.outline-empty'))}</p>`;
   }
-  return `<ul part="outline-list">${renderNodes(buildOutlineTree(headings))}</ul>`;
+  const current = Number.isInteger(activeLine) ? activeLine : null;
+  return `<ul part="outline-list">${renderNodes(buildOutlineTree(headings), current)}</ul>`;
 }

@@ -837,3 +837,47 @@ test('should_insert_mark_when_insert_action_arrives', async () => {
     element.remove();
   }
 });
+
+test('should_highlight_first_heading_when_mounted_with_outline', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف\nمتن\n## ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-activity-rail', '[data-view="outline"]').click();
+    await settled();
+    // jsdom has no layout: the visible line is always 1, so the chain is
+    // verified through the initial report (real scrolling is browser-verified).
+    const current = inChild(element, 'parsi-side-panel', '[aria-current="true"]');
+    assert.equal(current?.getAttribute('data-line'), '1');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_highlight_stable_when_center_scrolls_without_movement', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف\nمتن\n## ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-activity-rail', '[data-view="outline"]').click();
+    await settled();
+    const first = inChild(element, 'parsi-side-panel', '[aria-current="true"]');
+    assert.equal(first?.getAttribute('data-line'), '1');
+    element.shadowRoot.querySelector('[part="center"]').dispatchEvent(new Event('scroll'));
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-side-panel', '[aria-current="true"]'), first);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_clear_highlight_when_document_has_no_visible_heading', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن\n\n# الف', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-activity-rail', '[data-view="outline"]').click();
+    await settled();
+    assert.equal(inChild(element, 'parsi-side-panel', '[aria-current="true"]'), null);
+  } finally {
+    element.remove();
+  }
+});

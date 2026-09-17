@@ -21,6 +21,7 @@ class ParsiSidePanel extends PeyElement {
   #currentId = null;
   #documentText = '';
   #settings = null;
+  #activeLine = null;
   #applied = null;
 
   onConnect(refs = {}) {
@@ -42,7 +43,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText, settings } = {}) {
+  #store({ activeView, items, currentId, documentText, settings, activeLine } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -58,12 +59,16 @@ class ParsiSidePanel extends PeyElement {
     if (settings !== undefined) {
       this.#settings = settings;
     }
+    if (activeLine !== undefined) {
+      this.#activeLine = activeLine;
+    }
     return {
       activeView: this.#activeView,
       items: this.#items,
       currentId: this.#currentId,
       documentText: this.#documentText,
       settings: this.#settings,
+      activeLine: this.#activeLine,
       signature: outlineSignature(this.#documentText),
     };
   }
@@ -79,16 +84,18 @@ class ParsiSidePanel extends PeyElement {
    * @param {string|null} [data.currentId] Open document id.
    * @param {string} [data.documentText] Current document text for text views.
    * @param {object|null} [data.settings] Preferences for the settings view.
+   * @param {number|null} [data.activeLine] Highlighted outline heading line.
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText, settings } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText, settings });
+  configure({ activeView, items, currentId, documentText, settings, activeLine } = {}) {
+    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine });
     const prev = this.#applied;
     const same = prev !== null
       && prev.activeView === next.activeView
       && prev.items === next.items
       && prev.currentId === next.currentId
       && prev.settings === next.settings
+      && prev.activeLine === next.activeLine
       && prev.signature === next.signature;
     if (!same) {
       this.#applied = next;
@@ -231,6 +238,12 @@ class ParsiSidePanel extends PeyElement {
           color: #0f172a;
           font-weight: 700;
         }
+        [part="outline-jump"][aria-current="true"] {
+          border-color: transparent;
+          background-color: var(--pey-color-accent, #5eead4);
+          color: #0f172a;
+          font-weight: 700;
+        }
         [part="files-bar"] {
           display: flex;
           gap: 0.4rem;
@@ -336,7 +349,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
       </aside>`;
   }
 }

@@ -57,6 +57,7 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
 - `#settingsApi` — bound settings service, or `null` when absent.
 - `#settings` — last saved preferences snapshot (drives the side panel and the editor); `null` until loaded.
 - `#documentDirection`, `#fontSize` — applied document direction and editor font size (built-in fallbacks `rtl`/`16` until settings load).
+- `#outlineActiveLine` — scrollspy highlight (heading line at or above the first visible editor line, or `null`); the center column (not the editor scroller) scrolls in this layout, so home listens to its scroll (rAF-collapsed), reads the line through the controller's `visibleLine()` and pushes to the side panel only on change — scrolling never steals focus. Reset on every document switch.
 - `#settingsWrite` — serialization chain for settings writes (never rejects itself).
 - `#colorSchemeQuery`, `#onColorSchemeChange` — operating-system scheme watcher; remounts the editor only while the stored theme is `device`. Registered in `connectedCallback`, released in `disconnectedCallback`.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
