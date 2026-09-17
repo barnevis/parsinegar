@@ -1,16 +1,6 @@
-# Workbench (`components/workbench/`)
+# Workbench helpers (`components/workbench/`)
 
-This folder owns the workbench regions of the home page in two layers: pure
-helper modules (no services, no DOM access, no component state) and four child
-elements mounted by the page through the shared mount helper. Children talk
-back only through bubbled `CustomEvent`s the page handles declaratively.
-
-## Child elements (mounted by `parsi-page-home`)
-
-- `menu-bar.js` — `parsi-menu-bar` with `configure({ hasDocument })`; emits `menu-action` with string action ids the page maps to behavior.
-- `activity-rail.js` — `parsi-activity-rail` with `configure({ views, activeView })`; emits `view-select` with the view id.
-- `side-panel.js` — `parsi-side-panel` with `configure({ activeView, items, currentId, documentText })`; emits `document-open`, `document-create`, `document-delete`, `outline-jump` and `side-close`.
-- `status-bar.js` — `parsi-status-bar` with `configure({ stats, formatNumber })`; display-only, emits nothing.
+This folder owns the pure helper modules behind the workbench page: no services, no DOM access, no component state. The four child elements live in their own folders — `../menu-bar/` ([doc](../menu-bar/menu-bar.md)), `../activity-rail/` ([doc](../activity-rail/activity-rail.md)), `../side-panel/` ([doc](../side-panel/side-panel.md)), `../status-bar/` ([doc](../status-bar/status-bar.md)) — and are mounted by `parsi-page-home` (see `../../pages/home/home.md`). Children talk back only through bubbled `CustomEvent`s the page handles declaratively.
 
 ## Pure helper modules
 

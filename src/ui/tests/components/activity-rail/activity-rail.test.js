@@ -2,7 +2,7 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TAG } from '../../../components/workbench/activity-rail.js';
+import { TAG } from '../../../components/activity-rail/activity-rail.js';
 
 const VIEWS = [
   { id: 'files', icon: 'files', labelKey: 'parsinegar.views.files' },

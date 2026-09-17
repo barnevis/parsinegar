@@ -6,9 +6,9 @@
 // per-keystroke updates from the parent stay cheap. User actions leave as
 // CustomEvents for the parent to map to behavior.
 import { PeyElement } from 'pey.webui/base/pey-element';
-import { escapeHtml } from './html.js';
-import { FILES_VIEW, getView } from './views.js';
-import { outlineSignature } from './outline.js';
+import { escapeHtml } from '../workbench/html.js';
+import { FILES_VIEW, getView } from '../workbench/views.js';
+import { outlineSignature } from '../workbench/outline.js';
 
 const TAG = 'parsi-side-panel';
 

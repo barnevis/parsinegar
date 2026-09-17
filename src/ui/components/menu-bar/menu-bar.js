@@ -5,8 +5,8 @@
 // history). Menu actions leave the element as `menu-action` CustomEvents
 // for the parent to map to behavior.
 import { PeyElement } from 'pey.webui/base/pey-element';
-import { escapeHtml } from './html.js';
-import { buildMenuModel } from './menu-model.js';
+import { escapeHtml } from '../workbench/html.js';
+import { buildMenuModel } from '../workbench/menu-model.js';
 
 const TAG = 'parsi-menu-bar';
 

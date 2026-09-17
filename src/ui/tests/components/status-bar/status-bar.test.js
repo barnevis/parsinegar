@@ -2,7 +2,7 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TAG } from '../../../components/workbench/status-bar.js';
+import { TAG } from '../../../components/status-bar/status-bar.js';
 
 function createEvents() {
   return {

@@ -3,7 +3,7 @@
 // Stateless display driven entirely by configure(); selection changes leave
 // as `view-select` CustomEvents for the parent, which owns the active view.
 import { PeyElement } from 'pey.webui/base/pey-element';
-import { escapeHtml, iconMarkup } from './html.js';
+import { escapeHtml, iconMarkup } from '../workbench/html.js';
 
 const TAG = 'parsi-activity-rail';
 

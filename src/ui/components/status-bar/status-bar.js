@@ -2,7 +2,7 @@
 //
 // Pure display driven entirely by configure(); emits nothing.
 import { PeyElement } from 'pey.webui/base/pey-element';
-import { escapeHtml } from './html.js';
+import { escapeHtml } from '../workbench/html.js';
 
 const TAG = 'parsi-status-bar';
 

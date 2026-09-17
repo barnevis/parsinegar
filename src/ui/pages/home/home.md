@@ -1,6 +1,6 @@
 # `parsi-page-home`
 
-Page-level component: the single workbench page, mounted by the kit page host on `/`. See `../../../docs/ui/user-flows.md` for the journeys it participates in. It owns the layout plus the CodeMirror editor, and mounts four child elements for the workbench regions (see `../../components/workbench/workbench.md`): `parsi-menu-bar`, `parsi-activity-rail`, `parsi-side-panel`, `parsi-status-bar`.
+Page-level component: the single workbench page, mounted by the kit page host on `/`. See `../../../docs/ui/user-flows.md` for the journeys it participates in. It owns the layout plus the CodeMirror editor, and mounts four child elements for the workbench regions: `parsi-menu-bar` ([doc](../../components/menu-bar/menu-bar.md)), `parsi-activity-rail` ([doc](../../components/activity-rail/activity-rail.md)), `parsi-side-panel` ([doc](../../components/side-panel/side-panel.md)), `parsi-status-bar` ([doc](../../components/status-bar/status-bar.md)). Pure helpers behind them are documented in `../../components/workbench/workbench.md`.
 
 ## Composition
 

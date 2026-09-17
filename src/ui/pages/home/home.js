@@ -10,10 +10,10 @@ import { countStats } from '../../components/workbench/stats.js';
 import { renderConfirmModal } from '../../components/workbench/modal.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
-import '../../components/workbench/menu-bar.js';
-import '../../components/workbench/activity-rail.js';
-import '../../components/workbench/side-panel.js';
-import '../../components/workbench/status-bar.js';
+import '../../components/menu-bar/menu-bar.js';
+import '../../components/activity-rail/activity-rail.js';
+import '../../components/side-panel/side-panel.js';
+import '../../components/status-bar/status-bar.js';
 
 const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
