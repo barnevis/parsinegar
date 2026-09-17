@@ -62,12 +62,32 @@ function flush() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+async function settled() {
+  await flush();
+  await new Promise((resolve) => globalThis.requestAnimationFrame(() => resolve()));
+  await flush();
+  await flush();
+}
+
+async function waitFor(description, probe, timeoutMs = 5000) {
+  const start = Date.now();
+  for (;;) {
+    const result = probe();
+    if (result) {
+      return result;
+    }
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`waitFor timed out: ${description}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 test('should_mount_shell_and_home_when_started', async () => {
   const context = createContext();
   await setup(context);
   try {
-    await flush();
-    await flush();
+    await settled();
     assert.ok(document.querySelector('pey-app-shell'), 'expected the shell');
     assert.ok(document.querySelector('parsi-page-home'), 'expected the home page');
     assert.equal(typeof context.onShutdown, 'function');
@@ -94,8 +114,7 @@ test('should_deliver_documents_service_when_home_loads', async () => {
   const context = createContext({ documents });
   await setup(context);
   try {
-    await flush();
-    await flush();
+    await settled();
     const home = document.querySelector('parsi-page-home');
     assert.ok(home, 'expected the home page');
     assert.equal(home.value, 'متن ذخیره‌شده');
@@ -111,11 +130,13 @@ test('should_format_stats_with_persian_digits_when_home_loads', async () => {
   const context = createContext({ documents });
   await setup(context);
   try {
-    await flush();
-    await flush();
-    const home = document.querySelector('parsi-page-home');
-    assert.ok(home, 'expected the home page');
-    const words = home.shadowRoot.querySelector('[data-stat="words"]')?.textContent ?? '';
+    const words = await waitFor('status words with Persian digits', () => {
+      const home = document.querySelector('parsi-page-home');
+      const text = home?.shadowRoot
+        ?.querySelector('parsi-status-bar')
+        ?.shadowRoot?.querySelector('[data-stat="words"]')?.textContent ?? '';
+      return /[۰-۹]/.test(text) ? text : null;
+    });
     assert.match(words, /[۰-۹]/);
   } finally {
     context.onShutdown?.();

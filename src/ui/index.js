@@ -67,6 +67,10 @@ export const setup = createApplicationSetup({
         format: i18n.format,
         assetBaseUrl: resources.config.assetBaseUrl,
         direction: resources.config.direction,
+        // The scoped Event Bus facade, forwarded so pages can connect child
+        // elements with it (see decisions §11). Same object, same scoping —
+        // no new capability, flow stays strictly top-down.
+        events: resources.events,
       },
       config: resources.config,
     });

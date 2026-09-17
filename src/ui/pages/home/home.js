@@ -1,39 +1,25 @@
-// Home page: workbench with menu bar, activity rail, switchable side panel,
-// editor and live status bar. The page (connected by the kit page host)
-// renders all regions in its single template and mounts the CodeMirror view
-// into the editor host; CodeMirror needs a live DOM node, so mounting happens
-// after render and release in disconnectedCallback. Views render through the
-// side-panel registry, which holds only metadata and references — each view
-// owns its markup. Document titles are user content and are always escaped
-// before entering the template. Status numbers sync imperatively on change
-// (same values render() produces) so typing never drops editor focus.
+// Home page: workbench shell owning menus, rail, side panel and status as
+// child elements plus the CodeMirror editor. Regions mount through the shared
+// mount helper after render; children talk back only through bubbled
+// CustomEvents. The editor itself stays helper-mounted (third-party widget).
 // All DOM event handling stays declarative on PeyElement.
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
-import { escapeHtml } from '../../components/workbench/html.js';
 import { renderConfirmModal } from '../../components/workbench/modal.js';
-import { parseOutline } from '../../components/workbench/outline.js';
-import { FILES_VIEW, OUTLINE_VIEW, getView } from '../../components/workbench/views.js';
-import { renderOutlineView } from '../../components/workbench/views-outline.js';
-import { renderMenubar, renderRail, renderSide, renderStatusbar } from '../../components/workbench/regions.js';
+import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
+import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
+import '../../components/workbench/menu-bar.js';
+import '../../components/workbench/activity-rail.js';
+import '../../components/workbench/side-panel.js';
+import '../../components/workbench/status-bar.js';
 
 const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const AUTOSAVE_DELAY_MS = 1000;
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
-
-/**
- * Derives a cheap change signature for the outline from raw text.
- * Level, text and line all matter because navigation targets shift.
- * @param {string} value Current document text.
- * @returns {string} Signature string.
- */
-function outlineSignature(value) {
-  return JSON.stringify(parseOutline(value ?? ''));
-}
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
@@ -50,11 +36,14 @@ class ParsiPageHome extends PeyElement {
   #activeView = FILES_VIEW;
   #sideOpen = true;
   #bottomOpen = true;
-  #openMenu = null;
   #confirmDeleteId = null;
   #renderObserver = null;
   #editorHost = null;
-  #outlineKey = null;
+  #menuEl = null;
+  #railEl = null;
+  #sideEl = null;
+  #statusEl = null;
+  #events = null;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -69,6 +58,15 @@ class ParsiPageHome extends PeyElement {
     if (typeof refs.assetBaseUrl === 'string' && refs.assetBaseUrl.length > 0) {
       this.#assetBaseUrl = refs.assetBaseUrl;
     }
+    // Scoped Event Bus facade for connecting child elements (decisions §11).
+    // Absent in older callers — composition then degrades, editing never breaks.
+    if (
+      refs.events
+      && typeof refs.events.subscribe === 'function'
+      && typeof refs.events.publish === 'function'
+    ) {
+      this.#events = refs.events;
+    }
     const service = refs.services?.[DOCUMENTS_SERVICE] ?? null;
     if (service && typeof service.listDocuments === 'function') {
       this.#documents = service;
@@ -76,7 +74,17 @@ class ParsiPageHome extends PeyElement {
   }
 
   eventTypes() {
-    return ['click', 'keydown'];
+    return [
+      'click',
+      'keydown',
+      'menu-action',
+      'view-select',
+      'side-close',
+      'outline-jump',
+      'document-open',
+      'document-create',
+      'document-delete',
+    ];
   }
 
   /**
@@ -93,67 +101,45 @@ class ParsiPageHome extends PeyElement {
       if (event.key === 'Escape' && this.#confirmDeleteId !== null) {
         this.#confirmDeleteId = null;
         this.#requestEditor();
-        return;
-      }
-      if (event.key === 'Escape' && this.#openMenu !== null) {
-        this.#openMenu = null;
-        this.#syncMenu();
       }
       return;
     }
     if (event.type !== 'click') {
+      const action = event.detail?.action;
+      if (event.type === 'menu-action' && typeof action === 'string') {
+        void this.#runMenuAction(action);
+        return;
+      }
+      if (event.type === 'view-select' && typeof event.detail?.id === 'string') {
+        this.#switchView(event.detail.id);
+        return;
+      }
+      if (event.type === 'side-close') {
+        this.#sideOpen = false;
+        this.#requestEditor();
+        return;
+      }
+      if (event.type === 'outline-jump') {
+        this.#editor?.gotoLine(Number(event.detail?.line));
+        return;
+      }
+      if (event.type === 'document-open' && typeof event.detail?.id === 'string') {
+        void this.#switchDocument(event.detail.id);
+        return;
+      }
+      if (event.type === 'document-create') {
+        void this.#createDocument();
+        return;
+      }
+      if (event.type === 'document-delete') {
+        this.#armDeleteConfirm();
+        return;
+      }
       return;
     }
     const target = event.target;
-    if (this.#openMenu !== null && !target?.closest?.('[part="menubar"]')) {
-      this.#openMenu = null;
-      this.#syncMenu();
-      return;
-    }
-    const menuButton = target?.closest?.('[data-menu]');
-    if (menuButton) {
-      const id = menuButton.getAttribute('data-menu');
-      this.#openMenu = this.#openMenu === id ? null : id;
-      this.#syncMenu();
-      return;
-    }
-    const menuItem = target?.closest?.('[data-action]');
-    if (menuItem && !menuItem.disabled) {
-      this.#openMenu = null;
-      this.#syncMenu();
-      void this.#runMenuAction(menuItem.getAttribute('data-action'));
-      return;
-    }
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
-      return;
-    }
-    const railButton = target?.closest?.('[data-view]');
-    if (railButton) {
-      this.#switchView(railButton.getAttribute('data-view'));
-      return;
-    }
-    if (target?.closest?.('[part="side-close"]')) {
-      this.#sideOpen = false;
-      this.#requestEditor();
-      return;
-    }
-    const outlineButton = target?.closest?.('[data-line]');
-    if (outlineButton) {
-      this.#editor?.gotoLine(Number(outlineButton.getAttribute('data-line')));
-      return;
-    }
-    const openButton = target?.closest?.('[data-doc-id]');
-    if (openButton) {
-      void this.#switchDocument(openButton.getAttribute('data-doc-id'));
-      return;
-    }
-    if (target?.closest?.('[part="docs-new"]')) {
-      void this.#createDocument();
-      return;
-    }
-    if (target?.closest?.('[part="docs-delete"]')) {
-      this.#armDeleteConfirm();
       return;
     }
     const confirmButton = target?.closest?.('[data-confirm-delete]');
@@ -273,20 +259,6 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
-  /**
-   * Syncs menu dropdown visibility without a full render, so the editor
-   * (and its undo history) survives menu interaction. Only visibility and
-   * expansion state change; no content is mutated.
-   * @returns {void}
-   */
-  #syncMenu() {
-    for (const button of this.shadowRoot.querySelectorAll('[data-menu]')) {
-      const open = button.getAttribute('data-menu') === this.#openMenu;
-      button.setAttribute('aria-expanded', String(open));
-      button.parentElement?.querySelector('[part="menu-dropdown"]')?.toggleAttribute('hidden', !open);
-    }
-  }
-
   #switchView(id) {
     const view = getView(id);
     if (!view) {
@@ -302,18 +274,97 @@ class ParsiPageHome extends PeyElement {
   }
 
   render() {
+    scheduleAttachments(() => this.#attachChildren());
     return `
       <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
-        ${renderMenubar({ t: this.#t, openMenu: this.#openMenu, hasDocument: this.#currentId !== null })}
-        ${renderRail({ t: this.#t, assetBaseUrl: this.#assetBaseUrl, activeView: this.#activeView })}
-        ${renderSide({ t: this.#t, activeView: this.#activeView, sideOpen: this.#sideOpen, items: this.#items, currentId: this.#currentId, documentText: this.value, assetBaseUrl: this.#assetBaseUrl })}
+        <div data-slot="menubar"></div>
+        <div data-slot="rail"></div>
+        ${this.#sideOpen ? '<div data-slot="side"></div>' : ''}
         <div part="center">
           <div part="editor-host"></div>
         </div>
-        ${renderStatusbar({ t: this.#t, bottomOpen: this.#bottomOpen, stats: countStats(this.value), formatNumber: (value) => this.#formatNumber(value) })}
+        ${this.#bottomOpen ? '<div data-slot="status"></div>' : ''}
       </div>
       ${this.#renderModal()}
     `;
+  }
+
+  /**
+   * Mounts region children into their placeholders (or reconfigures the
+   * mounted ones). Runs after render lands; skipped entirely without the
+   * events facade, in which case only the editor is available.
+   * @returns {void}
+   */
+  #attachChildren() {
+    if (!this.isConnected || !this.#events) {
+      return;
+    }
+    const infrastructure = { events: this.#events };
+    this.#menuEl = mountComponent({
+      shadowRoot: this.shadowRoot,
+      slot: '[data-slot="menubar"]',
+      tag: 'parsi-menu-bar',
+      infrastructure,
+      refs: { t: this.#t, hasDocument: this.#currentId !== null },
+      configure: (element) => element.configure({ hasDocument: this.#currentId !== null }),
+    });
+    this.#railEl = mountComponent({
+      shadowRoot: this.shadowRoot,
+      slot: '[data-slot="rail"]',
+      tag: 'parsi-activity-rail',
+      infrastructure,
+      refs: {
+        t: this.#t,
+        assetBaseUrl: this.#assetBaseUrl,
+        views: listViews(),
+        activeView: this.#activeView,
+      },
+      configure: (element) => element.configure({ views: listViews(), activeView: this.#activeView }),
+    });
+    if (this.#sideOpen) {
+      this.#sideEl = mountComponent({
+        shadowRoot: this.shadowRoot,
+        slot: '[data-slot="side"]',
+        tag: 'parsi-side-panel',
+        infrastructure,
+        refs: {
+          t: this.#t,
+          assetBaseUrl: this.#assetBaseUrl,
+          activeView: this.#activeView,
+          items: this.#items,
+          currentId: this.#currentId,
+          documentText: this.value,
+        },
+        configure: (element) => element.configure({
+          activeView: this.#activeView,
+          items: this.#items,
+          currentId: this.#currentId,
+          documentText: this.value,
+        }),
+      });
+    } else {
+      this.#sideEl = null;
+    }
+    if (this.#bottomOpen) {
+      const stats = countStats(this.value);
+      this.#statusEl = mountComponent({
+        shadowRoot: this.shadowRoot,
+        slot: '[data-slot="status"]',
+        tag: 'parsi-status-bar',
+        infrastructure,
+        refs: {
+          t: this.#t,
+          stats,
+          formatNumber: (value) => this.#formatNumber(value),
+        },
+        configure: (element) => element.configure({
+          stats: countStats(this.value),
+          formatNumber: (value) => this.#formatNumber(value),
+        }),
+      });
+    } else {
+      this.#statusEl = null;
+    }
   }
 
   /**
@@ -475,7 +526,6 @@ class ParsiPageHome extends PeyElement {
   }
 
   #requestEditor() {
-    this.#openMenu = null;
     this.#unmountEditor();
     this.#ensureRenderObserver();
     this.requestRender();
@@ -539,36 +589,21 @@ class ParsiPageHome extends PeyElement {
     return String(value);
   }
 
-  #syncStats() {
-    if (!this.#bottomOpen) {
+  #pushLiveUpdates() {
+    if (!this.isConnected) {
       return;
     }
     const stats = countStats(this.value);
-    for (const [key, value] of Object.entries({ chars: stats.chars, words: stats.words, lines: stats.lines })) {
-      this.shadowRoot.querySelector(`[data-stat="${key}"]`)?.replaceChildren(this.#formatNumber(value));
-    }
-  }
-
-  /**
-   * Refreshes the outline panel live when headings change, without a full
-   * render (which would drop editor focus and undo history). Only the side
-   * body subtree is rewritten, and only when its content actually changed.
-   * @returns {void}
-   */
-  #syncOutline() {
-    if (!this.#sideOpen || this.#activeView !== OUTLINE_VIEW || !this.isConnected) {
-      return;
-    }
-    const signature = outlineSignature(this.value);
-    if (signature === this.#outlineKey) {
-      return;
-    }
-    const body = this.shadowRoot.querySelector('[part="side-body"]');
-    if (!body) {
-      return;
-    }
-    body.innerHTML = renderOutlineView({ t: this.#t, documentText: this.value });
-    this.#outlineKey = signature;
+    this.#statusEl?.configure({
+      stats,
+      formatNumber: (value) => this.#formatNumber(value),
+    });
+    this.#sideEl?.configure({
+      activeView: this.#activeView,
+      items: this.#items,
+      currentId: this.#currentId,
+      documentText: this.value,
+    });
   }
 
   #mountEditor() {
@@ -593,13 +628,11 @@ class ParsiPageHome extends PeyElement {
               detail: { value },
             }),
           );
-          this.#syncStats();
-          this.#syncOutline();
+          this.#pushLiveUpdates();
           this.#scheduleSave();
         },
       });
       this.#editorHost = host;
-      this.#outlineKey = outlineSignature(this.value);
     } catch (error) {
       this.#editor = null;
       this.#editorHost = null;

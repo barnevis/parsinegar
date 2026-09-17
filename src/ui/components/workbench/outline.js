@@ -2,7 +2,6 @@
 //
 // Parses ATX headings (`#` to `######`) from raw text: no DOM, no editor
 // dependency. Line numbers are 1-based for editor navigation.
-
 const HEADING_PATTERN = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/;
 
 /**
@@ -23,4 +22,14 @@ export function parseOutline(text) {
     }
   }
   return items;
+}
+
+/**
+ * Derives a cheap change signature for an outline: level, text and line all
+ * matter because navigation targets shift when lines move.
+ * @param {string} value Raw document text.
+ * @returns {string} Signature string.
+ */
+export function outlineSignature(value) {
+  return JSON.stringify(parseOutline(value ?? ''));
 }

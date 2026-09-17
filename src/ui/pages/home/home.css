@@ -1,10 +1,18 @@
 /* Home page stylesheet, attached through PeyElement.stylesheetHref().
-   Flush VSCode-like layout: regions touch each other with no gaps and are
-   separated by single divider lines; panels use a slightly darker surface
-   than the white editor. Only the editor column and the side body scroll. */
+   Owns only page-level layout: the workbench grid, slot placement, the
+   editor column and the modal. Region interiors are styled by the child
+   elements themselves (each carries its own inline styles). */
 
 :host {
   display: block;
+}
+
+parsi-menu-bar,
+parsi-activity-rail,
+parsi-side-panel,
+parsi-status-bar {
+  display: block;
+  block-size: 100%;
 }
 
 [part="workbench"] {
@@ -29,233 +37,57 @@
     "status status";
 }
 
-[part="menubar"] {
+[data-slot="menubar"] {
   grid-area: menubar;
   position: sticky;
   top: 0;
   z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  box-sizing: border-box;
-  min-block-size: 2.75rem;
-  padding: 0.3rem 0.75rem;
-  border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
-  background-color: var(--pey-color-surface, #f1f1f5);
-  font-size: 0.85rem;
 }
 
-[part="brand"] {
-  font-weight: 700;
-  font-size: 0.95rem;
-  padding-inline-end: 0.75rem;
-  margin-inline-end: 0.5rem;
-  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-  white-space: nowrap;
-}
-
-[part="menu"] {
-  position: relative;
-}
-
-[part="menu-button"] {
-  font: inherit;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background-color: transparent;
-  padding: 0.35rem 0.8rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="menu-button"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-}
-
-[part="menu-button"][aria-expanded="true"] {
-  border-color: var(--pey-color-border, #c8c8d2);
-  background-color: var(--pey-color-canvas, #ffffff);
-}
-
-[part="menu-dropdown"] {
-  position: absolute;
-  inset-block-start: calc(100% + 0.25rem);
-  inset-inline-start: 0;
-  min-inline-size: 11rem;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  padding: 0.3rem;
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 10px;
-  background-color: var(--pey-color-canvas, #ffffff);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
-}
-
-[part="menu-dropdown"][hidden] {
-  display: none;
-}
-
-[part="menu-item"] {
-  font: inherit;
-  text-align: start;
-  border: 0;
-  border-radius: 6px;
-  background-color: transparent;
-  padding: 0.4rem 0.6rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="menu-item"]:hover {
-  background-color: var(--pey-color-surface, #f1f1f5);
-}
-
-[part="menu-item"][disabled] {
-  opacity: 0.45;
-  cursor: default;
-}
-
-[part="rail"] {
+[data-slot="rail"] {
   grid-area: rail;
   position: sticky;
   top: 2.75rem;
   align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem 0.3rem;
-  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-  background-color: var(--pey-color-surface, #f1f1f5);
+  min-block-size: 0;
 }
 
-[part="rail-button"] {
-  font: inherit;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 2.75rem;
-  block-size: 2.75rem;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="rail-button"] svg {
-  inline-size: 20px;
-  block-size: 20px;
-}
-
-[part="rail-fallback"] {
-  display: none;
-}
-
-[part="rail-button"][aria-pressed="true"] {
-  color: var(--pey-color-accent, #5eead4);
-}
-
-[part="side"] {
+[data-slot="side"] {
   grid-area: side;
   position: sticky;
   top: 2.75rem;
   align-self: stretch;
-  display: flex;
-  flex-direction: column;
   min-block-size: 0;
-  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-  background-color: var(--pey-color-surface, #f1f1f5);
+  min-inline-size: 0;
+}
+
+[data-slot="status"] {
+  grid-area: status;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+}
+
+[part="center"] {
+  grid-area: center;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow-y: auto;
+  background-color: var(--pey-color-canvas, #ffffff);
+}
+
+[part="editor-host"] {
   overflow: hidden;
+  box-sizing: border-box;
+  min-block-size: 100%;
+  max-inline-size: 800px;
+  margin-inline: auto;
+  padding: 2rem 2.25rem;
+  cursor: text;
 }
 
-[part="side-header"] {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.8rem;
-  border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
-}
-
-[part="side-title"] {
-  font-size: 14px;
-  margin: 0;
-}
-
-[part="side-body"] {
-  flex: 1;
-  min-block-size: 0;
-  padding: 0.6rem 0.8rem;
-  overflow: auto;
-}
-
-[part="docs-list"],
-[part="outline-list"] {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin: 0;
-  padding: 0;
-}
-
-[part="docs-open"],
-[part="outline-jump"] {
-  font: inherit;
-  inline-size: 100%;
-  text-align: start;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background-color: transparent;
-  padding: 0.35rem 0.6rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="docs-open"]:hover,
-[part="outline-jump"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-}
-
-[part="docs-open"][aria-current="true"] {
-  border-color: transparent;
-  background-color: var(--pey-color-accent, #5eead4);
-  color: #0f172a;
-  font-weight: 700;
-}
-
-[part="outline-list"] [part="outline-list"] {
-  padding-inline-start: 1rem;
-}
-
-[part="files-bar"] {
-  display: flex;
-  gap: 0.4rem;
-  margin-block-end: 0.6rem;
-}
-
-[part="docs-new"],
-[part="docs-delete"] {
-  font: inherit;
-  flex: 1;
-  border: 1px solid var(--pey-color-border, #d8d8de);
-  border-radius: 8px;
-  background-color: var(--pey-color-canvas, #ffffff);
-  padding: 0.35rem 0.5rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="docs-new"] svg,
-[part="docs-delete"] svg {
-  inline-size: 18px;
-  block-size: 18px;
-  vertical-align: middle;
-}
-
-[part="docs-new"]:hover,
-[part="docs-delete"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-  border-color: var(--pey-color-border, #c8c8d2);
+[part="editor-host"] .cm-editor {
+  min-block-size: 65vh;
 }
 
 [part="modal-backdrop"] {
@@ -341,68 +173,8 @@
   background-color: #b91c1c;
 }
 
-[part="side-close"] {
-  font: inherit;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background-color: transparent;
-  inline-size: 2rem;
-  block-size: 2rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="side-close"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-}
-
-[part="center"] {
-  grid-area: center;
-  min-inline-size: 0;
-  min-block-size: 0;
-  overflow-y: auto;
-  background-color: var(--pey-color-canvas, #ffffff);
-}
-
-[part="editor-host"] {
-  overflow: hidden;
-  box-sizing: border-box;
-  min-block-size: 100%;
-  max-inline-size: 800px;
-  margin-inline: auto;
-  padding: 2rem 2.25rem;
-  cursor: text;
-}
-
-[part="editor-host"] .cm-editor {
-  min-block-size: 65vh;
-}
-
-[part="statusbar"] {
-  grid-area: status;
-  position: sticky;
-  bottom: 0;
-  z-index: 20;
-  display: flex;
-  gap: 1.25rem;
-  padding: 0.45rem 0.9rem;
-  border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
-  background-color: var(--pey-color-surface, #f1f1f5);
-  font-size: 0.85rem;
-}
-
-[part="stat-value"] {
-  font-weight: 700;
-}
-
-[part="menu-button"]:focus-visible,
-[part="menu-item"]:focus-visible,
-[part="rail-button"]:focus-visible,
-[part="docs-open"]:focus-visible,
-[part="outline-jump"]:focus-visible,
-[part="docs-new"]:focus-visible,
-[part="docs-delete"]:focus-visible,
-[part="side-close"]:focus-visible {
+[part="modal-cancel"]:focus-visible,
+[part="modal-confirm"]:focus-visible {
   outline: 2px solid var(--pey-color-focus-ring, #5eead4);
   outline-offset: 2px;
 }
@@ -419,21 +191,12 @@
       "status";
   }
 
-  [part="menubar"] {
-    flex-wrap: wrap;
+  [data-slot="rail"] {
+    position: static;
   }
 
-  [part="rail"] {
-    flex-direction: row;
+  [data-slot="side"] {
     position: static;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
-  }
-
-  [part="side"] {
-    position: static;
-    border-inline-end: 0;
-    border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
   }
 
   [part="center"] {

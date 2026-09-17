@@ -42,5 +42,20 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barnevis/parsinegar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/barnevis/parsinegar/issues"
+  },
+  "homepage": "https://github.com/barnevis/parsinegar#readme"
 }

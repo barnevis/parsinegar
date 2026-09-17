@@ -15,12 +15,17 @@ for (const [name, value] of Object.entries({
   document: dom.window.document,
   customElements: dom.window.customElements,
   HTMLElement: dom.window.HTMLElement,
+  HTMLInputElement: dom.window.HTMLInputElement,
+  HTMLTextAreaElement: dom.window.HTMLTextAreaElement,
+  HTMLSelectElement: dom.window.HTMLSelectElement,
   Node: dom.window.Node,
   Event: dom.window.Event,
   CustomEvent: dom.window.CustomEvent,
   KeyboardEvent: dom.window.KeyboardEvent,
   MouseEvent: dom.window.MouseEvent,
   MutationObserver: dom.window.MutationObserver,
+  requestAnimationFrame: dom.window.requestAnimationFrame.bind(dom.window),
+  cancelAnimationFrame: dom.window.cancelAnimationFrame.bind(dom.window),
 })) {
   globalThis[name] = value;
 }
