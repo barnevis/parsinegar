@@ -111,9 +111,13 @@ export function createMarkdownView(host, options = {}) {
       EditorView.editorAttributes.of({ dir: direction, 'aria-label': options.label ?? '' }),
       EditorView.theme({
         '&': {
-          // Explicit base direction (never inherited): letter-less lines
-          // are pinned by `line-direction.js`, everything else resolves
-          // per line through `plaintext` below.
+          // Explicit base direction (never inherited). Every rendered line
+          // gets its own explicit direction plus a matching explicit
+          // alignment from `line-direction.js` (first strong letter wins,
+          // letter-less lines take this base), so no `unicode-bidi:
+          // plaintext` remains: Firefox aligns wrapped continuation rows
+          // that break inside an inline span to the wrong side under
+          // `plaintext` plus `text-align: start`.
           direction: baseDirection,
           textAlign: 'start',
           fontFamily: PERSIAN_FONT,
@@ -124,14 +128,6 @@ export function createMarkdownView(host, options = {}) {
         },
         '& .cm-content': {
           lineHeight: '1.5',
-        },
-        '& .cm-line': {
-          // Lines with a strong character detect their own base direction
-          // from it (Persian lines align right, English lines align left),
-          // while textAlign start follows that direction. Letter-less lines
-          // are pinned by `line-direction.js` instead (plaintext would park
-          // them left regardless of the base).
-          unicodeBidi: 'plaintext',
         },
       }),
       EditorView.updateListener.of((update) => {

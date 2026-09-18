@@ -252,8 +252,9 @@ test('should_detect_line_direction_when_themed', () => {
   const editor = createMarkdownView(host, { document: 'سلام\nHello' });
   try {
     assert.ok(host.querySelectorAll('.cm-line').length >= 2);
-    // jsdom does not compute bidi; the injected rule is authoritative.
-    assert.ok(hasRule('.cm-line', 'unicode-bidi', 'plaintext'));
+    // jsdom does not do layout or bidi; the injected rules are authoritative.
+    assert.ok(hasRule('.cm-line.parsi-dir-rtl', 'text-align', 'right'));
+    assert.ok(hasRule('.cm-line.parsi-dir-ltr', 'text-align', 'left'));
   } finally {
     editor.destroy();
     host.remove();

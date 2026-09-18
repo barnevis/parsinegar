@@ -1,9 +1,9 @@
-// Verifies neutral-line detection and base-direction decorations.
+// Verifies line-direction resolution and per-line direction decorations.
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { isNeutralLine } from '../../../components/editor/line-direction.js';
+import { isNeutralLine, resolveLineDirection } from '../../../components/editor/line-direction.js';
 
 test('should_detect_neutral_lines_when_checking_text', () => {
   assert.equal(isNeutralLine(''), true);
@@ -22,6 +22,64 @@ test('should_detect_content_lines_when_checking_text', () => {
   assert.equal(isNeutralLine(42), false);
 });
 
+test('should_resolve_rtl_when_first_letter_is_rtl', () => {
+  assert.equal(resolveLineDirection('سلام'), 'rtl');
+  assert.equal(resolveLineDirection('- باتری محتوایی'), 'rtl');
+  assert.equal(resolveLineDirection('**نکته فنی:**'), 'rtl');
+  assert.equal(resolveLineDirection('«نقل‌قول»'), 'rtl');
+});
+
+test('should_resolve_ltr_when_first_letter_is_latin', () => {
+  assert.equal(resolveLineDirection('Hello'), 'ltr');
+  assert.equal(resolveLineDirection('- item ۱۲۳'), 'ltr');
+  assert.equal(resolveLineDirection('# Title'), 'ltr');
+  assert.equal(resolveLineDirection('۱۲۳a'), 'ltr');
+  assert.equal(resolveLineDirection('(test) تست'), 'ltr');
+});
+
+test('should_resolve_null_when_line_has_no_letter', () => {
+  assert.equal(resolveLineDirection(''), null);
+  assert.equal(resolveLineDirection('   '), null);
+  assert.equal(resolveLineDirection('۱۲۳'), null);
+  assert.equal(resolveLineDirection('- '), null);
+  assert.equal(resolveLineDirection('```'), null);
+  assert.equal(resolveLineDirection(null), null);
+  assert.equal(resolveLineDirection(42), null);
+});
+
+test('should_pin_every_line_when_mounted', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'سلام\nHello\n۱۲۳' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    assert.equal(lines.length, 3);
+    assert.ok(lines[0].classList.contains('parsi-dir-rtl'), 'expected the Persian line pinned right');
+    assert.ok(lines[1].classList.contains('parsi-dir-ltr'), 'expected the English line pinned left');
+    assert.ok(lines[2].classList.contains('parsi-base-rtl'), 'expected the digits line on the base');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_align_lines_explicitly_when_mounted', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'سلام\nHello' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    const persian = globalThis.getComputedStyle(lines[0]);
+    const english = globalThis.getComputedStyle(lines[1]);
+    assert.equal(persian.direction, 'rtl');
+    assert.equal(persian.textAlign, 'right');
+    assert.equal(english.direction, 'ltr');
+    assert.equal(english.textAlign, 'left');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
 test('should_pin_neutral_lines_when_mounted', () => {
   const host = document.createElement('div');
   document.body.append(host);
