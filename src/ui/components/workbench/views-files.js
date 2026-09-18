@@ -29,7 +29,7 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
     </li>`;
     }
     return `
-    <li part="docs-item">
+    <li part="docs-item"${item.id === currentId ? ' data-current="true"' : ''}>
       <button type="button" part="docs-open" data-doc-id="${id}" ${item.id === currentId ? 'aria-current="true"' : ''}>${title}</button>
       <button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋯</button>
       ${openMenuId === item.id ? renderFileMenu(translate, id) : ''}

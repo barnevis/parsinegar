@@ -27,6 +27,8 @@ test('should_render_items_when_documents_are_given', () => {
   assert.ok(html.includes('data-doc-id="b"'));
   assert.ok(html.includes('aria-current="true"'));
   assert.equal((html.match(/aria-current/g) ?? []).length, 1);
+  assert.ok(html.includes('data-current="true"'));
+  assert.equal((html.match(/data-current/g) ?? []).length, 1);
 });
 
 test('should_render_actions_when_called', () => {

@@ -11,7 +11,6 @@ import { EditorView } from 'codemirror';
 const DARK_TEXT = '#e8eaf0';
 const DARK_SELECTION = '#26436e';
 const DARK_CURSOR = '#e8eaf0';
-const DARK_ACTIVE_LINE = 'rgb(255 255 255 / 0.04)';
 const DARK_GUTTER_BACKGROUND = '#1a2029';
 const DARK_GUTTER_BORDER = '#2e3642';
 const DARK_HIGHLIGHT_BACKGROUND = '#a3e635';
@@ -20,7 +19,6 @@ const DARK_HIGHLIGHT_INK = '#1a1a1a';
 const SEPIA_TEXT = '#5f4b32';
 const SEPIA_SELECTION = '#d3c4b3';
 const SEPIA_CURSOR = '#5f4b32';
-const SEPIA_ACTIVE_LINE = 'rgb(95 75 50 / 0.06)';
 const SEPIA_HIGHLIGHT_BACKGROUND = '#fcd34d';
 const SEPIA_HIGHLIGHT_INK = '#5f4b32';
 
@@ -52,9 +50,6 @@ export function editorColorScheme(colorScheme) {
       },
       '& .cm-selectionBackground': {
         backgroundColor: `${dark ? DARK_SELECTION : SEPIA_SELECTION} !important`,
-      },
-      '& .cm-activeLine': {
-        backgroundColor: dark ? DARK_ACTIVE_LINE : SEPIA_ACTIVE_LINE,
       },
       '& .cm-gutters': {
         color: dark ? DARK_TEXT : SEPIA_TEXT,

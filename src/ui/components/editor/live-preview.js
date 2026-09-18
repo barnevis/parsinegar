@@ -8,7 +8,7 @@
 // set. No services, no events, no business logic — pure presentation.
 import { EditorView } from 'codemirror';
 import { HighlightStyle, ensureSyntaxTree, syntaxHighlighting, syntaxTree } from '@codemirror/language';
-import { Decoration, ViewPlugin, WidgetType, highlightActiveLine } from '@codemirror/view';
+import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 import { highlightTree } from '@lezer/highlight';
 import { tags } from '@lezer/highlight';
 import { TASK_LINE_PATTERN } from './task-list.js';
@@ -331,7 +331,6 @@ const markRevealPlugin = ViewPlugin.fromClass(
 export function livePreviewExtensions() {
   return [
     syntaxHighlighting(persianHighlight),
-    highlightActiveLine(),
     livePreviewTheme,
     lineDecorationPlugin,
     markerDecorationPlugin,

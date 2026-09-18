@@ -345,15 +345,14 @@ class ParsiSidePanel extends PeyElement {
         [part="outline-jump"] {
           inline-size: 100%;
         }
-        [part="docs-open"]:hover,
         [part="outline-jump"]:hover {
           background-color: var(--pey-color-canvas, #ffffff);
         }
         [part="docs-open"][aria-current="true"] {
-          border-color: transparent;
-          background-color: var(--pey-color-accent, #5eead4);
-          color: #0f172a;
           font-weight: 700;
+        }
+        [part="docs-open"]:not([aria-current="true"]):hover {
+          background-color: var(--pey-color-canvas, #ffffff);
         }
         [part="outline-jump"][aria-current="true"] {
           border-color: transparent;
@@ -366,6 +365,11 @@ class ParsiSidePanel extends PeyElement {
           display: flex;
           gap: 0.2rem;
           align-items: center;
+        }
+        [part="docs-item"][data-current="true"] {
+          background-color: rgb(94 234 212 / 0.14);
+          background-color: color-mix(in srgb, var(--pey-color-accent, #5eead4) 18%, transparent);
+          border-radius: 8px;
         }
         [part="docs-menu"] {
           font: inherit;
