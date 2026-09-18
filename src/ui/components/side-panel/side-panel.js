@@ -351,9 +351,6 @@ class ParsiSidePanel extends PeyElement {
         [part="docs-open"][aria-current="true"] {
           font-weight: 700;
         }
-        [part="docs-open"]:not([aria-current="true"]):hover {
-          background-color: var(--pey-color-canvas, #ffffff);
-        }
         [part="outline-jump"][aria-current="true"] {
           border-color: transparent;
           background-color: var(--pey-color-accent, #5eead4);
@@ -381,9 +378,6 @@ class ParsiSidePanel extends PeyElement {
           block-size: 2rem;
           cursor: pointer;
           color: inherit;
-        }
-        [part="docs-menu"]:hover {
-          background-color: var(--pey-color-canvas, #ffffff);
         }
         [part="file-menu"] {
           position: absolute;
