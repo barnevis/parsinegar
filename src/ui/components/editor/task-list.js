@@ -1,7 +1,8 @@
 // Task-list rendering for the Persian Markdown editor: `- [ ]` / `- [x]`
 // boxes become clickable checkboxes (☐/☑). The raw box stays in the document
-// and reappears on the active line, so the source remains plain Markdown.
-// Pure presentation plus a view-local toggle; no services involved.
+// and reappears only where the cursor (or selection) overlaps it, so the
+// source remains plain Markdown. Pure presentation plus a view-local toggle;
+// no services involved.
 import { EditorView } from 'codemirror';
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 
@@ -74,20 +75,20 @@ class TaskBoxWidget extends WidgetType {
 }
 
 /**
- * Builds checkbox widgets for task lines, skipping the line under the cursor
- * (its raw box is revealed by the theme instead).
+ * Builds checkbox widgets for task lines, leaving the raw box where the
+ * cursor (or selection) overlaps it so that exact spot stays editable.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
 function buildTaskDecorations(view) {
-  const activeLine = view.state.doc.lineAt(view.state.selection.main.head).number;
+  const selection = view.state.selection.main;
   const builder = [];
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
-      if (line.number !== activeLine && TASK_LINE_PATTERN.test(line.text)) {
+      if (TASK_LINE_PATTERN.test(line.text)) {
         const box = findTaskBox(line, line.from);
-        if (box) {
+        if (box && (selection.from > box.to || selection.to < box.from)) {
           builder.push(
             Decoration.replace({ widget: new TaskBoxWidget(box.checked, box.from) }).range(box.from, box.to),
           );

@@ -51,11 +51,13 @@ test('should_render_checked_box_when_task_is_done', () => {
   }
 });
 
-test('should_keep_raw_box_on_active_line_when_focused', () => {
+test('should_show_widget_when_cursor_is_elsewhere_on_task_line', () => {
   const mounted = createEditor('- [ ] خرید');
   try {
     mounted.editor.focus();
-    assert.equal(mounted.host.querySelector('.parsi-task-marker'), null);
+    const box = mounted.host.querySelector('.parsi-task-marker');
+    assert.ok(box, 'expected a checkbox widget when the cursor is not on the box');
+    assert.equal(box.textContent, '☐');
   } finally {
     destroy(mounted);
   }

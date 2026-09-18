@@ -7,8 +7,9 @@
 // CodeMirror's generated hashed classes, which renumber with the extension
 // set. No services, no events, no business logic — pure presentation.
 import { EditorView } from 'codemirror';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { HighlightStyle, ensureSyntaxTree, syntaxHighlighting, syntaxTree } from '@codemirror/language';
 import { Decoration, ViewPlugin, WidgetType, highlightActiveLine } from '@codemirror/view';
+import { highlightTree } from '@lezer/highlight';
 import { tags } from '@lezer/highlight';
 import { TASK_LINE_PATTERN } from './task-list.js';
 
@@ -42,8 +43,9 @@ const persianHighlight = HighlightStyle.define([
 
 /**
  * Hides every formatting mark (`#`, `>`, list and emphasis marks, brackets,
- * fences) and styles content as rendered Markdown. Marks reappear on the
- * active line so the text under the cursor stays editable in the open.
+ * fences) and styles content as rendered Markdown. A mark reappears only
+ * where the cursor (or selection) overlaps it, so the text under edit stays
+ * readable in the open while the rest of the line keeps its rendered form.
  */
 const livePreviewTheme = EditorView.theme({
   // The base theme draws a dotted outline around the focused editor; on the
@@ -58,9 +60,14 @@ const livePreviewTheme = EditorView.theme({
   '& .cm-line .parsi-mark': { fontSize: '0' },
   '& .cm-line .parsi-url': { fontSize: '0' },
   '& .cm-line .parsi-label': { fontSize: '0' },
-  '& .cm-activeLine .parsi-mark': { fontSize: '1rem' },
-  '& .cm-activeLine .parsi-url': { fontSize: '1rem' },
-  '& .cm-activeLine .parsi-label': { fontSize: '1rem' },
+  // Reveal decorations nest around (or inside) the syntax spans, so both
+  // the merged and the nested shape must reset the hidden font size.
+  '& .cm-line .parsi-mark.parsi-mark-open': { fontSize: '1rem' },
+  '& .cm-line .parsi-url.parsi-mark-open': { fontSize: '1rem' },
+  '& .cm-line .parsi-label.parsi-mark-open': { fontSize: '1rem' },
+  '& .cm-line .parsi-mark-open .parsi-mark': { fontSize: '1rem' },
+  '& .cm-line .parsi-mark-open .parsi-url': { fontSize: '1rem' },
+  '& .cm-line .parsi-mark-open .parsi-label': { fontSize: '1rem' },
   '& .parsi-heading': { fontWeight: '700', textDecoration: 'none' },
   '& .parsi-h1': { fontSize: '1.7em', fontWeight: '700' },
   '& .parsi-h2': { fontSize: '1.5em', fontWeight: '700' },
@@ -149,26 +156,28 @@ function buildLineDecorations(view) {
 }
 
 /**
- * Builds marker widgets for list lines, skipping the line under the cursor
- * (its raw marker is revealed by the theme instead).
+ * Builds marker widgets for list lines, leaving the raw marker where the
+ * cursor (or selection) overlaps it so that exact spot stays editable.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
 function buildMarkerDecorations(view) {
-  const activeLine = view.state.doc.lineAt(view.state.selection.main.head).number;
+  const selection = view.state.selection.main;
   const builder = [];
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
-      if (line.number !== activeLine && !TASK_LINE_PATTERN.test(line.text)) {
+      if (!TASK_LINE_PATTERN.test(line.text)) {
         const match = LIST_PATTERN.exec(line.text);
         if (match) {
           const markerStart = line.from + match[0].indexOf(match[1] ?? match[2]);
           const markerEnd = line.from + match[0].length;
-          const label = match[1] ? '• ' : `${match[2]}. `;
-          builder.push(
-            Decoration.replace({ widget: new ListMarkerWidget(label) }).range(markerStart, markerEnd),
-          );
+          if (selection.from > markerEnd || selection.to < markerStart) {
+            const label = match[1] ? '• ' : `${match[2]}. `;
+            builder.push(
+              Decoration.replace({ widget: new ListMarkerWidget(label) }).range(markerStart, markerEnd),
+            );
+          }
         }
       }
       pos = line.to + 1;
@@ -207,6 +216,54 @@ const markerDecorationPlugin = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
+const MARK_REVEAL_PATTERN = /\bparsi-(mark|url|label)\b/;
+
+/**
+ * Reveals hidden formatting marks only where the cursor (or selection)
+ * overlaps them, so the exact spot under edit opens up while every other
+ * mark on the line keeps its rendered form. Mark ranges come from our own
+ * highlight definition, so they always match what the theme hides.
+ * @param {object} view Active editor view.
+ * @returns {object} Decoration set.
+ */
+function buildMarkRevealDecorations(view) {
+  const selection = view.state.selection.main;
+  const builder = [];
+  // The parser runs incrementally in the background; force it through for
+  // the visible document so the first paint already reveals correctly.
+  ensureSyntaxTree(view.state, view.state.doc.length);
+  const tree = syntaxTree(view.state);
+  if (!tree) {
+    return Decoration.set(builder);
+  }
+  for (const { from, to } of view.visibleRanges) {
+    highlightTree(tree, persianHighlight, (rangeFrom, rangeTo, classes) => {
+      if (!MARK_REVEAL_PATTERN.test(classes)) {
+        return;
+      }
+      if (selection.from <= rangeTo && selection.to >= rangeFrom) {
+        builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(rangeFrom, rangeTo));
+      }
+    }, from, to);
+  }
+  return Decoration.set(builder);
+}
+
+const markRevealPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) {
+      this.decorations = buildMarkRevealDecorations(view);
+    }
+
+    update(update) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        this.decorations = buildMarkRevealDecorations(update.view);
+      }
+    }
+  },
+  { decorations: (value) => value.decorations },
+);
+
 /**
  * Returns the live-preview extensions for the Markdown view.
  * @returns {Array} CodeMirror extensions (highlight, theme, decorations).
@@ -218,5 +275,6 @@ export function livePreviewExtensions() {
     livePreviewTheme,
     lineDecorationPlugin,
     markerDecorationPlugin,
+    markRevealPlugin,
   ];
 }

@@ -128,15 +128,41 @@ test('should_keep_number_in_marker_when_ordered', () => {
   }
 });
 
-test('should_reveal_marks_on_active_line_when_focused', () => {
-  const mounted = createEditor('# سلام\n\nمتن');
+test('should_reveal_only_overlapped_mark_when_focused', () => {
+  const mounted = createEditor('**a** متن **b**');
   try {
     mounted.editor.focus();
-    const firstLine = mounted.host.querySelector('.cm-line');
-    assert.ok(firstLine?.classList.contains('cm-activeLine'), 'expected an active line');
-    const mark = firstLine.querySelector('.parsi-mark');
-    assert.ok(mark, 'expected a mark on the active line');
-    assert.ok(hasRule('.cm-activeLine .parsi-mark', 'font-size', '1rem'));
+    const open = [...mounted.host.querySelectorAll('.parsi-mark-open')];
+    assert.equal(open.length, 1);
+    assert.equal(open[0].textContent, '**');
+    const hidden = [...mounted.host.querySelectorAll('.parsi-mark')]
+      .filter((span) => !span.classList.contains('parsi-mark-open'));
+    assert.ok(hidden.length > 0, 'expected other marks to stay hidden');
+    assert.ok(hidden.every((span) => span.textContent === '**'));
+    assert.ok(hasRule('.parsi-mark.parsi-mark-open', 'font-size', '1rem'));
+    assert.ok(hasRule('.parsi-mark-open .parsi-mark', 'font-size', '1rem'));
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_keep_all_marks_hidden_when_cursor_is_on_plain_text', () => {
+  const mounted = createEditor('متن **b**');
+  try {
+    mounted.editor.focus();
+    assert.equal(mounted.host.querySelectorAll('.parsi-mark-open').length, 0);
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_reveal_link_mark_when_cursor_is_on_it', () => {
+  const mounted = createEditor('[متن](https://x.ir)');
+  try {
+    mounted.editor.focus();
+    const open = [...mounted.host.querySelectorAll('.parsi-mark-open')];
+    assert.ok(open.length > 0, 'expected an open mark');
+    assert.ok(open.some((span) => span.textContent === '['));
   } finally {
     destroy(mounted);
   }

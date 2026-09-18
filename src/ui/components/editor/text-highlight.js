@@ -2,8 +2,9 @@
 //
 // Double-equals highlighting is not part of Markdown/GFM, so it is handled as
 // a view-local decoration instead of parser syntax: the inner text receives
-// the highlight style and the `==` delimiters are hidden (reappearing on the
-// active line, like other marks). Multiline spans are not supported.
+// the highlight style and the `==` delimiters are hidden. A span overlapped by
+// the cursor (or selection) is left fully raw so that exact spot stays
+// editable. Multiline spans are not supported.
 import { EditorView } from 'codemirror';
 import { Decoration, ViewPlugin } from '@codemirror/view';
 
@@ -14,27 +15,26 @@ const highlightTheme = EditorView.theme({
   // text color is pinned to dark instead of inheriting the editor color.
   '& .parsi-highlight': { backgroundColor: '#fff3b0', color: '#1c2026', borderRadius: '4px', paddingInline: '0.2em' },
   '& .parsi-delim': { fontSize: '0' },
-  '& .cm-activeLine .parsi-delim': { fontSize: '1rem' },
 });
 
 /**
- * Builds highlight decorations for `==...==` spans, skipping the line under
- * the cursor (its raw delimiters are revealed by the theme instead).
+ * Builds highlight decorations for `==...==` spans, leaving spans overlapped
+ * by the cursor (or selection) fully raw so that exact spot stays editable.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
 function buildHighlightDecorations(view) {
-  const activeLine = view.state.doc.lineAt(view.state.selection.main.head).number;
+  const selection = view.state.selection.main;
   const builder = [];
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
-      if (line.number !== activeLine) {
-        HIGHLIGHT_PATTERN.lastIndex = 0;
-        let match = null;
-        while ((match = HIGHLIGHT_PATTERN.exec(line.text)) !== null) {
-          const matchStart = line.from + match.index;
-          const matchEnd = matchStart + match[0].length;
+      HIGHLIGHT_PATTERN.lastIndex = 0;
+      let match = null;
+      while ((match = HIGHLIGHT_PATTERN.exec(line.text)) !== null) {
+        const matchStart = line.from + match.index;
+        const matchEnd = matchStart + match[0].length;
+        if (selection.from > matchEnd || selection.to < matchStart) {
           builder.push(Decoration.mark({ class: 'parsi-delim' }).range(matchStart, matchStart + 2));
           builder.push(Decoration.mark({ class: 'parsi-highlight' }).range(matchStart + 2, matchEnd - 2));
           builder.push(Decoration.mark({ class: 'parsi-delim' }).range(matchEnd - 2, matchEnd));

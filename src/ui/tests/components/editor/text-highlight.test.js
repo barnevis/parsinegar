@@ -44,3 +44,15 @@ test('should_keep_raw_delimiters_on_active_line_when_focused', () => {
     destroy(mounted);
   }
 });
+
+test('should_decorate_only_unoverlapped_spans_when_focused', () => {
+  const mounted = createEditor('==a== متن ==b==');
+  try {
+    mounted.editor.focus();
+    const highlighted = [...mounted.host.querySelectorAll('.parsi-highlight')];
+    assert.equal(highlighted.length, 1);
+    assert.equal(highlighted[0].textContent, 'b');
+  } finally {
+    destroy(mounted);
+  }
+});
