@@ -365,22 +365,19 @@ class ParsiSidePanel extends PeyElement {
           border: 1px solid transparent;
           border-radius: 8px;
           background-color: transparent;
-          inline-size: 1.75rem;
-          block-size: 1.75rem;
+          inline-size: 1rem;
+          block-size: 1rem;
           cursor: pointer;
           color: var(--pey-color-text-muted, #55555f);
         }
-        [part="outline-toggle"]:hover {
-          background-color: var(--pey-color-canvas, #ffffff);
-        }
         [part="outline-spacer"] {
           flex: none;
-          inline-size: 1.75rem;
+          inline-size: 1rem;
         }
         [part="outline-chevron"] {
           display: inline-block;
-          inline-size: 0.45rem;
-          block-size: 0.45rem;
+          inline-size: 0.24rem;
+          block-size: 0.24rem;
           /* Physical borders on purpose: the chevron angle must stay fixed
              instead of flipping with the text direction. */
           border-right: 2px solid currentColor;
