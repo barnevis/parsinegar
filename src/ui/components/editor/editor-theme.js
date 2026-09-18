@@ -48,6 +48,18 @@ export function editorColorScheme(colorScheme) {
       '& ::selection': {
         backgroundColor: dark ? DARK_SELECTION : SEPIA_SELECTION,
       },
+      // Same opaque-background fix as the `Highlight` rules in
+      // `live-preview.js`, but with the scheme literals so selected code
+      // matches the surrounding selected text exactly.
+      '& .cm-line .parsi-code .parsi-selected': {
+        backgroundColor: dark ? DARK_SELECTION : SEPIA_SELECTION,
+      },
+      '& .cm-line .parsi-selected .parsi-code': {
+        backgroundColor: dark ? DARK_SELECTION : SEPIA_SELECTION,
+      },
+      '& .cm-line.parsi-code-line.parsi-selected': {
+        backgroundColor: dark ? DARK_SELECTION : SEPIA_SELECTION,
+      },
       '& .cm-selectionBackground': {
         backgroundColor: `${dark ? DARK_SELECTION : SEPIA_SELECTION} !important`,
       },

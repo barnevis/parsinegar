@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { markdownLanguage } from '@codemirror/lang-markdown';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { collectInlineContainers } from '../../../components/editor/live-preview.js';
+import { collectInlineContainers, selectionTouches } from '../../../components/editor/live-preview.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');
@@ -176,12 +176,74 @@ test('should_decorate_code_block_when_fenced', () => {
   }
 });
 
-test('should_collect_inline_spans_when_tree_has_them', () => {
-  const doc = '# تیتر\n\n**پررنگ** و `کد`';
+test('should_collect_reveal_spans_when_tree_has_them', () => {
+  const doc = '# تیتر\n\n> نقل\n\n- مورد\n\n**پررنگ** و `کد`';
   const tree = markdownLanguage.parser.parse(doc);
   const containers = collectInlineContainers(tree, 0, doc.length);
   const kinds = containers.map(({ from, to }) => doc.slice(from, to));
+  assert.ok(kinds.includes('# تیتر'), `expected the heading span, got ${JSON.stringify(kinds)}`);
   assert.ok(kinds.includes('**پررنگ**'), `expected the strong span, got ${JSON.stringify(kinds)}`);
   assert.ok(kinds.includes('`کد`'), `expected the code span, got ${JSON.stringify(kinds)}`);
-  assert.ok(!kinds.some((span) => span.startsWith('#')), 'expected no block span');
+  assert.ok(!kinds.some((span) => span.startsWith('>')), 'expected no quote span');
+  assert.ok(!kinds.some((span) => span.startsWith('- ')), 'expected no list span');
+});
+
+test('should_reveal_setext_marks_when_cursor_is_on_heading_text', () => {
+  // Pristine cursor sits at 0 — on the heading text, not on the `===`
+  // underline — so only whole-heading reveal (not exact overlap) opens it.
+  const mounted = createEditor('سلام\n===');
+  try {
+    const open = [...mounted.host.querySelectorAll('.parsi-mark-open')];
+    assert.ok(open.some((span) => span.textContent === '==='), 'expected the underline revealed');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_reveal_atx_marks_when_cursor_is_on_heading', () => {
+  // Pristine cursor sits at 0 — on the opening hashes (exact overlap) —
+  // which opens them through the same container path as standing on the
+  // heading text further right.
+  const mounted = createEditor('## سلام');
+  try {
+    const open = [...mounted.host.querySelectorAll('.parsi-mark-open')];
+    assert.ok(open.some((span) => span.textContent === '##'), 'expected the hashes revealed');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_touch_ranges_when_selection_overlaps', () => {
+  const spanned = { ranges: [{ from: 2, to: 8, empty: false }] };
+  assert.equal(selectionTouches(spanned, 0, 5), true);
+  assert.equal(selectionTouches(spanned, 8, 12), true);
+  assert.equal(selectionTouches(spanned, 9, 12), false);
+  assert.equal(selectionTouches(spanned, 0, 1), false);
+});
+
+test('should_ignore_collapsed_cursors_when_touching', () => {
+  const cursor = { ranges: [{ from: 5, to: 5, empty: true }] };
+  assert.equal(selectionTouches(cursor, 0, 10), false);
+});
+
+test('should_keep_code_unpainted_when_cursor_is_collapsed', () => {
+  // Pristine cursor is collapsed: the chip renders, but nothing paints.
+  const mounted = createEditor('متن `کد`');
+  try {
+    assert.ok(mounted.host.querySelector('.parsi-code'), 'expected the chip');
+    assert.equal(mounted.host.querySelectorAll('.parsi-selected').length, 0);
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_keep_fence_line_unpainted_when_cursor_is_collapsed', () => {
+  const mounted = createEditor('```\ncode\n```');
+  try {
+    const line = mounted.host.querySelector('.cm-line.parsi-code-line');
+    assert.ok(line, 'expected the fence line');
+    assert.ok(!line.classList.contains('parsi-selected'), 'expected no paint');
+  } finally {
+    destroy(mounted);
+  }
 });

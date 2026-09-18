@@ -345,6 +345,38 @@ test('should_apply_sepia_selection_when_color_scheme_is_sepia', () => {
   }
 });
 
+test('should_paint_code_selection_when_color_scheme_is_dark', () => {
+  const host = document.createElement('div');
+  const editor = createMarkdownView(host, { document: '`x`', colorScheme: 'dark' });
+  try {
+    assert.ok(hasRule('.parsi-code .parsi-selected', 'background-color', '#26436e'));
+    assert.ok(hasRule('.parsi-selected .parsi-code', 'background-color', '#26436e'));
+    assert.ok(hasRule('.parsi-code-line.parsi-selected', 'background-color', '#26436e'));
+  } finally {
+    editor.destroy();
+  }
+});
+
+test('should_paint_code_selection_when_color_scheme_is_sepia', () => {
+  const host = document.createElement('div');
+  const editor = createMarkdownView(host, { document: '`x`', colorScheme: 'sepia' });
+  try {
+    assert.ok(hasRule('.parsi-code .parsi-selected', 'background-color', '#d3c4b3'));
+  } finally {
+    editor.destroy();
+  }
+});
+
+test('should_track_platform_selection_when_color_scheme_is_light', () => {
+  const host = document.createElement('div');
+  const editor = createMarkdownView(host, { document: '`x`' });
+  try {
+    assert.ok(hasRule('.parsi-code .parsi-selected', 'background-color', 'Highlight'));
+  } finally {
+    editor.destroy();
+  }
+});
+
 test('should_insert_bold_marks_when_insert_mark_is_called', () => {
   const host = document.createElement('div');
   document.body.append(host);

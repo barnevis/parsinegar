@@ -93,6 +93,27 @@ const livePreviewTheme = EditorView.theme({
     borderRadius: '4px',
     paddingInline: '0.25em',
   },
+  // Opaque code backgrounds (chips and fence lines) paint over CodeMirror's
+  // own selection layer, so selected code would keep its background and look
+  // unselected. The `parsi-selected` decoration below swaps the span's own
+  // background for the selection color instead (an element background always
+  // wins, which is exactly what caused the bug). Mark decorations nest as
+  // their own element inside (or around) the syntax span, so both nesting
+  // directions are covered. `Highlight` tracks the platform selection color,
+  // which is what plain text shows in the light scheme; dark and sepia
+  // override it with their literals in `editor-theme.js` (which loads after
+  // this theme, so it wins there).
+  // NOTE: one selector per key — comma selectors with `&` never make it
+  // into the injected stylesheet.
+  '& .cm-line .parsi-code .parsi-selected': {
+    backgroundColor: 'Highlight',
+  },
+  '& .cm-line .parsi-selected .parsi-code': {
+    backgroundColor: 'Highlight',
+  },
+  '& .cm-line.parsi-code-line.parsi-selected': {
+    backgroundColor: 'Highlight',
+  },
 });
 
 const LIST_PATTERN = /^[ \t]*(?:([*+-])|([0-9\u06F0-\u06F9]+)[.)])\s+/;
@@ -121,13 +142,29 @@ class ListMarkerWidget extends WidgetType {
 }
 
 /**
+ * Checks whether any non-collapsed selection range touches `from`..`to`
+ * (boundaries inclusive, mirroring `rangesOverlap`). Collapsed cursors never
+ * touch: standing in code keeps the chip, only a real selection paints it.
+ * @param {object} selection Editor selection state (`ranges` of `{from, to, empty}`).
+ * @param {number} from Range start.
+ * @param {number} to Range end.
+ * @returns {boolean} True on any non-empty overlap.
+ */
+export function selectionTouches(selection, from, to) {
+  return selection.ranges.some((range) => !range.empty && range.from <= to && range.to >= from);
+}
+
+/**
  * Builds line decorations (quote/list/code-fence lines) for visible ranges.
- * Fence parity is resolved by scanning from the document start.
+ * Fence parity is resolved by scanning from the document start. Fence lines
+ * touched by a selection also carry `parsi-selected`, so their opaque
+ * background swaps for the selection color (see the theme rule).
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
 function buildLineDecorations(view) {
   const builder = [];
+  const { selection } = view.state;
   let inFence = false;
   let fenceCheckedUntil = 1;
   for (const { from, to } of view.visibleRanges) {
@@ -143,7 +180,10 @@ function buildLineDecorations(view) {
       if (FENCE_PATTERN.test(line.text)) {
         inFence = !inFence;
       } else if (inFence) {
-        builder.push(Decoration.line({ class: 'parsi-code-line' }).range(line.from));
+        const touched = selectionTouches(selection, line.from, line.to);
+        builder.push(Decoration.line({
+          class: touched ? 'parsi-code-line parsi-selected' : 'parsi-code-line',
+        }).range(line.from));
       } else if (QUOTE_PATTERN.test(line.text)) {
         builder.push(Decoration.line({ class: 'parsi-quote-line' }).range(line.from));
       } else if (LIST_PATTERN.test(line.text)) {
@@ -195,8 +235,59 @@ const lineDecorationPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet) {
         this.decorations = buildLineDecorations(update.view);
+      }
+    }
+  },
+  { decorations: (value) => value.decorations },
+);
+
+const CODE_SPAN_PATTERN = /\bparsi-code\b/;
+
+/**
+ * Paints selected inline code chips with the selection color. The chip's
+ * opaque background covers CodeMirror's own selection layer, so without
+ * this the chip would keep its background under a selection and look
+ * unselected (while still copying). Only non-collapsed selections paint;
+ * a cursor merely standing in code keeps the chip.
+ * @param {object} view Active editor view.
+ * @returns {object} Decoration set.
+ */
+function buildSelectionMarks(view) {
+  const { selection } = view.state;
+  const builder = [];
+  if (selection.ranges.every((range) => range.empty)) {
+    return Decoration.set(builder);
+  }
+  // Same forced parse as mark-reveal: the first paint must already cover.
+  ensureSyntaxTree(view.state, view.state.doc.length);
+  const tree = syntaxTree(view.state);
+  if (!tree) {
+    return Decoration.set(builder);
+  }
+  for (const { from, to } of view.visibleRanges) {
+    highlightTree(tree, persianHighlight, (rangeFrom, rangeTo, classes) => {
+      if (!CODE_SPAN_PATTERN.test(classes)) {
+        return;
+      }
+      if (selectionTouches(selection, rangeFrom, rangeTo)) {
+        builder.push(Decoration.mark({ class: 'parsi-selected' }).range(rangeFrom, rangeTo));
+      }
+    }, from, to);
+  }
+  return Decoration.set(builder);
+}
+
+const selectionPaintPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) {
+      this.decorations = buildSelectionMarks(view);
+    }
+
+    update(update) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        this.decorations = buildSelectionMarks(update.view);
       }
     }
   },
@@ -220,21 +311,32 @@ const markerDecorationPlugin = ViewPlugin.fromClass(
 
 const MARK_REVEAL_PATTERN = /\bparsi-(mark|url|label)\b/;
 
-// Inline containers whose marks open together: when the cursor sits anywhere
-// inside such a span (delimiters or content), every mark of that span is
-// revealed. Block marks (headings, quotes, list markers) intentionally stay
-// out: they reveal only on exact overlap.
-const INLINE_CONTAINER_NAMES = new Set([
+// Inline spans and headings whose marks open together: when the cursor sits
+// anywhere inside such a span (delimiters or content), every mark of that
+// span is revealed. Headings count as one span, so standing anywhere on a
+// `# Title` (or either line of a setext heading) reveals its marks, just
+// like standing on bold text reveals its `**`. Other block marks (quotes,
+// list markers) intentionally stay out: they reveal only on exact overlap.
+const REVEAL_CONTAINER_NAMES = new Set([
   'Emphasis',
   'StrongEmphasis',
   'InlineCode',
   'Link',
   'Image',
   'Strikethrough',
+  'ATXHeading1',
+  'ATXHeading2',
+  'ATXHeading3',
+  'ATXHeading4',
+  'ATXHeading5',
+  'ATXHeading6',
+  'SetextHeading1',
+  'SetextHeading2',
 ]);
 
 /**
- * Collects inline formatting spans enclosing `from`..`to`.
+ * Collects reveal spans enclosing `from`..`to`: inline formatting spans and
+ * whole headings.
  * @param {object} tree Lezer syntax tree.
  * @param {number} from Range start.
  * @param {number} to Range end.
@@ -246,7 +348,7 @@ export function collectInlineContainers(tree, from, to) {
     from,
     to,
     enter(node) {
-      if (INLINE_CONTAINER_NAMES.has(node.name)) {
+      if (REVEAL_CONTAINER_NAMES.has(node.name)) {
         containers.push({ from: node.from, to: node.to });
       }
     },
@@ -269,8 +371,9 @@ function rangesOverlap(fromA, toA, fromB, toB) {
 /**
  * Reveals hidden formatting marks only where the cursor (or selection)
  * overlaps them, so the exact spot under edit opens up while every other
- * mark on the line keeps its rendered form. For inline spans the whole
- * formatted part counts: standing on the text reveals its delimiters too.
+ * mark on the line keeps its rendered form. For inline spans and headings
+ * the whole formatted part counts: standing on the text reveals its
+ * delimiters too.
  * Mark ranges come from our own highlight definition, so they always match
  * what the theme hides.
  * @param {object} view Active editor view.
@@ -335,5 +438,6 @@ export function livePreviewExtensions() {
     lineDecorationPlugin,
     markerDecorationPlugin,
     markRevealPlugin,
+    selectionPaintPlugin,
   ];
 }
