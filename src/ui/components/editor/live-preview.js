@@ -157,7 +157,9 @@ function buildLineDecorations(view) {
 
 /**
  * Builds marker widgets for list lines, leaving the raw marker where the
- * cursor (or selection) overlaps it so that exact spot stays editable.
+ * cursor (or selection) is on the mark glyphs themselves. The skip range
+ * ends before the trailing space on purpose: a cursor just past the mark
+ * still gets the rendered bullet instead of an invisible gap.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -172,7 +174,7 @@ function buildMarkerDecorations(view) {
         if (match) {
           const markerStart = line.from + match[0].indexOf(match[1] ?? match[2]);
           const markerEnd = line.from + match[0].length;
-          if (selection.from > markerEnd || selection.to < markerStart) {
+          if (selection.from >= markerEnd || selection.to < markerStart) {
             const label = match[1] ? '• ' : `${match[2]}. `;
             builder.push(
               Decoration.replace({ widget: new ListMarkerWidget(label) }).range(markerStart, markerEnd),
@@ -218,11 +220,59 @@ const markerDecorationPlugin = ViewPlugin.fromClass(
 
 const MARK_REVEAL_PATTERN = /\bparsi-(mark|url|label)\b/;
 
+// Inline containers whose marks open together: when the cursor sits anywhere
+// inside such a span (delimiters or content), every mark of that span is
+// revealed. Block marks (headings, quotes, list markers) intentionally stay
+// out: they reveal only on exact overlap.
+const INLINE_CONTAINER_NAMES = new Set([
+  'Emphasis',
+  'StrongEmphasis',
+  'InlineCode',
+  'Link',
+  'Image',
+  'Strikethrough',
+]);
+
+/**
+ * Collects inline formatting spans enclosing `from`..`to`.
+ * @param {object} tree Lezer syntax tree.
+ * @param {number} from Range start.
+ * @param {number} to Range end.
+ * @returns {Array<object>} `{ from, to }` container ranges.
+ */
+export function collectInlineContainers(tree, from, to) {
+  const containers = [];
+  tree.iterate({
+    from,
+    to,
+    enter(node) {
+      if (INLINE_CONTAINER_NAMES.has(node.name)) {
+        containers.push({ from: node.from, to: node.to });
+      }
+    },
+  });
+  return containers;
+}
+
+/**
+ * Checks whether two ranges overlap (boundaries inclusive).
+ * @param {number} fromA First range start.
+ * @param {number} toA First range end.
+ * @param {number} fromB Second range start.
+ * @param {number} toB Second range end.
+ * @returns {boolean} True on any overlap.
+ */
+function rangesOverlap(fromA, toA, fromB, toB) {
+  return fromA <= toB && toA >= fromB;
+}
+
 /**
  * Reveals hidden formatting marks only where the cursor (or selection)
  * overlaps them, so the exact spot under edit opens up while every other
- * mark on the line keeps its rendered form. Mark ranges come from our own
- * highlight definition, so they always match what the theme hides.
+ * mark on the line keeps its rendered form. For inline spans the whole
+ * formatted part counts: standing on the text reveals its delimiters too.
+ * Mark ranges come from our own highlight definition, so they always match
+ * what the theme hides.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -237,11 +287,21 @@ function buildMarkRevealDecorations(view) {
     return Decoration.set(builder);
   }
   for (const { from, to } of view.visibleRanges) {
+    const containers = collectInlineContainers(tree, from, to);
     highlightTree(tree, persianHighlight, (rangeFrom, rangeTo, classes) => {
       if (!MARK_REVEAL_PATTERN.test(classes)) {
         return;
       }
-      if (selection.from <= rangeTo && selection.to >= rangeFrom) {
+      if (rangesOverlap(selection.from, selection.to, rangeFrom, rangeTo)) {
+        builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(rangeFrom, rangeTo));
+        return;
+      }
+      const revealed = containers.some(
+        (container) => container.from <= rangeFrom
+          && container.to >= rangeTo
+          && rangesOverlap(selection.from, selection.to, container.from, container.to),
+      );
+      if (revealed) {
         builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(rangeFrom, rangeTo));
       }
     }, from, to);
