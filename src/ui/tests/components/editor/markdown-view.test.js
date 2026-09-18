@@ -270,6 +270,34 @@ test('should_use_auto_direction_when_requested', () => {
   }
 });
 
+test('should_keep_rtl_base_when_direction_is_auto_or_rtl', () => {
+  for (const direction of ['auto', 'rtl']) {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const editor = createMarkdownView(host, { document: 'x', direction });
+    try {
+      const base = globalThis.getComputedStyle(host.querySelector('.cm-editor')).direction;
+      assert.equal(base, 'rtl');
+    } finally {
+      editor.destroy();
+      host.remove();
+    }
+  }
+});
+
+test('should_use_ltr_base_when_direction_is_ltr', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'x', direction: 'ltr' });
+  try {
+    const base = globalThis.getComputedStyle(host.querySelector('.cm-editor')).direction;
+    assert.equal(base, 'ltr');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 test('should_apply_font_size_when_given', () => {
   const host = document.createElement('div');
   document.body.append(host);

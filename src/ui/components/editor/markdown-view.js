@@ -10,6 +10,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { redo, selectAll, undo } from '@codemirror/commands';
 import { EditorSelection, Prec } from '@codemirror/state';
 import { editorColorScheme } from './editor-theme.js';
+import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
@@ -52,7 +53,7 @@ function isSelectAllEvent(event) {
  * @param {object} [options] View options.
  * @param {string} [options.document] Initial Markdown text.
  * @param {string} [options.label] Accessible label for the editor.
- * @param {string} [options.direction] Writing direction: 'rtl' (default), 'ltr', or 'auto'.
+ * @param {string} [options.direction] Writing direction: 'rtl' (default), 'ltr', or 'auto' (per-line detection; letter-less lines take the rtl base so the caret stays right).
  * @param {number} [options.fontSize] Editor font size in pixels (12-24, default 16).
  * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
  * @param {Function} [options.onChange] Called with the new text on every edit.
@@ -71,6 +72,7 @@ export function createMarkdownView(host, options = {}) {
   const fontSize = Number.isInteger(options.fontSize) && options.fontSize >= FONT_SIZE_MIN && options.fontSize <= FONT_SIZE_MAX
     ? options.fontSize
     : DEFAULT_FONT_SIZE;
+  const baseDirection = direction === 'ltr' ? 'ltr' : 'rtl';
   let current = typeof options.document === 'string' ? options.document : '';
   let destroyed = false;
 
@@ -84,6 +86,7 @@ export function createMarkdownView(host, options = {}) {
       ...livePreviewExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
+      ...lineDirectionExtensions(baseDirection),
       ...editorColorScheme(options.colorScheme),
       // High precedence so our layout-independent shortcuts win over
       // defaultKeymap bindings for the same gesture (e.g. Mod-i, which the
@@ -108,7 +111,10 @@ export function createMarkdownView(host, options = {}) {
       EditorView.editorAttributes.of({ dir: direction, 'aria-label': options.label ?? '' }),
       EditorView.theme({
         '&': {
-          ...(direction === 'auto' ? {} : { direction }),
+          // Explicit base direction (never inherited): letter-less lines
+          // are pinned by `line-direction.js`, everything else resolves
+          // per line through `plaintext` below.
+          direction: baseDirection,
           textAlign: 'start',
           fontFamily: PERSIAN_FONT,
           fontSize: `${fontSize}px`,
@@ -120,9 +126,11 @@ export function createMarkdownView(host, options = {}) {
           lineHeight: '1.5',
         },
         '& .cm-line': {
-          // Each line detects its own base direction from its first strong
-          // character (Persian lines align right, English lines align left),
-          // while textAlign start follows that direction.
+          // Lines with a strong character detect their own base direction
+          // from it (Persian lines align right, English lines align left),
+          // while textAlign start follows that direction. Letter-less lines
+          // are pinned by `line-direction.js` instead (plaintext would park
+          // them left regardless of the base).
           unicodeBidi: 'plaintext',
         },
       }),
