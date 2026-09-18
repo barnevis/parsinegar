@@ -28,6 +28,8 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.insert.ordered-list',
     'parsinegar.action.undo',
     'parsinegar.views.files',
+    'parsinegar.views.outline-expand',
+    'parsinegar.views.outline-collapse',
     'parsinegar.views.settings',
     'parsinegar.settings.theme',
     'parsinegar.settings.theme-light',

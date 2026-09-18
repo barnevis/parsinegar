@@ -326,3 +326,50 @@ test('should_skip_render_when_active_line_is_unchanged', async () => {
     element.remove();
   }
 });
+
+test('should_collapse_children_when_toggle_is_clicked', async () => {
+  const element = mount({ activeView: 'outline', documentText: '# الف\n## ب\n# ج' });
+  try {
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-line="2"]'));
+    element.shadowRoot.querySelector('[data-outline-toggle="1"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-line="2"]'), null);
+    assert.equal(element.shadowRoot.querySelector('[data-outline-toggle="1"]').getAttribute('aria-expanded'), 'false');
+    assert.ok(element.shadowRoot.querySelector('[data-line="3"]'));
+    element.shadowRoot.querySelector('[data-outline-toggle="1"]').click();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-line="2"]'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_reset_collapse_when_document_changes', async () => {
+  const element = mount({ activeView: 'outline', documentText: '# الف\n## ب' });
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-outline-toggle="1"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-line="2"]'), null);
+    element.configure({ documentText: '# تازه\n## نو' });
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-line="2"]'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_render_toggle_without_parent_event_when_clicked', async () => {
+  const element = mount({ activeView: 'outline', documentText: '# الف\n## ب' });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('outline-jump', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-outline-toggle="1"]').click();
+    await flush();
+    assert.deepEqual(seen, []);
+  } finally {
+    element.remove();
+  }
+});

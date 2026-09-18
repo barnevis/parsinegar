@@ -30,16 +30,26 @@ export function buildOutlineTree(headings) {
 }
 
 /**
- * Renders heading nodes as a nested list.
+ * Renders heading nodes as a nested list. Nodes with children carry a
+ * toggle button; collapsed nodes omit their children.
  * @param {Array<object>} nodes Tree nodes.
  * @param {number|null} activeLine Highlighted heading line, if any.
+ * @param {Function} translate Translation function.
+ * @param {Set<number>} collapsed Collapsed heading lines.
  * @returns {string} Nested list markup.
  */
-function renderNodes(nodes, activeLine) {
-  return nodes.map((node) => `
+function renderNodes(nodes, activeLine, translate, collapsed) {
+  return nodes.map((node) => {
+    const hasChildren = node.children.length > 0;
+    const isCollapsed = hasChildren && collapsed.has(node.line);
+    const toggle = hasChildren
+      ? `<button type="button" part="outline-toggle" data-outline-toggle="${node.line}" aria-expanded="${!isCollapsed}" aria-label="${escapeHtml(translate(isCollapsed ? 'parsinegar.views.outline-expand' : 'parsinegar.views.outline-collapse'))}">${isCollapsed ? '▸' : '▾'}</button>`
+      : '';
+    return `
     <li part="outline-item">
-      <button type="button" part="outline-jump" data-line="${node.line}"${node.line === activeLine ? ' aria-current="true"' : ''}>${escapeHtml(node.text)}</button>${node.children.length > 0 ? `<ul part="outline-list">${renderNodes(node.children, activeLine)}</ul>` : ''}
-    </li>`).join('');
+      ${toggle}<button type="button" part="outline-jump" data-line="${node.line}"${node.line === activeLine ? ' aria-current="true"' : ''}>${escapeHtml(node.text)}</button>${hasChildren && !isCollapsed ? `<ul part="outline-list">${renderNodes(node.children, activeLine, translate, collapsed)}</ul>` : ''}
+    </li>`;
+  }).join('');
 }
 
 /**
@@ -48,14 +58,16 @@ function renderNodes(nodes, activeLine) {
  * @param {Function} options.t Translation function.
  * @param {string} options.documentText Raw document text.
  * @param {number|null} [options.activeLine] Heading line to highlight.
+ * @param {Array<number>} [options.collapsed] Collapsed heading lines.
  * @returns {string} Outline markup.
  */
-export function renderOutlineView({ t, documentText, activeLine }) {
+export function renderOutlineView({ t, documentText, activeLine, collapsed }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const headings = parseOutline(documentText);
   if (headings.length === 0) {
     return `<p part="outline-empty">${escapeHtml(translate('parsinegar.views.outline-empty'))}</p>`;
   }
   const current = Number.isInteger(activeLine) ? activeLine : null;
-  return `<ul part="outline-list">${renderNodes(buildOutlineTree(headings), current)}</ul>`;
+  const folded = new Set(Array.isArray(collapsed) ? collapsed.filter((line) => Number.isInteger(line)) : []);
+  return `<ul part="outline-list">${renderNodes(buildOutlineTree(headings), current, translate, folded)}</ul>`;
 }

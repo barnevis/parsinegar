@@ -41,6 +41,7 @@ class ParsiSidePanel extends PeyElement {
   #openFileMenu = null;
   #editingId = null;
   #renameError = null;
+  #collapsedLines = new Set();
   #applied = null;
 
   onConnect(refs = {}) {
@@ -106,6 +107,7 @@ class ParsiSidePanel extends PeyElement {
       openFileMenu: this.#openFileMenu,
       editingId: this.#editingId,
       renameError: this.#renameError,
+      collapsed: [...this.#collapsedLines].sort((left, right) => left - right).join(','),
       signature: outlineSignature(this.#documentText),
     };
   }
@@ -157,6 +159,12 @@ class ParsiSidePanel extends PeyElement {
   configure({ activeView, items, currentId, documentText, settings, activeLine, renameError } = {}) {
     const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError });
     const prev = this.#applied;
+    // Collapsed lines refer to line numbers, so a changed document (new
+    // signature) invalidates them.
+    if (prev !== null && prev.signature !== next.signature && this.#collapsedLines.size > 0) {
+      this.#collapsedLines.clear();
+      next.collapsed = '';
+    }
     const same = prev !== null
       && prev.activeView === next.activeView
       && prev.items === next.items
@@ -166,6 +174,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.openFileMenu === next.openFileMenu
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
+      && prev.collapsed === next.collapsed
       && prev.signature === next.signature;
     if (!same) {
       this.#applied = next;
@@ -239,6 +248,19 @@ class ParsiSidePanel extends PeyElement {
           detail: { line: Number(outlineButton.getAttribute('data-line')) },
         }),
       );
+      return;
+    }
+    const outlineToggle = event.target?.closest?.('[data-outline-toggle]');
+    if (outlineToggle) {
+      const line = Number(outlineToggle.getAttribute('data-outline-toggle'));
+      if (Number.isInteger(line)) {
+        if (this.#collapsedLines.has(line)) {
+          this.#collapsedLines.delete(line);
+        } else {
+          this.#collapsedLines.add(line);
+        }
+        this.requestRender();
+      }
       return;
     }
     const openButton = event.target?.closest?.('[data-doc-id]');
@@ -326,6 +348,27 @@ class ParsiSidePanel extends PeyElement {
         }
         [part="outline-list"] [part="outline-list"] {
           padding-inline-start: 1rem;
+          flex-basis: 100%;
+        }
+        [part="outline-item"] {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.2rem;
+        }
+        [part="outline-toggle"] {
+          font: inherit;
+          flex: none;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          background-color: transparent;
+          inline-size: 1.75rem;
+          block-size: 1.75rem;
+          cursor: pointer;
+          color: var(--pey-color-text-muted, #55555f);
+        }
+        [part="outline-toggle"]:hover {
+          background-color: var(--pey-color-canvas, #ffffff);
         }
         [part="docs-open"],
         [part="outline-jump"] {
@@ -343,7 +386,9 @@ class ParsiSidePanel extends PeyElement {
           min-inline-size: 0;
         }
         [part="outline-jump"] {
-          inline-size: 100%;
+          flex: 1;
+          min-inline-size: 0;
+          font-size: 13px;
         }
         [part="outline-jump"]:hover {
           background-color: var(--pey-color-canvas, #ffffff);
@@ -352,10 +397,9 @@ class ParsiSidePanel extends PeyElement {
           font-weight: 700;
         }
         [part="outline-jump"][aria-current="true"] {
-          border-color: transparent;
-          background-color: var(--pey-color-accent, #5eead4);
-          color: #0f172a;
           font-weight: 700;
+          background-color: rgb(94 234 212 / 0.14);
+          background-color: color-mix(in srgb, var(--pey-color-accent, #5eead4) 18%, transparent);
         }
         [part="docs-item"] {
           position: relative;
@@ -517,8 +561,8 @@ class ParsiSidePanel extends PeyElement {
         }
         [part="docs-open"]:focus-visible,
         [part="outline-jump"]:focus-visible,
+        [part="outline-toggle"]:focus-visible,
         [part="docs-new"]:focus-visible,
-        [part="docs-delete"]:focus-visible,
         [part="side-close"]:focus-visible {
           outline: 2px solid var(--pey-color-focus-ring, #5eead4);
           outline-offset: 2px;
@@ -529,7 +573,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, openMenuId: this.#openFileMenu, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
       </aside>`;
   }
 }

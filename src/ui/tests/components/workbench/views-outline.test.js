@@ -51,3 +51,21 @@ test('should_highlight_nothing_when_active_line_is_absent', () => {
   const html = renderOutlineView({ t: translate, documentText: '# یک\nمتن' });
   assert.ok(!html.includes('aria-current'), 'expected no highlight');
 });
+
+test('should_toggle_children_when_collapsed', () => {
+  const text = '# یک\n## دو\n# سه';
+  const open = renderOutlineView({ t: translate, documentText: text });
+  assert.ok(open.includes('data-line="2"'), 'expected the child visible');
+  assert.ok(open.includes('data-outline-toggle="1"'), 'expected a toggle on the parent');
+  assert.ok(!open.includes('data-outline-toggle="2"'), 'expected no toggle on the leaf');
+  assert.ok(open.includes('aria-expanded="true"'));
+  const closed = renderOutlineView({ t: translate, documentText: text, collapsed: [1] });
+  assert.ok(!closed.includes('data-line="2"'), 'expected the child hidden');
+  assert.ok(closed.includes('data-line="3"'), 'expected the sibling kept');
+  assert.ok(closed.includes('aria-expanded="false"'));
+});
+
+test('should_ignore_invalid_collapsed_when_given', () => {
+  const html = renderOutlineView({ t: translate, documentText: '# یک\n## دو', collapsed: ['x', null] });
+  assert.ok(html.includes('data-line="2"'));
+});

@@ -45,6 +45,8 @@ const catalog = {
     'parsinegar.views.files': 'فایل‌ها',
     'parsinegar.views.outline': 'فهرست مطالب',
     'parsinegar.views.outline-empty': 'سرفصلی در این سند نیست',
+    'parsinegar.views.outline-expand': 'باز کردن زیرعنوان‌ها',
+    'parsinegar.views.outline-collapse': 'بستن زیرعنوان‌ها',
     'parsinegar.views.close': 'بستن پنل',
     'parsinegar.views.settings': 'تنظیمات',
     'parsinegar.settings.theme': 'پوسته',
