@@ -1,5 +1,6 @@
 // Verifies the menu bar element (mounts directly, no page needed).
 import '../../setup-dom.js';
+import '../../setup-styles.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TAG } from '../../../components/menu-bar/menu-bar.js';

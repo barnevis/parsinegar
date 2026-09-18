@@ -1,5 +1,6 @@
 // Verifies the activity rail element.
 import '../../setup-dom.js';
+import '../../setup-styles.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TAG } from '../../../components/activity-rail/activity-rail.js';

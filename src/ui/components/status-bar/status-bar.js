@@ -6,6 +6,7 @@ import { escapeHtml } from '../workbench/html.js';
 import { formatFileSize } from '../workbench/stats.js';
 
 const TAG = 'parsi-status-bar';
+const STYLE_URL = new URL('./status-bar.css', import.meta.url).href;
 
 class ParsiStatusBar extends PeyElement {
   #t = (key) => key;
@@ -16,6 +17,15 @@ class ParsiStatusBar extends PeyElement {
     if (typeof refs.t === 'function') {
       this.#t = refs.t;
     }
+  }
+
+  /**
+   * Declares the external stylesheet attached by the base class before the
+   * first contentful render (preload-and-cache contract of the kit).
+   * @returns {string} Absolute stylesheet URL.
+   */
+  stylesheetHref() {
+    return STYLE_URL;
   }
 
   /**
@@ -39,19 +49,6 @@ class ParsiStatusBar extends PeyElement {
     const format = typeof this.#formatNumber === 'function' ? this.#formatNumber : String;
     const safe = this.#stats ?? { chars: 0, letters: 0, words: 0, lines: 0, bytes: 0 };
     return `
-      <style>
-        [part="statusbar"] {
-          display: flex;
-          gap: 1.25rem;
-          padding: 0.45rem 0.9rem;
-          border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
-          background-color: var(--pey-color-surface, #f1f1f5);
-          font-size: 0.85rem;
-        }
-        [part="stat-value"] {
-          font-weight: 700;
-        }
-      </style>
       <footer part="statusbar">
         <span part="stat">${escapeHtml(this.#t('parsinegar.stats.chars'))} <b part="stat-value" data-stat="chars">${format(safe.chars ?? 0)}</b></span>
         <span part="stat">${escapeHtml(this.#t('parsinegar.stats.letters'))} <b part="stat-value" data-stat="letters">${format(safe.letters ?? 0)}</b></span>

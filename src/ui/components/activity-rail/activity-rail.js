@@ -6,6 +6,7 @@ import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml, iconMarkup } from '../workbench/html.js';
 
 const TAG = 'parsi-activity-rail';
+const STYLE_URL = new URL('./activity-rail.css', import.meta.url).href;
 
 class ParsiActivityRail extends PeyElement {
   #t = (key) => key;
@@ -24,6 +25,15 @@ class ParsiActivityRail extends PeyElement {
     if (typeof refs.activeView === 'string') {
       this.#activeView = refs.activeView;
     }
+  }
+
+  /**
+   * Declares the external stylesheet attached by the base class before the
+   * first contentful render (preload-and-cache contract of the kit).
+   * @returns {string} Absolute stylesheet URL.
+   */
+  stylesheetHref() {
+    return STYLE_URL;
   }
 
   /**
@@ -63,48 +73,6 @@ class ParsiActivityRail extends PeyElement {
     const start = this.#views.filter((view) => view.align !== 'end');
     const end = this.#views.filter((view) => view.align === 'end');
     return `
-      <style>
-        [part="rail"] {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          block-size: 100%;
-          background-color: var(--pey-color-surface, #f1f1f5);
-          border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-        }
-        [part="rail-end"] {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          margin-block-start: auto;
-        }
-        [part="rail-button"] {
-          font: inherit;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          inline-size: 2.75rem;
-          block-size: 2.75rem;
-          border: 0;
-          background: none;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="rail-button"] svg {
-          inline-size: 20px;
-          block-size: 20px;
-        }
-        [part="rail-fallback"] {
-          display: none;
-        }
-        [part="rail-button"][aria-pressed="true"] {
-          color: var(--pey-color-accent, #5eead4);
-        }
-        [part="rail-button"]:focus-visible {
-          outline: 2px solid var(--pey-color-focus-ring, #5eead4);
-          outline-offset: 2px;
-        }
-      </style>
       <nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${start.map((view) => this.#renderButton(view)).join('')}${end.length > 0 ? `<div part="rail-end">${end.map((view) => this.#renderButton(view)).join('')}</div>` : ''}</nav>`;
   }
 

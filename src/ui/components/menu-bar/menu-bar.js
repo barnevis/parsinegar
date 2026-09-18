@@ -9,6 +9,7 @@ import { escapeHtml } from '../workbench/html.js';
 import { buildMenuModel } from '../workbench/menu-model.js';
 
 const TAG = 'parsi-menu-bar';
+const STYLE_URL = new URL('./menu-bar.css', import.meta.url).href;
 
 class ParsiMenuBar extends PeyElement {
   #t = (key) => key;
@@ -38,6 +39,15 @@ class ParsiMenuBar extends PeyElement {
     if (typeof refs.hasDocument === 'boolean') {
       this.#hasDocument = refs.hasDocument;
     }
+  }
+
+  /**
+   * Declares the external stylesheet attached by the base class before the
+   * first contentful render (preload-and-cache contract of the kit).
+   * @returns {string} Absolute stylesheet URL.
+   */
+  stylesheetHref() {
+    return STYLE_URL;
   }
 
   /**
@@ -101,90 +111,6 @@ class ParsiMenuBar extends PeyElement {
         </div>`;
     }).join('');
     return `
-      <style>
-        [part="menubar"] {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          font-size: 12px;
-          background-color: var(--pey-color-surface, #f1f1f5);
-          border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
-        }
-        @media (max-width: 56rem) {
-          [part="menubar"] {
-            flex-wrap: wrap;
-          }
-        }
-        [part="brand"] {
-          font-weight: 700;
-          font-size: inherit;
-          padding-inline-end: 0.75rem;
-          margin-inline-end: 0.5rem;
-          border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-          white-space: nowrap;
-        }
-        [part="menu"] {
-          position: relative;
-        }
-        [part="menu-button"] {
-          font: inherit;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          padding: 0.35rem 0.8rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="menu-button"]:hover {
-          background-color: var(--pey-color-surface, #f1f1f5);
-        }
-        [part="menu-dropdown"] {
-          position: absolute;
-          inset-block-start: calc(100% + 0.25rem);
-          inset-inline-start: 0;
-          min-inline-size: 11rem;
-          z-index: 10;
-          display: flex;
-          flex-direction: column;
-          padding: 0.3rem;
-          border: 1px solid var(--pey-color-border, #e2e2e8);
-          border-radius: 10px;
-          background-color: var(--pey-color-canvas, #ffffff);
-          box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
-        }
-        [part="menu-dropdown"][hidden] {
-          display: none;
-        }
-        [part="menu-item"] {
-          font: inherit;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1.5rem;
-          text-align: start;
-          border: 0;
-          border-radius: 6px;
-          background-color: transparent;
-          padding: 0.4rem 0.6rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="menu-shortcut"] {
-          color: var(--pey-color-text-muted, #55555f);
-        }
-        [part="menu-item"]:hover {
-          background-color: var(--pey-color-surface, #f1f1f5);
-        }
-        [part="menu-item"][disabled] {
-          opacity: 0.45;
-          cursor: default;
-        }
-        [part="menu-button"]:focus-visible,
-        [part="menu-item"]:focus-visible {
-          outline: 2px solid var(--pey-color-focus-ring, #5eead4);
-          outline-offset: 2px;
-        }
-      </style>
       <div part="menubar" role="menubar"><span part="brand">${escapeHtml(this.#t('parsinegar.app.title'))}</span>${markup}</div>`;
   }
 }

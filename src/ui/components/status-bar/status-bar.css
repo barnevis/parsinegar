@@ -1,0 +1,11 @@
+[part="statusbar"] {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.45rem 0.9rem;
+  border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
+  background-color: var(--pey-color-surface, #f1f1f5);
+  font-size: 0.85rem;
+}
+[part="stat-value"] {
+  font-weight: 700;
+}

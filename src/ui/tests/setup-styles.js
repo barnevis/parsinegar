@@ -1,21 +1,27 @@
-// Pre-warms the kit stylesheet cache with the real home page styles.
+// Pre-warms the kit stylesheet cache with the real page and component styles.
 //
 // PeyElement gates the first render on the stylesheet load; in tests there is
 // no HTTP server, so the cache is warmed with the actual file text through
 // the kit's own test hook ({ preload: false, fetchFn }). Every test file that
-// mounts the home page must import this module first.
+// mounts the home page or a workbench child element must import this module
+// first.
 import { readFile } from 'node:fs/promises';
 import { getStyleText } from 'pey.webui/base/attach-style-sheet';
 
-const HOME_CSS_URL = new URL('../pages/home/home.css', import.meta.url).href;
+const STYLE_URLS = [
+  new URL('../pages/home/home.css', import.meta.url).href,
+  new URL('../components/menu-bar/menu-bar.css', import.meta.url).href,
+  new URL('../components/activity-rail/activity-rail.css', import.meta.url).href,
+  new URL('../components/side-panel/side-panel.css', import.meta.url).href,
+  new URL('../components/status-bar/status-bar.css', import.meta.url).href,
+];
 
-async function readHomeCss() {
-  return readFile(new URL(HOME_CSS_URL), 'utf8');
+for (const styleUrl of STYLE_URLS) {
+  const content = await readFile(new URL(styleUrl), 'utf8');
+  await getStyleText(styleUrl, {
+    preload: false,
+    fetchFn: async () => ({ ok: true, status: 200, text: async () => content }),
+  });
 }
 
-await getStyleText(HOME_CSS_URL, {
-  preload: false,
-  fetchFn: async () => ({ ok: true, status: 200, text: readHomeCss }),
-});
-
-export { HOME_CSS_URL };
+export { STYLE_URLS };

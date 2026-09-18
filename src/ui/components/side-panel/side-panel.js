@@ -11,6 +11,7 @@ import { FILES_VIEW, getView } from '../workbench/views.js';
 import { outlineSignature } from '../workbench/outline.js';
 
 const TAG = 'parsi-side-panel';
+const STYLE_URL = new URL('./side-panel.css', import.meta.url).href;
 
 class ParsiSidePanel extends PeyElement {
   #t = (key) => key;
@@ -56,6 +57,15 @@ class ParsiSidePanel extends PeyElement {
     }
     // The imminent first render paints exactly these refs.
     this.#applied = this.#store(refs);
+  }
+
+  /**
+   * Declares the external stylesheet attached by the base class before the
+   * first contentful render (preload-and-cache contract of the kit).
+   * @returns {string} Absolute stylesheet URL.
+   */
+  stylesheetHref() {
+    return STYLE_URL;
   }
 
   connectedCallback() {
@@ -310,282 +320,6 @@ class ParsiSidePanel extends PeyElement {
   render() {
     const view = getView(this.#activeView) ?? getView(FILES_VIEW);
     return `
-      <style>
-        [part="side"] {
-          display: flex;
-          flex-direction: column;
-          min-block-size: 0;
-          border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-          background-color: var(--pey-color-surface, #f1f1f5);
-          overflow: hidden;
-          block-size: 100%;
-        }
-        [part="side-header"] {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.6rem 0.8rem;
-          border-block-end: 1px solid var(--pey-color-border, #e2e2e8);
-        }
-        [part="side-title"] {
-          font-size: 14px;
-          margin: 0;
-        }
-        [part="side-body"] {
-          flex: 1;
-          min-block-size: 0;
-          padding: 0.6rem 0.8rem;
-          overflow: auto;
-        }
-        [part="docs-list"],
-        [part="outline-list"] {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-          margin: 0;
-          padding: 0;
-        }
-        [part="outline-list"] [part="outline-list"] {
-          padding-inline-start: 1rem;
-          flex-basis: 100%;
-        }
-        [part="outline-item"] {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.2rem;
-        }
-        [part="outline-toggle"] {
-          font: inherit;
-          flex: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          inline-size: 1rem;
-          block-size: 1rem;
-          cursor: pointer;
-          color: var(--pey-color-text-muted, #55555f);
-        }
-        [part="outline-spacer"] {
-          flex: none;
-          inline-size: 1rem;
-        }
-        [part="outline-chevron"] {
-          display: inline-block;
-          inline-size: 0.24rem;
-          block-size: 0.24rem;
-          /* Physical borders on purpose: the chevron angle must stay fixed
-             instead of flipping with the text direction. */
-          border-right: 2px solid currentColor;
-          border-bottom: 2px solid currentColor;
-          transform: rotate(45deg);
-        }
-        [part="outline-toggle"][aria-expanded="false"] [part="outline-chevron"] {
-          /* Collapsed points left in RTL (right in LTR would be -45deg). */
-          transform: rotate(135deg);
-        }
-        [part="docs-open"],
-        [part="outline-jump"] {
-          font: inherit;
-          text-align: start;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          padding: 0.35rem 0.6rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="docs-open"] {
-          flex: 1;
-          min-inline-size: 0;
-        }
-        [part="outline-jump"] {
-          flex: 1;
-          min-inline-size: 0;
-          font-size: 13px;
-        }
-        [part="outline-jump"]:hover {
-          background-color: var(--pey-color-canvas, #ffffff);
-        }
-        [part="docs-open"][aria-current="true"] {
-          font-weight: 700;
-        }
-        [part="outline-jump"][aria-current="true"] {
-          font-weight: 700;
-          background-color: rgb(94 234 212 / 0.14);
-          background-color: color-mix(in srgb, var(--pey-color-accent, #5eead4) 18%, transparent);
-        }
-        [part="docs-item"] {
-          position: relative;
-          display: flex;
-          gap: 0.2rem;
-          align-items: center;
-        }
-        [part="docs-item"][data-current="true"] {
-          background-color: rgb(94 234 212 / 0.14);
-          background-color: color-mix(in srgb, var(--pey-color-accent, #5eead4) 18%, transparent);
-          border-radius: 8px;
-        }
-        [part="docs-menu"] {
-          font: inherit;
-          flex: none;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          inline-size: 2rem;
-          block-size: 2rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="file-menu"] {
-          position: absolute;
-          inset-block-start: calc(100% + 0.25rem);
-          inset-inline-end: 0;
-          min-inline-size: 10rem;
-          z-index: 10;
-          display: flex;
-          flex-direction: column;
-          padding: 0.3rem;
-          border: 1px solid var(--pey-color-border, #e2e2e8);
-          border-radius: 10px;
-          background-color: var(--pey-color-canvas, #ffffff);
-          box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
-        }
-        [part="file-menu-item"] {
-          font: inherit;
-          text-align: start;
-          border: 0;
-          border-radius: 6px;
-          background-color: transparent;
-          padding: 0.4rem 0.6rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="file-menu-item"]:hover {
-          background-color: var(--pey-color-surface, #f1f1f5);
-        }
-        [part="file-menu-item"]:focus-visible,
-        [part="docs-menu"]:focus-visible,
-        [part="docs-rename"]:focus-visible {
-          outline: 2px solid var(--pey-color-focus-ring, #5eead4);
-          outline-offset: 2px;
-        }
-        [part="docs-rename"] {
-          font: inherit;
-          flex: 1;
-          min-inline-size: 0;
-          border: 1px solid var(--pey-color-border, #d8d8de);
-          border-radius: 8px;
-          background-color: var(--pey-color-canvas, #ffffff);
-          padding: 0.35rem 0.6rem;
-          color: inherit;
-        }
-        [part="docs-error"] {
-          margin: 0.3rem 0 0;
-          font-size: 0.85rem;
-          color: var(--pey-color-status-error, #d24545);
-        }
-        [part="files-bar"] {
-          display: flex;
-          gap: 0.4rem;
-          margin-block-end: 0.6rem;
-        }
-        [part="docs-new"] {
-          font: inherit;
-          flex: 1;
-          border: 1px solid var(--pey-color-border, #d8d8de);
-          border-radius: 8px;
-          background-color: var(--pey-color-canvas, #ffffff);
-          padding: 0.35rem 0.5rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="docs-new"] svg {
-          inline-size: 18px;
-          block-size: 18px;
-          vertical-align: middle;
-        }
-        [part="docs-new"]:hover {
-          background-color: var(--pey-color-canvas, #ffffff);
-          border-color: var(--pey-color-border, #c8c8d2);
-        }
-        [part="side-close"] {
-          font: inherit;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background-color: transparent;
-          inline-size: 2rem;
-          block-size: 2rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="side-close"]:hover {
-          background-color: var(--pey-color-canvas, #ffffff);
-        }
-        [part="settings-view"] {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-        [part="settings-group"] {
-          margin: 0;
-          padding: 0.6rem 0.7rem 0.75rem;
-          border: 1px solid var(--pey-color-border, #e2e2e8);
-          border-radius: 10px;
-        }
-        [part="settings-legend"] {
-          font-size: 0.85rem;
-          font-weight: 700;
-          padding-inline: 0.35rem;
-        }
-        [part="settings-option"] {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.3rem 0.2rem;
-          cursor: pointer;
-        }
-        [part="settings-option"] input {
-          accent-color: var(--pey-color-accent, #0f6fff);
-        }
-        [part="settings-stepper"] {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-        }
-        [part="settings-less"],
-        [part="settings-more"] {
-          font: inherit;
-          flex: 1;
-          border: 1px solid var(--pey-color-border, #d8d8de);
-          border-radius: 8px;
-          background-color: var(--pey-color-canvas, #ffffff);
-          padding: 0.35rem 0.5rem;
-          cursor: pointer;
-          color: inherit;
-        }
-        [part="settings-less"]:hover,
-        [part="settings-more"]:hover {
-          border-color: var(--pey-color-border, #c8c8d2);
-        }
-        [part="settings-value"] {
-          min-inline-size: 2.5rem;
-          text-align: center;
-          font-weight: 700;
-        }
-        [part="docs-open"]:focus-visible,
-        [part="outline-jump"]:focus-visible,
-        [part="outline-toggle"]:focus-visible,
-        [part="docs-new"]:focus-visible,
-        [part="side-close"]:focus-visible {
-          outline: 2px solid var(--pey-color-focus-ring, #5eead4);
-          outline-offset: 2px;
-        }
-      </style>
       <aside part="side">
         <div part="side-header">
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
