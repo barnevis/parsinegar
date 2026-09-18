@@ -96,7 +96,7 @@ class ParsiMenuBar extends PeyElement {
         <div part="menu">
           <button type="button" part="menu-button" data-menu="${menu.id}" aria-haspopup="true" aria-expanded="${open}">${escapeHtml(menu.label)}</button>
           <div part="menu-dropdown" role="menu" ${open ? '' : 'hidden'}>${menu.items.map((entry) => `
-            <button type="button" part="menu-item" role="menuitem" data-action="${entry.id}" ${entry.disabled ? 'disabled' : ''}>${escapeHtml(entry.label)}</button>`).join('')}
+            <button type="button" part="menu-item" role="menuitem" data-action="${entry.id}" ${entry.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(entry.label)}</span>${typeof entry.shortcut === 'string' && entry.shortcut.length > 0 ? `<span part="menu-shortcut">${escapeHtml(entry.shortcut)}</span>` : ''}</button>`).join('')}
           </div>
         </div>`;
     }).join('');
@@ -157,6 +157,10 @@ class ParsiMenuBar extends PeyElement {
         }
         [part="menu-item"] {
           font: inherit;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1.5rem;
           text-align: start;
           border: 0;
           border-radius: 6px;
@@ -164,6 +168,9 @@ class ParsiMenuBar extends PeyElement {
           padding: 0.4rem 0.6rem;
           cursor: pointer;
           color: inherit;
+        }
+        [part="menu-shortcut"] {
+          color: var(--pey-color-text-muted, #55555f);
         }
         [part="menu-item"]:hover {
           background-color: var(--pey-color-surface, #f1f1f5);

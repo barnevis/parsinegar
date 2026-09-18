@@ -138,3 +138,26 @@ test('should_keep_button_plain_when_menu_is_open', async () => {
     element.remove();
   }
 });
+
+test('should_show_shortcuts_when_insert_menu_is_open', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="insert"]').click();
+    await flush();
+    const hints = [...element.shadowRoot.querySelectorAll('[part="menu-shortcut"]')].map((node) => node.textContent);
+    assert.deepEqual(hints, [
+      'Ctrl+H',
+      'Ctrl+B',
+      'Ctrl+I',
+      'Ctrl+Shift+S',
+      'Ctrl+Q',
+      'Ctrl+K',
+      'Ctrl+E',
+      'Ctrl+Shift+U',
+      'Ctrl+Shift+L',
+    ]);
+  } finally {
+    element.remove();
+  }
+});

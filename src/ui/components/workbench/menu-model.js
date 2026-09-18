@@ -9,7 +9,8 @@
  * @param {object} options Model options.
  * @param {Function} options.t Translation function.
  * @param {boolean} options.hasDocument Whether a document is open.
- * @returns {Array<object>} Menus with `{ id, label, items: [{ id, label, action, disabled }] }`.
+ * @returns {Array<object>} Menus with `{ id, label, items: [{ id, label, action, disabled, shortcut }] }`.
+ * Insert items carry their keyboard shortcut display (`shortcut` is absent elsewhere).
  */
 export function buildMenuModel({ t, hasDocument }) {
   const translate = typeof t === 'function' ? t : (key) => key;
@@ -34,15 +35,15 @@ export function buildMenuModel({ t, hasDocument }) {
       id: 'insert',
       label: translate('parsinegar.menu.insert'),
       items: [
-        { id: 'insert-heading', label: translate('parsinegar.insert.heading'), action: 'insert-heading', disabled: false },
-        { id: 'insert-bold', label: translate('parsinegar.insert.bold'), action: 'insert-bold', disabled: false },
-        { id: 'insert-italic', label: translate('parsinegar.insert.italic'), action: 'insert-italic', disabled: false },
-        { id: 'insert-strikethrough', label: translate('parsinegar.insert.strikethrough'), action: 'insert-strikethrough', disabled: false },
-        { id: 'insert-quote', label: translate('parsinegar.insert.quote'), action: 'insert-quote', disabled: false },
-        { id: 'insert-link', label: translate('parsinegar.insert.link'), action: 'insert-link', disabled: false },
-        { id: 'insert-code', label: translate('parsinegar.insert.code'), action: 'insert-code', disabled: false },
-        { id: 'insert-unordered-list', label: translate('parsinegar.insert.unordered-list'), action: 'insert-unordered-list', disabled: false },
-        { id: 'insert-ordered-list', label: translate('parsinegar.insert.ordered-list'), action: 'insert-ordered-list', disabled: false },
+        { id: 'insert-heading', label: translate('parsinegar.insert.heading'), action: 'insert-heading', shortcut: 'Ctrl+H', disabled: false },
+        { id: 'insert-bold', label: translate('parsinegar.insert.bold'), action: 'insert-bold', shortcut: 'Ctrl+B', disabled: false },
+        { id: 'insert-italic', label: translate('parsinegar.insert.italic'), action: 'insert-italic', shortcut: 'Ctrl+I', disabled: false },
+        { id: 'insert-strikethrough', label: translate('parsinegar.insert.strikethrough'), action: 'insert-strikethrough', shortcut: 'Ctrl+Shift+S', disabled: false },
+        { id: 'insert-quote', label: translate('parsinegar.insert.quote'), action: 'insert-quote', shortcut: 'Ctrl+Q', disabled: false },
+        { id: 'insert-link', label: translate('parsinegar.insert.link'), action: 'insert-link', shortcut: 'Ctrl+K', disabled: false },
+        { id: 'insert-code', label: translate('parsinegar.insert.code'), action: 'insert-code', shortcut: 'Ctrl+E', disabled: false },
+        { id: 'insert-unordered-list', label: translate('parsinegar.insert.unordered-list'), action: 'insert-unordered-list', shortcut: 'Ctrl+Shift+U', disabled: false },
+        { id: 'insert-ordered-list', label: translate('parsinegar.insert.ordered-list'), action: 'insert-ordered-list', shortcut: 'Ctrl+Shift+L', disabled: false },
       ],
     },
     {

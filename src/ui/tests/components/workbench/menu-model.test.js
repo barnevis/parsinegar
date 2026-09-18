@@ -56,6 +56,17 @@ test('should_offer_every_mark_when_insert_menu_is_read', () => {
     'insert-unordered-list',
     'insert-ordered-list',
   ]);
+  assert.deepEqual(insert.items.map(({ shortcut }) => shortcut), [
+    'Ctrl+H',
+    'Ctrl+B',
+    'Ctrl+I',
+    'Ctrl+Shift+S',
+    'Ctrl+Q',
+    'Ctrl+K',
+    'Ctrl+E',
+    'Ctrl+Shift+U',
+    'Ctrl+Shift+L',
+  ]);
 });
 
 test('should_disable_delete_when_no_document_is_open', () => {
