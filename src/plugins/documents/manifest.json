@@ -1,6 +1,6 @@
 {
   "name": "parsinegar.documents",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "architecture": "0.11",
   "description": "Parsinegar document management: Markdown documents over pey.storage.service",
   "type": "product",
@@ -40,11 +40,21 @@
         },
         {
           "name": "createDocument",
-          "description": "Creates a new empty document with the given title.",
+          "description": "Creates a new empty document with the given title, suffixing until unique.",
           "params": [
             { "name": "title", "type": "string" }
           ],
           "returns": "Promise<object>",
+          "errors": []
+        },
+        {
+          "name": "renameDocument",
+          "description": "Renames a document by id, or null when it does not exist. Rejects duplicate or empty titles, publishes documents:changed.",
+          "params": [
+            { "name": "id", "type": "string" },
+            { "name": "title", "type": "string" }
+          ],
+          "returns": "Promise<object | null>",
           "errors": []
         },
         {

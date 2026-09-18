@@ -4,6 +4,7 @@ const SERVICE_NAME = 'parsinegar.documents.service';
 const COLLECTION = 'documents';
 const CHANGED_EVENT = 'documents:changed';
 const UNTITLED_TITLE = 'بدون عنوان';
+const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 
 /**
  * Generates a document id. Prefers crypto.randomUUID, which is unavailable
@@ -31,6 +32,56 @@ function requireStorage(state) {
 }
 
 /**
+ * Builds a standard Bonyan boundary error for validation failures.
+ * @param {string} code Stable error code.
+ * @param {string} message Log-safe message.
+ * @param {object} [detail] Extra machine-readable detail.
+ * @returns {Error} Structured error.
+ */
+function documentsError(code, message, detail = {}) {
+  return Object.assign(new Error(message), {
+    code,
+    source: SERVICE_NAME,
+    type: 'operational',
+    timestamp: new Date().toISOString(),
+    detail,
+  });
+}
+
+/**
+ * Backfills the creation timestamp for records stored before it existed.
+ * @param {object|null} record Stored record.
+ * @returns {object|null} Record with `createdAt`.
+ */
+function withCreatedAt(record) {
+  if (!record || typeof record !== 'object') {
+    return record;
+  }
+  return { ...record, createdAt: record.createdAt ?? record.updatedAt ?? Date.now() };
+}
+
+/**
+ * Checks whether another record already carries the title.
+ * @param {object} state Activation-bound references.
+ * @param {string} title Candidate title.
+ * @param {string|null} exceptId Record id to exclude from the check.
+ * @returns {Promise<boolean>} True when the title is taken.
+ */
+async function isTitleTaken(state, title, exceptId) {
+  const records = await requireStorage(state).query(COLLECTION, {});
+  return records.some((record) => record.title === title && record.id !== exceptId);
+}
+
+/**
+ * Formats a counter with Persian digits for generated titles.
+ * @param {number} value Counter value.
+ * @returns {string} Persian-digit string.
+ */
+function toFaDigits(value) {
+  return String(value).replace(/[0-9]/g, (digit) => FA_DIGITS[Number(digit)]);
+}
+
+/**
  * Sorts records by most recently updated first (storage has no ordering).
  * @param {Array<object>} records Document records.
  * @returns {Array<object>} Sorted copy.
@@ -48,11 +99,11 @@ function createService(state) {
   const service = {
     async listDocuments() {
       const records = await requireStorage(state).query(COLLECTION, {});
-      return orderByUpdated(records);
+      return orderByUpdated(records).map(withCreatedAt);
     },
     async openDocument(id) {
       try {
-        return await requireStorage(state).read(COLLECTION, id);
+        return withCreatedAt(await requireStorage(state).read(COLLECTION, id));
       } catch (error) {
         if (error?.code === 'RECORD_NOT_FOUND') {
           return null;
@@ -67,12 +118,45 @@ function createService(state) {
         content: typeof input.content === 'string' ? input.content : '',
         updatedAt: Date.now(),
       };
-      await requireStorage(state).write(COLLECTION, record);
-      state.events?.publish(CHANGED_EVENT, { id: record.id });
-      return record;
+      if (await isTitleTaken(state, record.title, record.id)) {
+        throw documentsError('DOCUMENT_TITLE_DUPLICATE', `Document title is taken: ${record.title}`, { field: 'title' });
+      }
+      const existing = await service.openDocument(record.id);
+      const stored = { ...record, createdAt: existing?.createdAt ?? record.updatedAt };
+      await requireStorage(state).write(COLLECTION, stored);
+      state.events?.publish(CHANGED_EVENT, { id: stored.id });
+      return stored;
     },
     async createDocument(title) {
-      return service.saveDocument({ title });
+      const base = typeof title === 'string' && title.length > 0 ? title : UNTITLED_TITLE;
+      for (let attempt = 1; attempt <= 999; attempt += 1) {
+        const candidate = attempt === 1 ? base : `${base} ${toFaDigits(attempt)}`;
+        try {
+          return await service.saveDocument({ title: candidate });
+        } catch (error) {
+          if (error?.code !== 'DOCUMENT_TITLE_DUPLICATE') {
+            throw error;
+          }
+        }
+      }
+      throw documentsError('DOCUMENT_TITLE_DUPLICATE', `Document title is taken: ${base}`, { field: 'title' });
+    },
+    async renameDocument(id, title) {
+      const next = typeof title === 'string' ? title.trim() : '';
+      if (next.length === 0) {
+        throw documentsError('DOCUMENT_INVALID_TITLE', 'Document title must not be empty', { field: 'title' });
+      }
+      const existing = await service.openDocument(id);
+      if (!existing) {
+        return null;
+      }
+      if (await isTitleTaken(state, next, id)) {
+        throw documentsError('DOCUMENT_TITLE_DUPLICATE', `Document title is taken: ${next}`, { field: 'title' });
+      }
+      const stored = { ...existing, title: next, updatedAt: Date.now() };
+      await requireStorage(state).write(COLLECTION, stored);
+      state.events?.publish(CHANGED_EVENT, { id });
+      return stored;
     },
     async deleteDocument(id) {
       await requireStorage(state).delete(COLLECTION, id);

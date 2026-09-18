@@ -32,11 +32,50 @@ test('should_render_items_when_documents_are_given', () => {
 test('should_render_actions_when_called', () => {
   const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/' });
   assert.ok(html.includes('part="docs-new"'));
-  assert.ok(html.includes('part="docs-delete"'));
+  assert.ok(!html.includes('part="docs-delete"'), 'expected no panel delete button');
   assert.ok(html.includes('aria-label="سند تازه"'));
   assert.ok(html.includes('<svg'));
   assert.ok(html.includes('#plus'));
-  assert.ok(html.includes('#trash'));
+});
+
+test('should_render_menu_button_when_items_are_given', () => {
+  const html = renderFilesView({ t: translate, items: [{ id: 'a', title: 'اول' }], currentId: null });
+  assert.ok(html.includes('data-doc-menu="a"'));
+  assert.ok(html.includes('aria-haspopup="true"'));
+  assert.ok(!html.includes('part="file-menu"'), 'expected closed menu');
+});
+
+test('should_render_menu_when_open_menu_matches', () => {
+  const html = renderFilesView({ t: translate, items: [{ id: 'a', title: 'اول' }], currentId: null, openMenuId: 'a' });
+  assert.ok(html.includes('part="file-menu"'));
+  assert.ok(html.includes('data-file-rename="a"'));
+  assert.ok(html.includes('data-file-download="a"'));
+  assert.ok(html.includes('data-file-properties="a"'));
+  assert.ok(html.includes('data-file-delete="a"'));
+  assert.ok(html.includes('aria-expanded="true"'));
+});
+
+test('should_render_rename_input_when_editing', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'a', title: 'اول' }],
+    currentId: null,
+    editing: { id: 'a', error: null },
+  });
+  assert.ok(html.includes('data-rename-input="a"'));
+  assert.ok(html.includes('value="اول"'));
+  assert.ok(!html.includes('part="docs-error"'));
+});
+
+test('should_render_rename_error_when_given', () => {
+  const html = renderFilesView({
+    t: (key) => key === 'parsinegar.documents.duplicate' ? 'تکراری است' : translate(key),
+    items: [{ id: 'a', title: 'اول' }],
+    currentId: null,
+    editing: { id: 'a', error: 'parsinegar.documents.duplicate' },
+  });
+  assert.ok(html.includes('تکراری است'));
+  assert.ok(html.includes('role="alert"'));
 });
 
 test('should_fall_back_to_text_when_no_sprite_is_available', () => {

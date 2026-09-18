@@ -16,12 +16,31 @@ class ParsiSidePanel extends PeyElement {
   #t = (key) => key;
   #assetBaseUrl = null;
   #formatNumber = null;
+  #onDocumentClick = (event) => {
+    if (this.#openFileMenu === null) {
+      return;
+    }
+    if (event.composedPath().includes(this)) {
+      return;
+    }
+    this.#openFileMenu = null;
+    this.requestRender();
+  };
+  #onDocumentKeydown = (event) => {
+    if (event.key === 'Escape' && this.#openFileMenu !== null) {
+      this.#openFileMenu = null;
+      this.requestRender();
+    }
+  };
   #activeView = FILES_VIEW;
   #items = [];
   #currentId = null;
   #documentText = '';
   #settings = null;
   #activeLine = null;
+  #openFileMenu = null;
+  #editingId = null;
+  #renameError = null;
   #applied = null;
 
   onConnect(refs = {}) {
@@ -38,12 +57,24 @@ class ParsiSidePanel extends PeyElement {
     this.#applied = this.#store(refs);
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('click', this.#onDocumentClick);
+    document.addEventListener('keydown', this.#onDocumentKeydown);
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('click', this.#onDocumentClick);
+    document.removeEventListener('keydown', this.#onDocumentKeydown);
+    super.disconnectedCallback();
+  }
+
   /**
    * Stores panel data fields, returning the full snapshot.
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText, settings, activeLine } = {}) {
+  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -59,6 +90,9 @@ class ParsiSidePanel extends PeyElement {
     if (settings !== undefined) {
       this.#settings = settings;
     }
+    if (renameError !== undefined) {
+      this.#renameError = renameError;
+    }
     if (activeLine !== undefined) {
       this.#activeLine = activeLine;
     }
@@ -69,8 +103,40 @@ class ParsiSidePanel extends PeyElement {
       documentText: this.#documentText,
       settings: this.#settings,
       activeLine: this.#activeLine,
+      openFileMenu: this.#openFileMenu,
+      editingId: this.#editingId,
+      renameError: this.#renameError,
       signature: outlineSignature(this.#documentText),
     };
+  }
+
+  /**
+   * Closes the file menu and forwards the chosen action to the parent.
+   * @param {string} type Event type to dispatch.
+   * @param {Element} menuAction Clicked menu item carrying the document id.
+   * @returns {void}
+   */
+  #emitFileAction(type, menuAction) {
+    const id = menuAction.getAttribute('data-file-download')
+      ?? menuAction.getAttribute('data-file-properties')
+      ?? menuAction.getAttribute('data-file-delete')
+      ?? '';
+    this.#openFileMenu = null;
+    this.requestRender();
+    this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail: { id } }));
+  }
+
+  /**
+   * Closes an open inline rename editor without saving.
+   * @returns {void}
+   */
+  cancelRename() {
+    if (this.#editingId === null && this.#renameError === null) {
+      return;
+    }
+    this.#editingId = null;
+    this.#renameError = null;
+    this.requestRender();
   }
 
   /**
@@ -85,10 +151,11 @@ class ParsiSidePanel extends PeyElement {
    * @param {string} [data.documentText] Current document text for text views.
    * @param {object|null} [data.settings] Preferences for the settings view.
    * @param {number|null} [data.activeLine] Highlighted outline heading line.
+   * @param {string|null} [data.renameError] Translation key for a rename failure.
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText, settings, activeLine } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine });
+  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError } = {}) {
+    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError });
     const prev = this.#applied;
     const same = prev !== null
       && prev.activeView === next.activeView
@@ -96,6 +163,9 @@ class ParsiSidePanel extends PeyElement {
       && prev.currentId === next.currentId
       && prev.settings === next.settings
       && prev.activeLine === next.activeLine
+      && prev.openFileMenu === next.openFileMenu
+      && prev.editingId === next.editingId
+      && prev.renameError === next.renameError
       && prev.signature === next.signature;
     if (!same) {
       this.#applied = next;
@@ -104,10 +174,27 @@ class ParsiSidePanel extends PeyElement {
   }
 
   eventTypes() {
-    return ['click', 'change'];
+    return ['click', 'change', 'keydown'];
   }
 
   handleEvent(event) {
+    if (event.type === 'keydown') {
+      const input = event.target?.closest?.('[data-rename-input]');
+      if (input && event.key === 'Enter') {
+        this.dispatchEvent(
+          new CustomEvent('document-rename', {
+            bubbles: true,
+            composed: true,
+            detail: { id: input.getAttribute('data-rename-input'), title: input.value },
+          }),
+        );
+      } else if (input && event.key === 'Escape') {
+        this.#editingId = null;
+        this.#renameError = null;
+        this.requestRender();
+      }
+      return;
+    }
     if (event.type === 'change') {
       const input = event.target?.closest?.('input[data-setting]');
       const key = input?.getAttribute('data-setting') ?? '';
@@ -169,8 +256,32 @@ class ParsiSidePanel extends PeyElement {
       this.dispatchEvent(new CustomEvent('document-create', { bubbles: true, composed: true }));
       return;
     }
-    if (event.target?.closest?.('[part="docs-delete"]')) {
-      this.dispatchEvent(new CustomEvent('document-delete', { bubbles: true, composed: true }));
+    const menuButton = event.target?.closest?.('[data-doc-menu]');
+    if (menuButton) {
+      const id = menuButton.getAttribute('data-doc-menu');
+      this.#openFileMenu = this.#openFileMenu === id ? null : id;
+      this.requestRender();
+      return;
+    }
+    const menuAction = event.target?.closest?.('[data-file-rename],[data-file-download],[data-file-properties],[data-file-delete]');
+    if (menuAction) {
+      const renameId = menuAction.getAttribute('data-file-rename');
+      if (renameId !== null) {
+        this.#editingId = renameId;
+        this.#renameError = null;
+        this.#openFileMenu = null;
+        this.requestRender();
+        return;
+      }
+      if (menuAction.hasAttribute('data-file-download')) {
+        this.#emitFileAction('document-download', menuAction);
+        return;
+      }
+      if (menuAction.hasAttribute('data-file-properties')) {
+        this.#emitFileAction('document-properties', menuAction);
+        return;
+      }
+      this.#emitFileAction('document-delete', menuAction);
     }
   }
 
@@ -219,7 +330,6 @@ class ParsiSidePanel extends PeyElement {
         [part="docs-open"],
         [part="outline-jump"] {
           font: inherit;
-          inline-size: 100%;
           text-align: start;
           border: 1px solid transparent;
           border-radius: 8px;
@@ -227,6 +337,13 @@ class ParsiSidePanel extends PeyElement {
           padding: 0.35rem 0.6rem;
           cursor: pointer;
           color: inherit;
+        }
+        [part="docs-open"] {
+          flex: 1;
+          min-inline-size: 0;
+        }
+        [part="outline-jump"] {
+          inline-size: 100%;
         }
         [part="docs-open"]:hover,
         [part="outline-jump"]:hover {
@@ -244,13 +361,80 @@ class ParsiSidePanel extends PeyElement {
           color: #0f172a;
           font-weight: 700;
         }
+        [part="docs-item"] {
+          position: relative;
+          display: flex;
+          gap: 0.2rem;
+          align-items: center;
+        }
+        [part="docs-menu"] {
+          font: inherit;
+          flex: none;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          background-color: transparent;
+          inline-size: 2rem;
+          block-size: 2rem;
+          cursor: pointer;
+          color: inherit;
+        }
+        [part="docs-menu"]:hover {
+          background-color: var(--pey-color-canvas, #ffffff);
+        }
+        [part="file-menu"] {
+          position: absolute;
+          inset-block-start: calc(100% + 0.25rem);
+          inset-inline-end: 0;
+          min-inline-size: 10rem;
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+          padding: 0.3rem;
+          border: 1px solid var(--pey-color-border, #e2e2e8);
+          border-radius: 10px;
+          background-color: var(--pey-color-canvas, #ffffff);
+          box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+        }
+        [part="file-menu-item"] {
+          font: inherit;
+          text-align: start;
+          border: 0;
+          border-radius: 6px;
+          background-color: transparent;
+          padding: 0.4rem 0.6rem;
+          cursor: pointer;
+          color: inherit;
+        }
+        [part="file-menu-item"]:hover {
+          background-color: var(--pey-color-surface, #f1f1f5);
+        }
+        [part="file-menu-item"]:focus-visible,
+        [part="docs-menu"]:focus-visible,
+        [part="docs-rename"]:focus-visible {
+          outline: 2px solid var(--pey-color-focus-ring, #5eead4);
+          outline-offset: 2px;
+        }
+        [part="docs-rename"] {
+          font: inherit;
+          flex: 1;
+          min-inline-size: 0;
+          border: 1px solid var(--pey-color-border, #d8d8de);
+          border-radius: 8px;
+          background-color: var(--pey-color-canvas, #ffffff);
+          padding: 0.35rem 0.6rem;
+          color: inherit;
+        }
+        [part="docs-error"] {
+          margin: 0.3rem 0 0;
+          font-size: 0.85rem;
+          color: var(--pey-color-status-error, #d24545);
+        }
         [part="files-bar"] {
           display: flex;
           gap: 0.4rem;
           margin-block-end: 0.6rem;
         }
-        [part="docs-new"],
-        [part="docs-delete"] {
+        [part="docs-new"] {
           font: inherit;
           flex: 1;
           border: 1px solid var(--pey-color-border, #d8d8de);
@@ -260,14 +444,12 @@ class ParsiSidePanel extends PeyElement {
           cursor: pointer;
           color: inherit;
         }
-        [part="docs-new"] svg,
-        [part="docs-delete"] svg {
+        [part="docs-new"] svg {
           inline-size: 18px;
           block-size: 18px;
           vertical-align: middle;
         }
-        [part="docs-new"]:hover,
-        [part="docs-delete"]:hover {
+        [part="docs-new"]:hover {
           background-color: var(--pey-color-canvas, #ffffff);
           border-color: var(--pey-color-border, #c8c8d2);
         }
@@ -349,7 +531,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, openMenuId: this.#openFileMenu, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
       </aside>`;
   }
 }

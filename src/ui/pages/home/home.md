@@ -33,7 +33,10 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 - `view-select` with `detail: { id }` — rail view switch.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.
-- `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management.
+- `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management (delete arrives from the per-file menu and arms the confirmation modal).
+- `document-rename` with `detail: { id, title }` — inline rename commit; empty titles cancel, taken titles keep the editor open with an inline error, success refreshes the list.
+- `document-download` with `detail: { id }` — downloads the document as Markdown through a temporary anchor (no-op where object URLs are unavailable).
+- `document-properties` with `detail: { id }` — opens the properties modal (name, creation/last-edit dates, size).
 - `settings-change` with `detail: { key, value }` — persisted through the settings service (whitelisted to `theme`/`direction` with non-empty strings); the saved snapshot replaces `#settings` and remounts the editor. Theme itself reaches the shell through the `settings:changed` domain event handled by the entry point.
 - `settings-step` with `detail: { key, delta }` — persisted as a single font-size step (`fontSize` key, `±1` delta); out-of-range steps reject in the service and change nothing.
 
@@ -62,6 +65,7 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
 - `#colorSchemeQuery`, `#onColorSchemeChange` — operating-system scheme watcher; remounts the editor only while the stored theme is `device`. Registered in `connectedCallback`, released in `disconnectedCallback`.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
 - `#confirmDeleteId` — pending delete-confirmation target rendered as a modal by the page itself.
+- `#propsRecord` — record shown in the properties modal (dates and size formatted at render); cleared together with the delete target on dismiss.
 - `#events` — scoped Event Bus facade forwarded to children (see Dependencies).
 
 ## Config

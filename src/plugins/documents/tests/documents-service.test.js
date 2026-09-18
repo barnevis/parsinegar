@@ -94,3 +94,74 @@ test('should_publish_when_deleted', async () => {
   assert.equal(await service.openDocument('d1'), null);
   assert.deepEqual(published, [{ type: 'documents:changed', data: { id: 'd1' } }]);
 });
+
+test('should_stamp_created_at_when_saved', async () => {
+  const { service } = setup();
+  const saved = await service.saveDocument({ title: 'یادداشت', content: 'x' });
+  assert.equal(saved.createdAt, saved.updatedAt);
+});
+
+test('should_preserve_created_at_when_resaved', async () => {
+  const { service } = setup([{ id: 'd1', title: 't', content: '', createdAt: 100, updatedAt: 200 }]);
+  const saved = await service.saveDocument({ id: 'd1', title: 't', content: 'new' });
+  assert.equal(saved.createdAt, 100);
+  assert.ok(saved.updatedAt >= 200);
+});
+
+test('should_backfill_created_at_when_missing', async () => {
+  const { service } = setup([{ id: 'd1', title: 't', content: '', updatedAt: 300 }]);
+  assert.equal((await service.openDocument('d1')).createdAt, 300);
+  assert.equal((await service.listDocuments())[0].createdAt, 300);
+});
+
+test('should_reject_duplicate_title_when_saving', async () => {
+  const published = [];
+  const { service } = setup([{ id: 'd1', title: 'تکراری', content: '', updatedAt: 1 }], published);
+  const error = await service.saveDocument({ title: 'تکراری', content: 'x' }).catch((caught) => caught);
+  assert.equal(error?.code, 'DOCUMENT_TITLE_DUPLICATE');
+  assert.deepEqual(published, []);
+});
+
+test('should_allow_same_title_when_updating_own_record', async () => {
+  const { service } = setup([{ id: 'd1', title: 'تکراری', content: '', updatedAt: 1 }]);
+  const saved = await service.saveDocument({ id: 'd1', title: 'تکراری', content: 'new' });
+  assert.equal(saved.content, 'new');
+});
+
+test('should_suffix_until_unique_when_created', async () => {
+  const { service } = setup([{ id: 'd1', title: 'سند تازه', content: '', updatedAt: 1 }]);
+  const created = await service.createDocument('سند تازه');
+  assert.equal(created.title, 'سند تازه ۲');
+});
+
+test('should_rename_when_title_is_free', async () => {
+  const published = [];
+  const { service } = setup([{ id: 'd1', title: 'قدیمی', content: 'متن', createdAt: 100, updatedAt: 200 }], published);
+  const renamed = await service.renameDocument('d1', 'تازه');
+  assert.equal(renamed.title, 'تازه');
+  assert.equal(renamed.content, 'متن');
+  assert.equal(renamed.createdAt, 100);
+  assert.deepEqual(published, [{ type: 'documents:changed', data: { id: 'd1' } }]);
+});
+
+test('should_reject_duplicate_title_when_renaming', async () => {
+  const published = [];
+  const { service } = setup([
+    { id: 'd1', title: 'اول', content: '', updatedAt: 1 },
+    { id: 'd2', title: 'دوم', content: '', updatedAt: 2 },
+  ], published);
+  const error = await service.renameDocument('d1', 'دوم').catch((caught) => caught);
+  assert.equal(error?.code, 'DOCUMENT_TITLE_DUPLICATE');
+  assert.deepEqual(published, []);
+});
+
+test('should_reject_empty_title_when_renaming', async () => {
+  const { service } = setup([{ id: 'd1', title: 'اول', content: '', updatedAt: 1 }]);
+  const error = await service.renameDocument('d1', '   ').catch((caught) => caught);
+  assert.equal(error?.code, 'DOCUMENT_INVALID_TITLE');
+});
+
+test('should_return_null_when_renaming_missing_document', async () => {
+  const { service } = setup();
+  assert.equal(await service.renameDocument('absent', 'x'), null);
+});

@@ -64,19 +64,117 @@ test('should_emit_open_when_document_button_is_clicked', async () => {
   }
 });
 
-test('should_emit_create_and_delete_when_action_buttons_are_clicked', async () => {
+test('should_emit_create_when_new_button_is_clicked', async () => {
   const element = mount({ items: [], currentId: null });
   try {
     await flush();
     const seen = [];
-    for (const type of ['document-create', 'document-delete']) {
-      element.addEventListener(type, (event) => seen.push(type));
-    }
+    element.addEventListener('document-create', () => seen.push('created'));
     element.shadowRoot.querySelector('[part="docs-new"]').click();
     await flush();
-    element.shadowRoot.querySelector('[part="docs-delete"]').click();
+    assert.deepEqual(seen, ['created']);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_toggle_file_menu_when_menu_button_is_clicked', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
     await flush();
-    assert.deepEqual(seen, ['document-create', 'document-delete']);
+    assert.equal(element.shadowRoot.querySelector('[part="file-menu"]'), null);
+    element.shadowRoot.querySelector('[data-doc-menu="a"]').click();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[part="file-menu"]'));
+    assert.equal(
+      element.shadowRoot.querySelector('[data-doc-menu="a"]').getAttribute('aria-expanded'),
+      'true',
+    );
+    element.shadowRoot.querySelector('[data-doc-menu="a"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="file-menu"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_file_actions_when_menu_items_are_clicked', async () => {
+  const cases = [
+    ['[data-file-download="a"]', 'document-download'],
+    ['[data-file-properties="a"]', 'document-properties'],
+    ['[data-file-delete="a"]', 'document-delete'],
+  ];
+  for (const [selector, type] of cases) {
+    const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+    try {
+      await flush();
+      const seen = [];
+      element.addEventListener(type, (event) => seen.push(event.detail));
+      element.shadowRoot.querySelector('[data-doc-menu="a"]').click();
+      await flush();
+      element.shadowRoot.querySelector(selector).click();
+      await flush();
+      assert.deepEqual(seen, [{ id: 'a' }]);
+      assert.equal(element.shadowRoot.querySelector('[part="file-menu"]'), null);
+    } finally {
+      element.remove();
+    }
+  }
+});
+
+test('should_start_inline_rename_when_rename_is_chosen', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-doc-menu="a"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-file-rename="a"]').click();
+    await flush();
+    const input = element.shadowRoot.querySelector('[data-rename-input="a"]');
+    assert.ok(input);
+    assert.equal(input.value, 'اول');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_rename_when_enter_is_pressed', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-doc-menu="a"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-file-rename="a"]').click();
+    await flush();
+    const seen = [];
+    element.addEventListener('document-rename', (event) => seen.push(event.detail));
+    const input = element.shadowRoot.querySelector('[data-rename-input="a"]');
+    input.value = 'تازه';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+    assert.deepEqual(seen, [{ id: 'a', title: 'تازه' }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_cancel_rename_when_escape_is_pressed', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-doc-menu="a"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-file-rename="a"]').click();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-rename-input="a"]'));
+    const seen = [];
+    element.addEventListener('document-rename', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-rename-input="a"]').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    await flush();
+    assert.deepEqual(seen, []);
+    assert.equal(element.shadowRoot.querySelector('[data-rename-input="a"]'), null);
   } finally {
     element.remove();
   }

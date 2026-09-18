@@ -6,9 +6,9 @@
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
-import { countStats } from '../../components/workbench/stats.js';
+import { countStats, formatFileSize } from '../../components/workbench/stats.js';
 import { parseOutline } from '../../components/workbench/outline.js';
-import { renderConfirmModal } from '../../components/workbench/modal.js';
+import { renderConfirmModal, renderPropertiesModal } from '../../components/workbench/modal.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
 import '../../components/menu-bar/menu-bar.js';
@@ -56,6 +56,7 @@ class ParsiPageHome extends PeyElement {
   #sideOpen = true;
   #bottomOpen = true;
   #confirmDeleteId = null;
+  #propsRecord = null;
   #renderObserver = null;
   #editorHost = null;
   #centerEl = null;
@@ -128,6 +129,9 @@ class ParsiPageHome extends PeyElement {
       'document-open',
       'document-create',
       'document-delete',
+      'document-rename',
+      'document-download',
+      'document-properties',
       'settings-change',
       'settings-step',
     ];
@@ -144,8 +148,9 @@ class ParsiPageHome extends PeyElement {
 
   handleEvent(event) {
     if (event.type === 'keydown') {
-      if (event.key === 'Escape' && this.#confirmDeleteId !== null) {
+      if (event.key === 'Escape' && (this.#confirmDeleteId !== null || this.#propsRecord !== null)) {
         this.#confirmDeleteId = null;
+        this.#propsRecord = null;
         this.#requestEditor();
       }
       return;
@@ -181,6 +186,18 @@ class ParsiPageHome extends PeyElement {
         this.#armDeleteConfirm();
         return;
       }
+      if (event.type === 'document-rename') {
+        void this.#renameDocument(event.detail?.id, event.detail?.title);
+        return;
+      }
+      if (event.type === 'document-download') {
+        void this.#downloadDocument(event.detail?.id);
+        return;
+      }
+      if (event.type === 'document-properties' && typeof event.detail?.id === 'string') {
+        void this.#showProperties(event.detail.id);
+        return;
+      }
       if (event.type === 'settings-change') {
         void this.#applySettingChange(event.detail?.key, event.detail?.value);
         return;
@@ -206,8 +223,14 @@ class ParsiPageHome extends PeyElement {
       }
       return;
     }
+    if (target?.closest?.('[data-close-props]')) {
+      this.#propsRecord = null;
+      this.#requestEditor();
+      return;
+    }
     if (target?.closest?.('[part="modal-backdrop"]') && !target?.closest?.('[part="modal-dialog"]')) {
       this.#confirmDeleteId = null;
+      this.#propsRecord = null;
       this.#requestEditor();
       return;
     }
@@ -531,15 +554,30 @@ class ParsiPageHome extends PeyElement {
    * @returns {string} Modal markup or ''.
    */
   #renderModal() {
-    if (this.#confirmDeleteId === null) {
-      return '';
+    if (this.#confirmDeleteId !== null) {
+      const pending = this.#items.find((item) => item.id === this.#confirmDeleteId) ?? null;
+      return renderConfirmModal({
+        t: this.#t,
+        title: pending?.title ?? null,
+        assetBaseUrl: this.#assetBaseUrl,
+      });
     }
-    const pending = this.#items.find((item) => item.id === this.#confirmDeleteId) ?? null;
-    return renderConfirmModal({
-      t: this.#t,
-      title: pending?.title ?? null,
-      assetBaseUrl: this.#assetBaseUrl,
-    });
+    if (this.#propsRecord !== null) {
+      const record = this.#propsRecord;
+      return renderPropertiesModal({
+        t: this.#t,
+        title: record.title ?? '',
+        createdText: this.#formatDate(record.createdAt),
+        updatedText: this.#formatDate(record.updatedAt),
+        sizeText: formatFileSize(
+          new TextEncoder().encode(record.content ?? '').length,
+          (value) => this.#formatNumber(value),
+          this.#t,
+        ),
+        assetBaseUrl: this.#assetBaseUrl,
+      });
+    }
+    return '';
   }
 
   async #initialLoad() {
@@ -639,7 +677,105 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     this.#confirmDeleteId = this.#currentId;
+    this.#propsRecord = null;
     this.#requestEditor();
+  }
+
+  /**
+   * Renames a document through the service, keeping the inline editor open
+   * with an error when the title is taken. Empty titles cancel silently.
+   * @param {unknown} id Document id from the event detail.
+   * @param {unknown} title New title from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #renameDocument(id, title) {
+    if (!this.#documents || typeof id !== 'string' || id.length === 0) {
+      return;
+    }
+    const next = typeof title === 'string' ? title.trim() : '';
+    if (next.length === 0) {
+      this.#sideEl?.cancelRename();
+      return;
+    }
+    try {
+      const saved = await this.#documents.renameDocument(id, next);
+      if (!this.isConnected || !saved) {
+        return;
+      }
+      if (id === this.#currentId) {
+        this.#docTitle = saved.title;
+      }
+      this.#items = await this.#documents.listDocuments();
+      if (!this.isConnected) {
+        return;
+      }
+      this.#sideEl?.cancelRename();
+      this.#requestEditor();
+    } catch (error) {
+      if (error?.code === 'DOCUMENT_TITLE_DUPLICATE') {
+        this.#sideEl?.configure({ renameError: 'parsinegar.documents.duplicate' });
+        return;
+      }
+      console.error('[parsi-page-home] document rename failed');
+      this.#sideEl?.cancelRename();
+    }
+  }
+
+  /**
+   * Downloads a document as a Markdown file through a temporary anchor in
+   * the page shadow (released right after the click).
+   * @param {unknown} id Document id from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #downloadDocument(id) {
+    if (!this.#documents || typeof id !== 'string' || id.length === 0) {
+      return;
+    }
+    if (typeof URL.createObjectURL !== 'function') {
+      console.error('[parsi-page-home] download is unsupported here');
+      return;
+    }
+    try {
+      const record = await this.#documents.openDocument(id);
+      if (!this.isConnected || !record) {
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([record.content ?? ''], { type: 'text/markdown' }));
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${String(record.title ?? '').replace(/[\\/]/g, '-')}.md`;
+        this.shadowRoot.append(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] document download failed');
+    }
+  }
+
+  /**
+   * Opens the properties modal for a document.
+   * @param {string} id Document id.
+   * @returns {Promise<void>}
+   */
+  async #showProperties(id) {
+    if (!this.#documents) {
+      return;
+    }
+    try {
+      const record = await this.#documents.openDocument(id);
+      if (!this.isConnected || !record) {
+        return;
+      }
+      this.#confirmDeleteId = null;
+      this.#propsRecord = record;
+      this.#requestEditor();
+    } catch (error) {
+      console.error('[parsi-page-home] properties load failed');
+    }
   }
 
   async #deleteCurrent() {
@@ -873,6 +1009,27 @@ class ParsiPageHome extends PeyElement {
       }
     }
     return String(value);
+  }
+
+  /**
+   * Formats a timestamp for the active language, falling back to ISO text
+   * when no formatter was handed down.
+   * @param {number} value Epoch milliseconds.
+   * @returns {string} Formatted date and time.
+   */
+  #formatDate(value) {
+    const time = new Date(value);
+    if (Number.isNaN(time.getTime())) {
+      return String(value ?? '');
+    }
+    if (typeof this.#format === 'function') {
+      try {
+        return this.#format(time, 'dateTime', {});
+      } catch {
+        return time.toISOString();
+      }
+    }
+    return time.toISOString();
   }
 
   #pushLiveUpdates() {

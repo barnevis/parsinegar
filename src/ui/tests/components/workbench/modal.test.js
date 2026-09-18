@@ -1,7 +1,7 @@
 // Verifies the delete-confirmation modal rendering (pure, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { renderConfirmModal } from '../../../components/workbench/modal.js';
+import { renderConfirmModal, renderPropertiesModal } from '../../../components/workbench/modal.js';
 
 function translate(key, params) {
   const template = {
@@ -41,4 +41,23 @@ test('should_include_icon_when_sprite_is_available', () => {
   const html = renderConfirmModal({ t: translate, title: 'سند مهم', assetBaseUrl: 'http://localhost/assets/' });
   assert.ok(html.includes('<svg'));
   assert.ok(html.includes('#trash'));
+});
+
+test('should_render_properties_when_record_is_given', async () => {
+  const html = renderPropertiesModal({
+    t: (key) => key,
+    title: 'سند',
+    createdText: 'C',
+    updatedText: 'U',
+    sizeText: 'S',
+    assetBaseUrl: null,
+  });
+  assert.ok(html.includes('parsinegar.documents.properties'));
+  assert.ok(html.includes('سند'));
+  assert.ok(html.includes('role="dialog"'));
+  assert.ok(html.includes('data-close-props'));
+});
+
+test('should_render_nothing_when_title_is_missing', async () => {
+  assert.equal(renderPropertiesModal({ t: (key) => key, title: null }), '');
 });

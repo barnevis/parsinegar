@@ -15,7 +15,8 @@ Everything received through `connect(refs)`:
 
 ## Public API
 
-- `configure({ activeView, items, currentId, documentText, settings, activeLine })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. Example: `side.configure({ items, currentId, documentText: page.value })`.
+- `configure({ activeView, items, currentId, documentText, settings, activeLine, renameError })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. `renameError` is a translation key shown under the open rename editor. Example: `side.configure({ items, currentId, documentText: page.value })`.
+- `cancelRename()` — closes an open inline rename editor without saving (used by the parent after save, cancel or failure).
 
 ## Events
 
@@ -25,11 +26,14 @@ Everything received through `connect(refs)`:
 - `outline-jump` with `detail: { line }` — outline navigation target (1-based line number).
 - `document-open` with `detail: { id }` — files-view open request.
 - `document-create` — files-view create request, no detail.
-- `document-delete` — files-view delete request, no detail.
+- `document-delete` — files-view delete request with `detail: { id }` (from the per-file menu).
+- `document-rename` with `detail: { id, title }` — inline rename commit on Enter.
+- `document-download` with `detail: { id }` — download request from the per-file menu.
+- `document-properties` with `detail: { id }` — properties request from the per-file menu.
 - `settings-change` with `detail: { key, value }` — settings radio change (`key` is `theme` or `direction`); syntactic shape only, the parent and service validate.
 - `settings-step` with `detail: { key, delta }` — font-size stepper intent (`key` is `fontSize`, `delta` is `+1`/`-1`); the parent computes and persists, the service clamps.
 
-**Listened to:** `click` and `change` (declared in `eventTypes()`; `change` carries the radio-group selections).
+**Listened to:** `click`, `change` and `keydown` (declared in `eventTypes()`; `change` carries the radio-group selections, `keydown` the rename Enter/Escape, and document-level listeners close the open file menu on outside click or Escape).
 
 ## Local State
 
@@ -38,6 +42,7 @@ Everything received through `connect(refs)`:
 - `#formatNumber` — number formatter for the settings view, or `null`.
 - `#activeView`, `#items`, `#currentId`, `#documentText`, `#settings` — last applied panel data.
 - `#activeLine` — highlighted outline heading line for scrollspy (compared by value in the snapshot).
+- `#openFileMenu`, `#editingId`, `#renameError` — presentational files-view state (open menu, inline rename target, rename failure key), compared by value in the snapshot.
 - `#applied` — last rendered snapshot including the outline signature; the imminent first render paints exactly the `connect()` refs.
 
 ## Config

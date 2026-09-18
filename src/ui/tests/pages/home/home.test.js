@@ -149,6 +149,20 @@ function createDocuments(initial = []) {
     async createDocument(title) {
       return service.saveDocument({ title, content: '' });
     },
+    async renameDocument(id, title) {
+      const record = docs.get(id) ?? null;
+      if (!record) {
+        return null;
+      }
+      const duplicate = [...docs.values()].some((item) => item.title === title && item.id !== id);
+      if (duplicate) {
+        throw Object.assign(new Error('taken'), { code: 'DOCUMENT_TITLE_DUPLICATE' });
+      }
+      const renamed = { ...record, title, updatedAt: Date.now() };
+      docs.set(id, renamed);
+      service.calls.push(['rename', { id, title }]);
+      return renamed;
+    },
     async deleteDocument(id) {
       docs.delete(id);
       service.calls.push(['delete', id]);
@@ -166,6 +180,13 @@ async function mountWithDocuments(documents) {
   document.body.append(element);
   await settled();
   return element;
+}
+
+async function deleteViaMenu(element, id) {
+  inChild(element, 'parsi-side-panel', `[data-doc-menu="${id}"]`).click();
+  await settled();
+  inChild(element, 'parsi-side-panel', `[data-file-delete="${id}"]`).click();
+  await settled();
 }
 
 test('should_open_most_recent_when_mounted_with_documents', async () => {
@@ -322,8 +343,7 @@ test('should_ask_confirmation_with_name_when_delete_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 'سند مهم', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-side-panel', '[part="docs-delete"]').click();
-    await settled();
+    await deleteViaMenu(element, 'd1');
     const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
     assert.ok(dialog, 'expected the confirmation modal');
     assert.equal(dialog.getAttribute('role'), 'alertdialog');
@@ -338,8 +358,7 @@ test('should_delete_current_when_confirmation_is_accepted', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-side-panel', '[part="docs-delete"]').click();
-    await settled();
+    await deleteViaMenu(element, 'd1');
     element.shadowRoot.querySelector('[data-confirm-delete="yes"]').click();
     await settled();
     const deletes = documents.calls.filter(([method]) => method === 'delete');
@@ -353,8 +372,7 @@ test('should_keep_document_when_confirmation_is_cancelled', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-side-panel', '[part="docs-delete"]').click();
-    await settled();
+    await deleteViaMenu(element, 'd1');
     element.shadowRoot.querySelector('[data-confirm-delete="no"]').click();
     await settled();
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
@@ -368,8 +386,7 @@ test('should_cancel_confirmation_when_backdrop_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-side-panel', '[part="docs-delete"]').click();
-    await settled();
+    await deleteViaMenu(element, 'd1');
     assert.ok(element.shadowRoot.querySelector('[part="modal-dialog"]'));
     element.shadowRoot.querySelector('[part="modal-backdrop"]').click();
     await settled();
@@ -384,8 +401,7 @@ test('should_cancel_confirmation_when_escape_is_pressed', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-side-panel', '[part="docs-delete"]').click();
-    await settled();
+    await deleteViaMenu(element, 'd1');
     assert.ok(element.shadowRoot.querySelector('[part="modal-dialog"]'));
     element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await settled();
@@ -877,6 +893,109 @@ test('should_clear_highlight_when_document_has_no_visible_heading', async () => 
     inChild(element, 'parsi-activity-rail', '[data-view="outline"]').click();
     await settled();
     assert.equal(inChild(element, 'parsi-side-panel', '[aria-current="true"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+async function openRenameEditor(element, id) {
+  inChild(element, 'parsi-side-panel', `[data-doc-menu="${id}"]`).click();
+  await settled();
+  inChild(element, 'parsi-side-panel', `[data-file-rename="${id}"]`).click();
+  await settled();
+}
+
+test('should_rename_when_valid_title_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'قدیمی', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await openRenameEditor(element, 'd1');
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-rename', { bubbles: true, detail: { id: 'd1', title: 'تازه' } }),
+    );
+    await settled();
+    await settled();
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'rename'), [[
+      'rename',
+      { id: 'd1', title: 'تازه' },
+    ]]);
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-rename-input="d1"]'), null);
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]')?.textContent.includes('تازه'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_editor_open_with_error_when_title_is_taken', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'اول', content: 'c', updatedAt: 1 },
+    { id: 'd2', title: 'دوم', content: 'c', updatedAt: 2 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await openRenameEditor(element, 'd1');
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-rename', { bubbles: true, detail: { id: 'd1', title: 'دوم' } }),
+    );
+    await settled();
+    await settled();
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-rename-input="d1"]'), 'expected the editor open');
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="docs-error"]')?.textContent.includes('تکراری'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_cancel_rename_when_title_is_empty', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'اول', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await openRenameEditor(element, 'd1');
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-rename', { bubbles: true, detail: { id: 'd1', title: '   ' } }),
+    );
+    await settled();
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'rename'), []);
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-rename-input="d1"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_properties_when_properties_arrives', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'سند مهم', content: 'متن', createdAt: 100, updatedAt: 200 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-properties', { bubbles: true, detail: { id: 'd1' } }),
+    );
+    await settled();
+    await settled();
+    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    assert.ok(dialog, 'expected the properties modal');
+    assert.equal(dialog.getAttribute('role'), 'dialog');
+    assert.ok(dialog.textContent.includes('سند مهم'));
+    assert.ok(dialog.textContent.includes('ویژگی‌های پرونده'));
+    element.shadowRoot.querySelector('[data-close-props]').click();
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_ignore_download_gracefully_when_unsupported', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-download', { bubbles: true, detail: { id: 'd1' } }),
+    );
+    await settled();
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }
