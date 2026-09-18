@@ -359,6 +359,9 @@ class ParsiSidePanel extends PeyElement {
         [part="outline-toggle"] {
           font: inherit;
           flex: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           border: 1px solid transparent;
           border-radius: 8px;
           background-color: transparent;
@@ -369,6 +372,24 @@ class ParsiSidePanel extends PeyElement {
         }
         [part="outline-toggle"]:hover {
           background-color: var(--pey-color-canvas, #ffffff);
+        }
+        [part="outline-spacer"] {
+          flex: none;
+          inline-size: 1.75rem;
+        }
+        [part="outline-chevron"] {
+          display: inline-block;
+          inline-size: 0.45rem;
+          block-size: 0.45rem;
+          /* Physical borders on purpose: the chevron angle must stay fixed
+             instead of flipping with the text direction. */
+          border-right: 2px solid currentColor;
+          border-bottom: 2px solid currentColor;
+          transform: rotate(45deg);
+        }
+        [part="outline-toggle"][aria-expanded="false"] [part="outline-chevron"] {
+          /* Collapsed points left in RTL (right in LTR would be -45deg). */
+          transform: rotate(135deg);
         }
         [part="docs-open"],
         [part="outline-jump"] {

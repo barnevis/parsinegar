@@ -65,6 +65,13 @@ test('should_toggle_children_when_collapsed', () => {
   assert.ok(closed.includes('aria-expanded="false"'));
 });
 
+test('should_align_leaves_with_parents_when_rendered', () => {
+  const html = renderOutlineView({ t: translate, documentText: '# یک\n## دو\n# سه' });
+  assert.ok(html.includes('part="outline-spacer"'), 'expected a spacer on the leaf');
+  assert.ok(!html.includes('▸') && !html.includes('▾'), 'expected no text glyph toggles');
+  assert.ok(html.includes('part="outline-chevron"'), 'expected a chevron toggle');
+});
+
 test('should_ignore_invalid_collapsed_when_given', () => {
   const html = renderOutlineView({ t: translate, documentText: '# یک\n## دو', collapsed: ['x', null] });
   assert.ok(html.includes('data-line="2"'));

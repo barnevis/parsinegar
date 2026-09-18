@@ -31,7 +31,8 @@ export function buildOutlineTree(headings) {
 
 /**
  * Renders heading nodes as a nested list. Nodes with children carry a
- * toggle button; collapsed nodes omit their children.
+ * toggle button; leaves carry an equally-sized spacer so titles align in
+ * one column. Collapsed nodes omit their children.
  * @param {Array<object>} nodes Tree nodes.
  * @param {number|null} activeLine Highlighted heading line, if any.
  * @param {Function} translate Translation function.
@@ -42,12 +43,12 @@ function renderNodes(nodes, activeLine, translate, collapsed) {
   return nodes.map((node) => {
     const hasChildren = node.children.length > 0;
     const isCollapsed = hasChildren && collapsed.has(node.line);
-    const toggle = hasChildren
-      ? `<button type="button" part="outline-toggle" data-outline-toggle="${node.line}" aria-expanded="${!isCollapsed}" aria-label="${escapeHtml(translate(isCollapsed ? 'parsinegar.views.outline-expand' : 'parsinegar.views.outline-collapse'))}">${isCollapsed ? '▸' : '▾'}</button>`
-      : '';
+    const gutter = hasChildren
+      ? `<button type="button" part="outline-toggle" data-outline-toggle="${node.line}" aria-expanded="${!isCollapsed}" aria-label="${escapeHtml(translate(isCollapsed ? 'parsinegar.views.outline-expand' : 'parsinegar.views.outline-collapse'))}"><span part="outline-chevron" aria-hidden="true"></span></button>`
+      : `<span part="outline-spacer" aria-hidden="true"></span>`;
     return `
     <li part="outline-item">
-      ${toggle}<button type="button" part="outline-jump" data-line="${node.line}"${node.line === activeLine ? ' aria-current="true"' : ''}>${escapeHtml(node.text)}</button>${hasChildren && !isCollapsed ? `<ul part="outline-list">${renderNodes(node.children, activeLine, translate, collapsed)}</ul>` : ''}
+      ${gutter}<button type="button" part="outline-jump" data-line="${node.line}"${node.line === activeLine ? ' aria-current="true"' : ''}>${escapeHtml(node.text)}</button>${hasChildren && !isCollapsed ? `<ul part="outline-list">${renderNodes(node.children, activeLine, translate, collapsed)}</ul>` : ''}
     </li>`;
   }).join('');
 }
