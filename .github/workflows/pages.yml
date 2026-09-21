@@ -41,6 +41,13 @@ jobs:
           find dist/node_modules \( -name '*.map' -o -name '*.md' -o -name '*.ts' \) -delete
           du -sh dist
 
+      - name: Set router base path for Pages
+        run: |
+          BASE="/${GITHUB_REPOSITORY#*/}"
+          jq --arg base "$BASE" '.config["pey.router"].basePath = $base' \
+            bootstrap.json > dist/bootstrap.json
+          grep -n basePath dist/bootstrap.json
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
