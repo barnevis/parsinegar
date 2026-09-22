@@ -50,7 +50,7 @@ test('should_resolve_null_when_line_has_no_letter', () => {
 test('should_pin_every_line_when_mounted', () => {
   const host = document.createElement('div');
   document.body.append(host);
-  const editor = createMarkdownView(host, { document: 'سلام\nHello\n۱۲۳' });
+  const editor = createMarkdownView(host, { document: 'سلام\nHello\n۱۲۳', direction: 'auto' });
   try {
     const lines = [...host.querySelectorAll('.cm-line')];
     assert.equal(lines.length, 3);
@@ -63,10 +63,84 @@ test('should_pin_every_line_when_mounted', () => {
   }
 });
 
+test('should_lock_every_line_when_direction_is_rtl', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'سلام\nHello\n۱۲۳', direction: 'rtl' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    assert.equal(lines.length, 3);
+    for (const line of lines) {
+      assert.ok(line.classList.contains('parsi-base-rtl'), 'expected every line on the rtl base');
+      assert.ok(!line.classList.contains('parsi-dir-ltr'), 'expected no per-line ltr');
+    }
+    const english = globalThis.getComputedStyle(lines[1]);
+    assert.equal(english.direction, 'rtl');
+    assert.equal(english.textAlign, 'right');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_lock_every_line_when_direction_is_ltr', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'سلام\nHello', direction: 'ltr' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    assert.equal(lines.length, 2);
+    for (const line of lines) {
+      assert.ok(line.classList.contains('parsi-base-ltr'), 'expected every line on the ltr base');
+    }
+    const persian = globalThis.getComputedStyle(lines[0]);
+    assert.equal(persian.direction, 'ltr');
+    assert.equal(persian.textAlign, 'left');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_fenced_code_ltr_when_direction_is_rtl', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن\n```\nکد فارسی\n```\nبعد', direction: 'rtl' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    assert.equal(lines.length, 5);
+    assert.ok(lines[0].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
+    assert.ok(lines[1].classList.contains('parsi-base-rtl'), 'expected the fence marker on the base');
+    assert.ok(lines[2].classList.contains('parsi-dir-ltr'), 'expected the code line left');
+    assert.ok(lines[3].classList.contains('parsi-base-rtl'), 'expected the fence marker on the base');
+    assert.ok(lines[4].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
+    const code = globalThis.getComputedStyle(lines[2]);
+    assert.equal(code.direction, 'ltr');
+    assert.equal(code.textAlign, 'left');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_detect_code_per_line_when_direction_is_auto', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن\n```\nتوضیح فارسی\n```', direction: 'auto' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    assert.ok(lines[0].classList.contains('parsi-dir-rtl'), 'expected the text line right');
+    assert.ok(lines[2].classList.contains('parsi-dir-rtl'), 'expected per-line detection inside fences in auto');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 test('should_align_lines_explicitly_when_mounted', () => {
   const host = document.createElement('div');
   document.body.append(host);
-  const editor = createMarkdownView(host, { document: 'سلام\nHello' });
+  const editor = createMarkdownView(host, { document: 'سلام\nHello', direction: 'auto' });
   try {
     const lines = [...host.querySelectorAll('.cm-line')];
     const persian = globalThis.getComputedStyle(lines[0]);
@@ -83,7 +157,7 @@ test('should_align_lines_explicitly_when_mounted', () => {
 test('should_pin_neutral_lines_when_mounted', () => {
   const host = document.createElement('div');
   document.body.append(host);
-  const editor = createMarkdownView(host, { document: '۱۲۳\nسلام' });
+  const editor = createMarkdownView(host, { document: '۱۲۳\nسلام', direction: 'auto' });
   try {
     const lines = [...host.querySelectorAll('.cm-line')];
     assert.equal(lines.length, 2);

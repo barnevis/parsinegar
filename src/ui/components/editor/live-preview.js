@@ -118,7 +118,9 @@ const livePreviewTheme = EditorView.theme({
 
 const LIST_PATTERN = /^[ \t]*(?:([*+-])|([0-9\u06F0-\u06F9]+)[.)])\s+/;
 const QUOTE_PATTERN = /^[ \t]*>/;
-const FENCE_PATTERN = /^[ \t]*```/;
+// Shared with `line-direction.js`, which needs the same fence parity to keep
+// fenced code left-to-right under a forced direction.
+export const FENCE_PATTERN = /^[ \t]*```/;
 
 /**
  * Replaces a raw list marker with a rendered bullet or the original number.

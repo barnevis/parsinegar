@@ -255,6 +255,8 @@ test('should_detect_line_direction_when_themed', () => {
     // jsdom does not do layout or bidi; the injected rules are authoritative.
     assert.ok(hasRule('.cm-line.parsi-dir-rtl', 'text-align', 'right'));
     assert.ok(hasRule('.cm-line.parsi-dir-ltr', 'text-align', 'left'));
+    assert.ok(hasRule('.cm-line.parsi-base-rtl', 'text-align', 'right'));
+    assert.ok(hasRule('.cm-line.parsi-base-ltr', 'text-align', 'left'));
   } finally {
     editor.destroy();
     host.remove();

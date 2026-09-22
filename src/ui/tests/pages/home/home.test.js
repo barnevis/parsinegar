@@ -772,6 +772,33 @@ async function mountWithSettings(documents, settings) {
   return element;
 }
 
+test('should_align_english_right_when_stored_direction_is_rtl', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'Hello world', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    const line = element.shadowRoot.querySelector('.cm-line');
+    // jsdom does not compute bidi; the class is authoritative (the theme
+    // mapping is covered by rule assertions in markdown-view.test.js).
+    assert.ok(line.classList.contains('parsi-base-rtl'), 'expected the English line locked right');
+    assert.ok(!line.classList.contains('parsi-dir-ltr'), 'expected no per-line ltr');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_detect_per_line_when_stored_direction_is_auto', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'Hello world', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'auto', fontSize: 16 });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    const line = element.shadowRoot.querySelector('.cm-line');
+    assert.ok(line.classList.contains('parsi-dir-ltr'), 'expected per-line detection in auto');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_apply_stored_direction_and_font_size_when_mounted', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const settings = createSettings({ theme: 'device', direction: 'ltr', fontSize: 20 });
