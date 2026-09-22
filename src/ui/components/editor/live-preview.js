@@ -368,6 +368,48 @@ function rangesOverlap(fromA, toA, fromB, toB) {
   return fromA <= toB && toA >= fromB;
 }
 
+// Block marks whose delimiter space hides with them: `# Title` and `> quote`
+// keep one real space (sometimes a run, sometimes a tab) after the marks,
+// which would otherwise render at the content size and push the line off the
+// edge while plain lines hug it. Task boxes stay out: their `[ ]` is replaced
+// by a widget, and a mark decoration must never overlap that replacement.
+const EXTENDABLE_MARK_NAMES = new Set(['HeaderMark', 'QuoteMark']);
+
+/**
+ * Collects heading and quote mark ranges extended over the spaces/tabs that
+ * follow them on the same breath (stops at anything else, including the
+ * line end). The reveal logic treats the extended range exactly like the
+ * mark itself, so the delimiter space vanishes and returns together with it.
+ * @param {object} doc Document text accessor (`sliceString`, `length`).
+ * @param {object} tree Lezer syntax tree.
+ * @param {number} from Range start.
+ * @param {number} to Range end.
+ * @returns {Array<object>} `{ from, to }` extended ranges.
+ */
+export function collectExtendedMarkRanges(doc, tree, from, to) {
+  const ranges = [];
+  tree.iterate({
+    from,
+    to,
+    enter(node) {
+      if (!EXTENDABLE_MARK_NAMES.has(node.name)) {
+        return;
+      }
+      let end = node.to;
+      while (end < doc.length) {
+        const char = doc.sliceString(end, end + 1);
+        if (char !== ' ' && char !== '\t') {
+          break;
+        }
+        end += 1;
+      }
+      ranges.push({ from: node.from, to: end });
+      return false;
+    },
+  });
+  return ranges;
+}
+
 /**
  * Reveals hidden formatting marks only where the cursor (or selection)
  * overlaps them, so the exact spot under edit opens up while every other
@@ -375,7 +417,10 @@ function rangesOverlap(fromA, toA, fromB, toB) {
  * the whole formatted part counts: standing on the text reveals its
  * delimiters too.
  * Mark ranges come from our own highlight definition, so they always match
- * what the theme hides.
+ * what the theme hides. Heading and quote marks additionally hide the spaces
+ * right after them (collected by `collectExtendedMarkRanges`), otherwise the
+ * delimiter space would render at the content size and push the line off the
+ * edge while plain lines hug it.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -391,6 +436,7 @@ function buildMarkRevealDecorations(view) {
   }
   for (const { from, to } of view.visibleRanges) {
     const containers = collectInlineContainers(tree, from, to);
+    const extended = collectExtendedMarkRanges(view.state.doc, tree, from, to);
     highlightTree(tree, persianHighlight, (rangeFrom, rangeTo, classes) => {
       if (!MARK_REVEAL_PATTERN.test(classes)) {
         return;
@@ -408,6 +454,18 @@ function buildMarkRevealDecorations(view) {
         builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(rangeFrom, rangeTo));
       }
     }, from, to);
+    for (const range of extended) {
+      if (rangesOverlap(selection.from, selection.to, range.from, range.to)) {
+        builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(range.from, range.to));
+        continue;
+      }
+      const revealed = containers.some(
+        (container) => container.from <= range.from
+          && container.to >= range.to
+          && rangesOverlap(selection.from, selection.to, container.from, container.to),
+      );
+      builder.push(Decoration.mark({ class: revealed ? 'parsi-mark-open' : 'parsi-mark' }).range(range.from, range.to));
+    }
   }
   return Decoration.set(builder);
 }

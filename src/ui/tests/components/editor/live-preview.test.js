@@ -2,9 +2,10 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { EditorState } from '@codemirror/state';
 import { markdownLanguage } from '@codemirror/lang-markdown';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { collectInlineContainers, selectionTouches } from '../../../components/editor/live-preview.js';
+import { collectExtendedMarkRanges, collectInlineContainers, selectionTouches } from '../../../components/editor/live-preview.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');
@@ -186,6 +187,61 @@ test('should_collect_reveal_spans_when_tree_has_them', () => {
   assert.ok(kinds.includes('`کد`'), `expected the code span, got ${JSON.stringify(kinds)}`);
   assert.ok(!kinds.some((span) => span.startsWith('>')), 'expected no quote span');
   assert.ok(!kinds.some((span) => span.startsWith('- ')), 'expected no list span');
+});
+
+test('should_extend_marks_over_delimiter_spaces_when_collected', () => {
+  const doc = '# سلام\n\n> نقل\n\nعنوان\n===';
+  const state = EditorState.create({ doc });
+  const tree = markdownLanguage.parser.parse(doc);
+  const ranges = collectExtendedMarkRanges(state.doc, tree, 0, doc.length);
+  const kinds = ranges.map(({ from, to }) => doc.slice(from, to));
+  assert.ok(kinds.includes('# '), `expected the heading mark plus space, got ${JSON.stringify(kinds)}`);
+  assert.ok(kinds.includes('> '), `expected the quote mark plus space, got ${JSON.stringify(kinds)}`);
+  assert.ok(kinds.includes('==='), `expected the bare underline unchanged, got ${JSON.stringify(kinds)}`);
+});
+
+test('should_extend_marks_over_space_runs_when_collected', () => {
+  const doc = '#  سلام';
+  const state = EditorState.create({ doc });
+  const tree = markdownLanguage.parser.parse(doc);
+  const ranges = collectExtendedMarkRanges(state.doc, tree, 0, doc.length);
+  assert.deepEqual(ranges.map(({ from, to }) => doc.slice(from, to)), ['#  ']);
+});
+
+test('should_hide_delimiter_space_when_heading_is_not_touched', () => {
+  const mounted = createEditor('متن\n\n# سلام');
+  try {
+    const hidden = [...mounted.host.querySelectorAll('.parsi-mark')]
+      .find((span) => span.textContent === '# ');
+    assert.ok(hidden, 'expected the extended hidden span');
+    assert.ok(!hidden.classList.contains('parsi-mark-open'), 'expected it hidden');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_hide_delimiter_space_when_quote_is_not_touched', () => {
+  const mounted = createEditor('متن\n\n> نقل');
+  try {
+    const hidden = [...mounted.host.querySelectorAll('.parsi-mark')]
+      .find((span) => span.textContent === '> ');
+    assert.ok(hidden, 'expected the extended hidden span');
+    assert.ok(!hidden.classList.contains('parsi-mark-open'), 'expected it hidden');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_reveal_delimiter_space_when_cursor_is_on_heading', () => {
+  // Pristine cursor sits at 0 — on the opening hashes — so the extended
+  // range opens together with the marks themselves.
+  const mounted = createEditor('## سلام');
+  try {
+    const open = [...mounted.host.querySelectorAll('.parsi-mark-open')];
+    assert.ok(open.some((span) => span.textContent === '## '), 'expected the extended open span');
+  } finally {
+    destroy(mounted);
+  }
 });
 
 test('should_reveal_setext_marks_when_cursor_is_on_heading_text', () => {
