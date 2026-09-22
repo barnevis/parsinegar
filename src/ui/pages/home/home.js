@@ -6,15 +6,18 @@
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
-import { countStats, formatFileSize } from '../../components/workbench/stats.js';
-import { parseOutline } from '../../components/workbench/outline.js';
-import { renderConfirmModal, renderPropertiesModal } from '../../components/workbench/modal.js';
+import { countStats } from '../../components/workbench/stats.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
+import { formatDate, formatNumber } from '../../utils/format.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
+import { createDocumentController } from './document-controller.js';
+import { createSettingsApplier } from './settings-applier.js';
+import { createScrollSpy } from './scroll-spy.js';
 import '../../components/menu-bar/menu-bar.js';
 import '../../components/activity-rail/activity-rail.js';
 import '../../components/side-panel/side-panel.js';
 import '../../components/status-bar/status-bar.js';
+import '../../components/modal-dialog/modal-dialog.js';
 
 const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
@@ -32,59 +35,31 @@ const INSERT_MARK_KINDS = [
   'unordered-list',
   'ordered-list',
 ];
-const AUTOSAVE_DELAY_MS = 1000;
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
   #format = null;
   #assetBaseUrl = null;
-  #documents = null;
-  #settingsApi = null;
-  #settings = null;
-  #settingsWrite = Promise.resolve();
-  #documentDirection = 'rtl';
-  #fontSize = 16;
-  #outlineActiveLine = null;
+  #docs = null;
+  #prefs = null;
+  #spy = createScrollSpy({
+    getVisibleLine: (top) => this.#editor?.visibleLine(top) ?? null,
+    getText: () => this.value,
+    onActiveLine: (line) => this.#sideEl?.configure({ activeLine: line }),
+    isLive: () => this.isConnected,
+  });
   #editor = null;
-  #items = [];
-  #currentId = null;
-  #docTitle = '';
-  #draft = null;
-  #saveTimer = null;
   #activeView = FILES_VIEW;
   #sideOpen = true;
   #bottomOpen = true;
-  #confirmDeleteId = null;
-  #propsRecord = null;
   #renderObserver = null;
   #editorHost = null;
-  #centerEl = null;
-  #scrollFrame = 0;
-  #onCenterScroll = () => {
-    if (this.#scrollFrame !== 0) {
-      return;
-    }
-    if (typeof globalThis.requestAnimationFrame === 'function') {
-      this.#scrollFrame = globalThis.requestAnimationFrame(() => {
-        this.#scrollFrame = 0;
-        this.#reportScrollPosition();
-      });
-    } else {
-      this.#reportScrollPosition();
-    }
-  };
-  #colorSchemeQuery = null;
-  #onColorSchemeChange = () => {
-    const settings = this.#settings;
-    if (settings && settings.theme === 'device') {
-      this.#requestEditor();
-    }
-  };
   #menuEl = null;
   #railEl = null;
   #sideEl = null;
   #statusEl = null;
+  #modalEl = null;
   #events = null;
 
   onConnect(refs = {}) {
@@ -109,12 +84,27 @@ class ParsiPageHome extends PeyElement {
       this.#events = refs.events;
     }
     const service = refs.services?.[DOCUMENTS_SERVICE] ?? null;
-    if (service && typeof service.listDocuments === 'function') {
-      this.#documents = service;
+    const documents = service && typeof service.listDocuments === 'function' ? service : null;
+    // Raw values (not wrappers): the controller guards absent services and
+    // formatters itself, and reconnect re-passes them without losing state.
+    const docRefs = { documents, t: this.#t, format: this.#format };
+    if (!this.#docs) {
+      this.#docs = createDocumentController({
+        ...docRefs,
+        isLive: () => this.isConnected,
+        readEditorContent: () => this.#editor?.getValue(),
+      });
+    } else {
+      this.#docs.reconnect(docRefs);
     }
     const settings = refs.services?.[SETTINGS_SERVICE] ?? null;
-    if (settings && typeof settings.getSettings === 'function' && typeof settings.saveSettings === 'function') {
-      this.#settingsApi = settings;
+    const settingsApi = settings && typeof settings.getSettings === 'function' && typeof settings.saveSettings === 'function'
+      ? settings
+      : null;
+    if (!this.#prefs) {
+      this.#prefs = createSettingsApplier({ settingsApi, isLive: () => this.isConnected });
+    } else {
+      this.#prefs.reconnect({ settingsApi });
     }
   }
 
@@ -132,6 +122,8 @@ class ParsiPageHome extends PeyElement {
       'document-rename',
       'document-download',
       'document-properties',
+      'modal-confirm',
+      'modal-dismiss',
       'settings-change',
       'settings-step',
     ];
@@ -148,10 +140,12 @@ class ParsiPageHome extends PeyElement {
 
   handleEvent(event) {
     if (event.type === 'keydown') {
-      if (event.key === 'Escape' && (this.#confirmDeleteId !== null || this.#propsRecord !== null)) {
-        this.#confirmDeleteId = null;
-        this.#propsRecord = null;
-        this.#requestEditor();
+      if (event.key === 'Escape' && this.#docs) {
+        const { confirmDeleteId, propsRecord } = this.#docs.getState();
+        if (confirmDeleteId !== null || propsRecord !== null) {
+          this.#docs.cancelOverlays();
+          this.#requestEditor();
+        }
       }
       return;
     }
@@ -183,7 +177,9 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'document-delete') {
-        this.#armDeleteConfirm(event.detail?.id);
+        if (this.#docs?.armDelete(event.detail?.id)) {
+          this.#requestEditor();
+        }
         return;
       }
       if (event.type === 'document-rename') {
@@ -198,6 +194,20 @@ class ParsiPageHome extends PeyElement {
         void this.#showProperties(event.detail.id);
         return;
       }
+      if (event.type === 'modal-confirm') {
+        if (event.detail?.accepted === true) {
+          void this.#confirmDeleteAndApply();
+        } else {
+          this.#docs?.cancelOverlays();
+          this.#requestEditor();
+        }
+        return;
+      }
+      if (event.type === 'modal-dismiss') {
+        this.#docs?.cancelOverlays();
+        this.#requestEditor();
+        return;
+      }
       if (event.type === 'settings-change') {
         void this.#applySettingChange(event.detail?.key, event.detail?.value);
         return;
@@ -205,33 +215,11 @@ class ParsiPageHome extends PeyElement {
       if (event.type === 'settings-step') {
         void this.#applySettingStep(event.detail?.key, event.detail?.delta);
         return;
-      }
-      return;
+      }      return;
     }
     const target = event.target;
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
-      return;
-    }
-    const confirmButton = target?.closest?.('[data-confirm-delete]');
-    if (confirmButton) {
-      if (confirmButton.getAttribute('data-confirm-delete') === 'yes') {
-        void this.#deleteConfirmed();
-      } else {
-        this.#confirmDeleteId = null;
-        this.#requestEditor();
-      }
-      return;
-    }
-    if (target?.closest?.('[data-close-props]')) {
-      this.#propsRecord = null;
-      this.#requestEditor();
-      return;
-    }
-    if (target?.closest?.('[part="modal-backdrop"]') && !target?.closest?.('[part="modal-dialog"]')) {
-      this.#confirmDeleteId = null;
-      this.#propsRecord = null;
-      this.#requestEditor();
       return;
     }
   }
@@ -243,15 +231,15 @@ class ParsiPageHome extends PeyElement {
     // Mounting CodeMirror needs the live host node, so instead of guessing
     // microtask order, observe render completion and mount then.
     this.#ensureRenderObserver();
-    this.#watchColorScheme();
+    this.#prefs?.watchColorScheme(() => this.#requestEditor());
     queueMicrotask(() => void this.#initialLoad());
   }
 
   disconnectedCallback() {
-    this.#clearSaveTimer();
+    this.#docs?.dispose();
     this.#unmountEditor();
-    this.#unwatchColorScheme();
-    this.#unwatchCenterScroll();
+    this.#prefs?.unwatchColorScheme();
+    this.#spy.unwatch();
     this.#renderObserver?.disconnect();
     this.#renderObserver = null;
     super.disconnectedCallback();
@@ -274,10 +262,8 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       const center = this.shadowRoot.querySelector('[part="center"]');
-      if (center && center !== this.#centerEl) {
-        this.#unwatchCenterScroll();
-        this.#centerEl = center;
-        center.addEventListener('scroll', this.#onCenterScroll, { passive: true });
+      if (center) {
+        this.#spy.watch(center);
       }
       const host = this.shadowRoot.querySelector('[part="editor-host"]');
       if (!host) {
@@ -293,78 +279,18 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Starts watching the operating-system color scheme so a `device` theme
-   * remounts the editor when the system flips between light and dark.
-   * @returns {void}
-   */
-  #watchColorScheme() {
-    const matchMedia = globalThis.matchMedia;
-    if (typeof matchMedia !== 'function' || this.#colorSchemeQuery) {
-      return;
-    }
-    try {
-      this.#colorSchemeQuery = matchMedia('(prefers-color-scheme: dark)');
-      this.#colorSchemeQuery.addEventListener('change', this.#onColorSchemeChange);
-    } catch {
-      this.#colorSchemeQuery = null;
-    }
-  }
-
-  #unwatchColorScheme() {
-    try {
-      this.#colorSchemeQuery?.removeEventListener('change', this.#onColorSchemeChange);
-    } catch {
-      // Listener removal is best-effort during teardown.
-    }
-    this.#colorSchemeQuery = null;
-  }
-
-  /**
-   * Detaches the center-column scroll listener and drops a pending frame.
-   * @returns {void}
-   */
-  #unwatchCenterScroll() {
-    this.#centerEl?.removeEventListener('scroll', this.#onCenterScroll);
-    if (this.#scrollFrame !== 0 && typeof globalThis.cancelAnimationFrame === 'function') {
-      globalThis.cancelAnimationFrame(this.#scrollFrame);
-    }
-    this.#centerEl = null;
-    this.#scrollFrame = 0;
-  }
-
-  /**
-   * Reads the visible editor line and forwards it to the heading mapping.
-   * The center column (not the editor scroller) scrolls in this layout, so
-   * the measurement starts at the center top in viewport coordinates.
-   * @returns {void}
-   */
-  #reportScrollPosition() {
-    if (!this.isConnected || !this.#editor) {
-      return;
-    }
-    const box = this.#centerEl?.getBoundingClientRect();
-    const top = box && typeof box.top === 'number' ? box.top : 0;
-    let line = 1;
-    try {
-      line = this.#editor.visibleLine(top);
-    } catch {
-      line = 1;
-    }
-    this.#handleVisibleLine(line);
-  }
-
-  /**
    * Resolves the editor color scheme from the stored theme.
    * @returns {string} 'dark', 'sepia' or 'light'.
    */
   #resolveColorScheme() {
-    if (this.#settings?.theme === 'dark') {
+    const { settings } = this.#prefs?.getState() ?? {};
+    if (settings?.theme === 'dark') {
       return 'dark';
     }
-    if (this.#settings?.theme === 'sepia') {
+    if (settings?.theme === 'sepia') {
       return 'sepia';
     }
-    if (this.#settings?.theme === 'device') {
+    if (settings?.theme === 'device') {
       try {
         if (typeof globalThis.matchMedia === 'function'
           && globalThis.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -382,7 +308,7 @@ class ParsiPageHome extends PeyElement {
    * @returns {string} Current document content.
    */
   get value() {
-    return this.#editor?.getValue() ?? this.#draft ?? SAMPLE_DOCUMENT;
+    return this.#editor?.getValue() ?? this.#docs?.getDraft() ?? SAMPLE_DOCUMENT;
   }
 
   /**
@@ -394,9 +320,9 @@ class ParsiPageHome extends PeyElement {
     if (typeof text !== 'string') {
       return;
     }
-    this.#draft = text;
+    this.#docs?.setDraft(text);
     this.#editor?.setDocument(text);
-    this.#scheduleSave();
+    this.#docs?.scheduleSave();
   }
 
   async #runMenuAction(action) {
@@ -406,7 +332,9 @@ class ParsiPageHome extends PeyElement {
           await this.#createDocument();
           return;
         case 'delete-document':
-          this.#armDeleteConfirm();
+          if (this.#docs?.armDelete()) {
+            this.#requestEditor();
+          }
           return;
         case 'undo':
           this.#editor?.undo();
@@ -463,7 +391,7 @@ class ParsiPageHome extends PeyElement {
         </div>
         ${this.#bottomOpen ? '<div data-slot="status"></div>' : ''}
       </div>
-      ${this.#renderModal()}
+      <div data-slot="modal"></div>
     `;
   }
 
@@ -478,13 +406,14 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     const infrastructure = { events: this.#events };
+    const { items = [], currentId = null } = this.#docs?.getState() ?? {};
     this.#menuEl = mountComponent({
       shadowRoot: this.shadowRoot,
       slot: '[data-slot="menubar"]',
       tag: 'parsi-menu-bar',
       infrastructure,
-      refs: { t: this.#t, hasDocument: this.#currentId !== null },
-      configure: (element) => element.configure({ hasDocument: this.#currentId !== null }),
+      refs: { t: this.#t, hasDocument: currentId !== null },
+      configure: (element) => element.configure({ hasDocument: currentId !== null }),
     });
     this.#railEl = mountComponent({
       shadowRoot: this.shadowRoot,
@@ -509,19 +438,19 @@ class ParsiPageHome extends PeyElement {
           t: this.#t,
           assetBaseUrl: this.#assetBaseUrl,
           activeView: this.#activeView,
-          items: this.#items,
-          currentId: this.#currentId,
+          items,
+          currentId,
           documentText: this.value,
-          settings: this.#settings,
+          settings: this.#prefs?.getState().settings ?? null,
           formatNumber: (value) => this.#formatNumber(value),
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
-          items: this.#items,
-          currentId: this.#currentId,
+          items,
+          currentId,
           documentText: this.value,
-          settings: this.#settings,
-          activeLine: this.#outlineActiveLine,
+          settings: this.#prefs?.getState().settings ?? null,
+          activeLine: this.#spy.getActiveLine(),
         }),
       });
     } else {
@@ -547,144 +476,37 @@ class ParsiPageHome extends PeyElement {
     } else {
       this.#statusEl = null;
     }
-  }
-
-  /**
-   * Renders the delete-confirmation modal for the pending document, if any.
-   * @returns {string} Modal markup or ''.
-   */
-  #renderModal() {
-    if (this.#confirmDeleteId !== null) {
-      const pending = this.#items.find((item) => item.id === this.#confirmDeleteId) ?? null;
-      return renderConfirmModal({
-        t: this.#t,
-        title: pending?.title ?? null,
-        assetBaseUrl: this.#assetBaseUrl,
-      });
-    }
-    if (this.#propsRecord !== null) {
-      const record = this.#propsRecord;
-      return renderPropertiesModal({
-        t: this.#t,
-        title: record.title ?? '',
-        createdText: this.#formatDate(record.createdAt),
-        updatedText: this.#formatDate(record.updatedAt),
-        sizeText: formatFileSize(
-          new TextEncoder().encode(record.content ?? '').length,
-          (value) => this.#formatNumber(value),
-          this.#t,
-        ),
-        assetBaseUrl: this.#assetBaseUrl,
-      });
-    }
-    return '';
+    this.#modalEl = mountComponent({
+      shadowRoot: this.shadowRoot,
+      slot: '[data-slot="modal"]',
+      tag: 'parsi-modal-dialog',
+      infrastructure,
+      refs: { t: this.#t, assetBaseUrl: this.#assetBaseUrl },
+      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? null }),
+    });
   }
 
   async #initialLoad() {
     if (!this.isConnected) {
       return;
     }
-    await this.#loadSettings();
+    await this.#prefs?.load();
     if (!this.isConnected) {
       return;
     }
-    if (!this.#documents) {
-      this.#requestEditor();
+    const result = await this.#docs?.ensureInitial() ?? { none: true };
+    if (!this.isConnected) {
       return;
     }
-    try {
-      const items = await this.#documents.listDocuments();
-      if (!this.isConnected) {
-        return;
-      }
-      if (items.length === 0) {
-        const created = await this.#documents.saveDocument({
-          title: this.#t('parsinegar.documents.welcome-title'),
-          content: SAMPLE_DOCUMENT,
-        });
-        if (!this.isConnected) {
-          return;
-        }
-        this.#applyDocument(created, [created]);
-        return;
-      }
-      const opened = await this.#documents.openDocument(items[0].id);
-      if (!this.isConnected) {
-        return;
-      }
-      this.#applyDocument(opened ?? items[0], items);
-    } catch (error) {
-      console.error('[parsi-page-home] document load failed');
-      this.#requestEditor();
-    }
+    this.#applyResult(result);
   }
 
   async #switchDocument(id) {
-    if (!id || id === this.#currentId || !this.#documents) {
-      return;
-    }
-    this.#confirmDeleteId = null;
-    try {
-      await this.#flushSave();
-      if (!this.isConnected) {
-        return;
-      }
-      const opened = await this.#documents.openDocument(id);
-      if (!this.isConnected || !opened) {
-        return;
-      }
-      const items = await this.#documents.listDocuments();
-      if (!this.isConnected) {
-        return;
-      }
-      this.#applyDocument(opened, items);
-    } catch (error) {
-      console.error('[parsi-page-home] document switch failed');
-    }
+    this.#applyResult(await this.#docs?.switchDocument(id));
   }
 
   async #createDocument() {
-    if (!this.#documents) {
-      return;
-    }
-    this.#confirmDeleteId = null;
-    try {
-      await this.#flushSave();
-      if (!this.isConnected) {
-        return;
-      }
-      const created = await this.#documents.createDocument(this.#t('parsinegar.documents.new-title'));
-      if (!this.isConnected) {
-        return;
-      }
-      const items = await this.#documents.listDocuments();
-      if (!this.isConnected) {
-        return;
-      }
-      this.#applyDocument({ ...created, content: '' }, items);
-    } catch (error) {
-      console.error('[parsi-page-home] document creation failed');
-    }
-  }
-
-  /**
-   * Arms the delete confirmation for the document named by the file menu
-   * (or the current document when no id travels with the event, e.g. the
-   * top menu-bar action). Re-render shows the question with the doc name.
-   * @param {unknown} id Document id from the event detail.
-   * @returns {void}
-   */
-  #armDeleteConfirm(id) {
-    if (!this.#documents) {
-      return;
-    }
-    const target = typeof id === 'string' && id.length > 0 ? id : this.#currentId;
-    if (!target) {
-      return;
-    }
-    this.#confirmDeleteId = target;
-    this.#propsRecord = null;
-    this.#requestEditor();
+    this.#applyResult(await this.#docs?.createDocument());
   }
 
   /**
@@ -695,35 +517,15 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #renameDocument(id, title) {
-    if (!this.#documents || typeof id !== 'string' || id.length === 0) {
-      return;
-    }
-    const next = typeof title === 'string' ? title.trim() : '';
-    if (next.length === 0) {
+    const outcome = await this.#docs?.renameDocument(id, title);
+    if (outcome === 'renamed' || outcome === 'empty' || outcome === 'failed') {
       this.#sideEl?.cancelRename();
-      return;
     }
-    try {
-      const saved = await this.#documents.renameDocument(id, next);
-      if (!this.isConnected || !saved) {
-        return;
-      }
-      if (id === this.#currentId) {
-        this.#docTitle = saved.title;
-      }
-      this.#items = await this.#documents.listDocuments();
-      if (!this.isConnected) {
-        return;
-      }
-      this.#sideEl?.cancelRename();
+    if (outcome === 'renamed') {
       this.#requestEditor();
-    } catch (error) {
-      if (error?.code === 'DOCUMENT_TITLE_DUPLICATE') {
-        this.#sideEl?.configure({ renameError: 'parsinegar.documents.duplicate' });
-        return;
-      }
-      console.error('[parsi-page-home] document rename failed');
-      this.#sideEl?.cancelRename();
+    }
+    if (outcome === 'duplicate') {
+      this.#sideEl?.configure({ renameError: 'parsinegar.documents.duplicate' });
     }
   }
 
@@ -734,15 +536,12 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #downloadDocument(id) {
-    if (!this.#documents || typeof id !== 'string' || id.length === 0) {
-      return;
-    }
     if (typeof URL.createObjectURL !== 'function') {
       console.error('[parsi-page-home] download is unsupported here');
       return;
     }
     try {
-      const record = await this.#documents.openDocument(id);
+      const record = await this.#docs?.prepareDownload(id);
       if (!this.isConnected || !record) {
         return;
       }
@@ -768,255 +567,75 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #showProperties(id) {
-    if (!this.#documents) {
-      return;
-    }
-    try {
-      const record = await this.#documents.openDocument(id);
-      if (!this.isConnected || !record) {
-        return;
-      }
-      this.#confirmDeleteId = null;
-      this.#propsRecord = record;
+    const record = await this.#docs?.showProperties(id);
+    if (record) {
       this.#requestEditor();
-    } catch (error) {
-      console.error('[parsi-page-home] properties load failed');
     }
   }
 
   /**
-   * Deletes the confirmed document. Removing the open document switches to
-   * the most recent survivor (or a fresh one); removing a background
-   * document leaves the editor untouched.
+   * Deletes the confirmed document through the controller, then opens the
+   * adopted record (if the open document went away with it).
    * @returns {Promise<void>}
    */
-  async #deleteConfirmed() {
-    if (!this.#documents) {
-      return;
-    }
-    const removedId = this.#confirmDeleteId ?? this.#currentId;
-    if (!removedId) {
-      return;
-    }
-    const removingCurrent = removedId === this.#currentId;
-    if (removingCurrent) {
-      this.#clearSaveTimer();
-    }
-    this.#confirmDeleteId = null;
-    try {
-      await this.#documents.deleteDocument(removedId);
-      if (!this.isConnected) {
-        return;
-      }
-      const items = await this.#documents.listDocuments();
-      if (!this.isConnected) {
-        return;
-      }
-      if (!removingCurrent) {
-        // A background document went away: keep editing the current one
-        // (timer, focus and undo stay alive) and only refresh the list.
-        this.#items = items;
-        this.#requestEditor();
-        return;
-      }
-      if (items.length === 0) {
-        const created = await this.#documents.saveDocument({
-          title: this.#t('parsinegar.documents.new-title'),
-          content: '',
-        });
-        if (!this.isConnected) {
-          return;
-        }
-        this.#applyDocument(created, [created]);
-        return;
-      }
-      const opened = await this.#documents.openDocument(items[0].id);
-      if (!this.isConnected) {
-        return;
-      }
-      this.#applyDocument(opened ?? items[0], items);
-    } catch (error) {
-      console.error('[parsi-page-home] document deletion failed');
-    }
+  async #confirmDeleteAndApply() {
+    const result = await this.#docs?.confirmDelete();
+    this.#applyResult(result);
   }
 
   /**
-   * Loads stored preferences before the first editor mount. A failed load
-   * keeps the built-in fallbacks (rtl, 16px) and never blocks documents.
-   * @returns {Promise<void>}
-   */
-  async #loadSettings() {
-    if (!this.#settingsApi) {
-      return;
-    }
-    try {
-      const settings = await this.#settingsApi.getSettings();
-      if (!this.isConnected) {
-        return;
-      }
-      this.#settings = settings;
-      this.#documentDirection = settings.direction;
-      this.#fontSize = settings.fontSize;
-    } catch (error) {
-      console.error('[parsi-page-home] settings load failed');
-    }
-  }
-
-  #applyDocument(document, items) {
-    this.#unmountEditor();
-    this.#items = items;
-    this.#currentId = document.id;
-    this.#docTitle = document.title ?? '';
-    this.#draft = document.content ?? '';
-    this.#outlineActiveLine = null;
-    this.#requestEditor();
-  }
-
-  /**
-   * Maps a visible editor line to its heading and pushes highlight changes
-   * to the side panel. Re-renders only when the active heading changes, so
-   * scroll bursts stay cheap and never steal focus.
-   * @param {unknown} line First visible 1-based line number.
-   * @returns {void}
-   */
-  #handleVisibleLine(line) {
-    if (!this.isConnected || !Number.isInteger(line) || line < 1) {
-      return;
-    }
-    let active = null;
-    for (const heading of parseOutline(this.value)) {
-      if (heading.line <= line) {
-        active = heading.line;
-      } else {
-        break;
-      }
-    }
-    if (active !== this.#outlineActiveLine) {
-      this.#outlineActiveLine = active;
-      this.#sideEl?.configure({ activeLine: active });
-    }
-  }
-
-  /**
-   * Queues a settings write behind earlier ones so rapid changes apply in
-   * order instead of racing on stale reads. The chain itself never rejects;
-   * the caller still sees the real outcome.
-   * @param {Function} task Async write task.
-   * @returns {Promise} Task outcome.
-   */
-  #chainSettingWrite(task) {
-    const run = this.#settingsWrite.then(task, task);
-    this.#settingsWrite = run.catch(() => {});
-    return run;
-  }
-
-  /**
-   * Persists one radio-group setting (theme or direction) and applies the
-   * saved result. Theme reaches the shell through the `settings:changed`
-   * domain event handled by the entry point; direction remounts the editor.
+   * Persists one radio-group setting and remounts the editor when it applies.
+   * Theme reaches the shell through the `settings:changed` domain event
+   * handled by the entry point; direction remounts the editor.
    * @param {unknown} key Setting key from the event detail.
    * @param {unknown} value Setting value from the event detail.
    * @returns {Promise<void>}
    */
   async #applySettingChange(key, value) {
-    if (!this.#settingsApi || (key !== 'theme' && key !== 'direction')) {
-      return;
-    }
-    if (typeof value !== 'string' || value.length === 0) {
-      return;
-    }
-    try {
-      await this.#chainSettingWrite(async () => {
-        const saved = await this.#settingsApi.saveSettings({ [key]: value });
-        if (!this.isConnected) {
-          return;
-        }
-        this.#settings = saved;
-        this.#documentDirection = saved.direction;
-        this.#fontSize = saved.fontSize;
-        this.#requestEditor();
-      });
-    } catch (error) {
-      console.error('[parsi-page-home] setting save failed');
+    const outcome = await this.#prefs?.applyChange(key, value);
+    if (outcome === 'applied' && this.isConnected) {
+      this.#requestEditor();
     }
   }
 
   /**
-   * Persists one font-size step and remounts the editor with the saved size.
+   * Persists one font-size step and remounts the editor when it applies.
    * Out-of-range steps reject in the service and leave everything unchanged.
    * @param {unknown} key Setting key from the event detail.
    * @param {unknown} delta Step delta from the event detail.
    * @returns {Promise<void>}
    */
   async #applySettingStep(key, delta) {
-    if (!this.#settingsApi || key !== 'fontSize') {
+    const outcome = await this.#prefs?.applyStep(key, delta);
+    if (outcome === 'applied' && this.isConnected) {
+      this.#requestEditor();
+    }
+  }
+
+  /**
+   * Applies a controller result to the editor: adopted records replace the
+   * mounted view, list-only results just refresh the chrome.
+   * @param {object|null|undefined} result Controller result (`{ apply, items }`, `{ none: true }`) or null on no-op.
+   * @returns {void}
+   */
+  #applyResult(result) {
+    if (!result) {
       return;
     }
-    const step = Number(delta);
-    if (step !== 1 && step !== -1) {
-      return;
+    if (result.apply) {
+      // Unmount first: it parks the old editor content into the draft,
+      // which adopt() then overwrites with the incoming record.
+      this.#unmountEditor();
+      this.#docs?.adopt(result.apply, result.items);
+      this.#spy.reset();
     }
-    try {
-      await this.#chainSettingWrite(async () => {
-        const saved = await this.#settingsApi.saveSettings({ fontSize: this.#fontSize + step });
-        if (!this.isConnected) {
-          return;
-        }
-        this.#settings = saved;
-        this.#documentDirection = saved.direction;
-        this.#fontSize = saved.fontSize;
-        this.#requestEditor();
-      });
-    } catch (error) {
-      console.error('[parsi-page-home] setting save failed');
-    }
+    this.#requestEditor();
   }
 
   #requestEditor() {
     this.#unmountEditor();
     this.#ensureRenderObserver();
     this.requestRender();
-  }
-
-  #scheduleSave() {
-    if (!this.#documents || !this.#currentId) {
-      return;
-    }
-    this.#clearSaveTimer();
-    this.#saveTimer = setTimeout(() => void this.#saveNow(), AUTOSAVE_DELAY_MS);
-  }
-
-  async #flushSave() {
-    if (!this.#saveTimer) {
-      return;
-    }
-    this.#clearSaveTimer();
-    await this.#saveNow();
-  }
-
-  async #saveNow() {
-    this.#clearSaveTimer();
-    if (!this.#documents || !this.#currentId || !this.isConnected) {
-      return;
-    }
-    try {
-      const saved = await this.#documents.saveDocument({
-        id: this.#currentId,
-        title: this.#docTitle,
-        content: this.#editor?.getValue() ?? this.#draft ?? '',
-      });
-      void saved;
-      this.#items = await this.#documents.listDocuments();
-    } catch (error) {
-      console.error('[parsi-page-home] autosave failed');
-    }
-  }
-
-  #clearSaveTimer() {
-    if (this.#saveTimer !== null) {
-      clearTimeout(this.#saveTimer);
-      this.#saveTimer = null;
-    }
   }
 
   /**
@@ -1026,14 +645,7 @@ class ParsiPageHome extends PeyElement {
    * @returns {string} Formatted number.
    */
   #formatNumber(value) {
-    if (typeof this.#format === 'function') {
-      try {
-        return this.#format(value, 'number', {});
-      } catch {
-        return String(value);
-      }
-    }
-    return String(value);
+    return formatNumber(this.#format, value);
   }
 
   /**
@@ -1043,18 +655,7 @@ class ParsiPageHome extends PeyElement {
    * @returns {string} Formatted date and time.
    */
   #formatDate(value) {
-    const time = new Date(value);
-    if (Number.isNaN(time.getTime())) {
-      return String(value ?? '');
-    }
-    if (typeof this.#format === 'function') {
-      try {
-        return this.#format(time, 'dateTime', {});
-      } catch {
-        return time.toISOString();
-      }
-    }
-    return time.toISOString();
+    return formatDate(this.#format, value);
   }
 
   #pushLiveUpdates() {
@@ -1066,12 +667,14 @@ class ParsiPageHome extends PeyElement {
       stats,
       formatNumber: (value) => this.#formatNumber(value),
     });
+    const { items = [], currentId = null } = this.#docs?.getState() ?? {};
+    const { settings = null } = this.#prefs?.getState() ?? {};
     this.#sideEl?.configure({
       activeView: this.#activeView,
-      items: this.#items,
-      currentId: this.#currentId,
+      items,
+      currentId,
       documentText: this.value,
-      settings: this.#settings,
+      settings,
     });
   }
 
@@ -1085,13 +688,13 @@ class ParsiPageHome extends PeyElement {
     }
     try {
       this.#editor = createMarkdownView(host, {
-        document: this.#draft ?? SAMPLE_DOCUMENT,
+        document: this.#docs?.getDraft() ?? SAMPLE_DOCUMENT,
         label: this.#t('parsinegar.editor.label'),
-        direction: this.#documentDirection,
-        fontSize: this.#fontSize,
+        direction: this.#prefs?.getState().direction ?? 'rtl',
+        fontSize: this.#prefs?.getState().fontSize ?? 16,
         colorScheme: this.#resolveColorScheme(),
         onChange: (value) => {
-          this.#draft = value;
+          this.#docs?.setDraft(value);
           this.dispatchEvent(
             new CustomEvent(CHANGE_EVENT, {
               bubbles: true,
@@ -1100,11 +703,11 @@ class ParsiPageHome extends PeyElement {
             }),
           );
           this.#pushLiveUpdates();
-          this.#scheduleSave();
+          this.#docs?.scheduleSave();
         },
       });
       this.#editorHost = host;
-      this.#reportScrollPosition();
+      this.#spy.report();
     } catch (error) {
       this.#editor = null;
       this.#editorHost = null;
@@ -1114,7 +717,7 @@ class ParsiPageHome extends PeyElement {
 
   #unmountEditor() {
     if (this.#editor) {
-      this.#draft = this.#editor.getValue();
+      this.#docs?.setDraft(this.#editor.getValue());
       this.#editor.destroy();
       this.#editor = null;
     }

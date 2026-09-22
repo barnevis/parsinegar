@@ -1,8 +1,8 @@
 // Verifies the home page shell: placeholders, child mounting, flows.
 //
-// Children (menu bar, rail, side panel, status bar) mount through the shared
-// mount helper after render; behavior is asserted through their public surface
-// (shadow content, CustomEvents), never their internals.
+// Children (menu bar, rail, side panel, status bar, modal dialog) mount
+// through the shared mount helper after render; behavior is asserted through
+// their public surface (shadow content, CustomEvents), never their internals.
 import '../../setup-dom.js';
 import '../../setup-styles.js';
 import assert from 'node:assert/strict';
@@ -344,7 +344,7 @@ test('should_ask_confirmation_with_name_when_delete_is_clicked', async () => {
   const element = await mountWithDocuments(documents);
   try {
     await deleteViaMenu(element, 'd1');
-    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    const dialog = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
     assert.ok(dialog, 'expected the confirmation modal');
     assert.equal(dialog.getAttribute('role'), 'alertdialog');
     assert.ok(dialog.textContent.includes('سند مهم'), 'expected the doc name');
@@ -359,7 +359,7 @@ test('should_delete_current_when_confirmation_is_accepted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     await deleteViaMenu(element, 'd1');
-    element.shadowRoot.querySelector('[data-confirm-delete="yes"]').click();
+    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="yes"]').click();
     await settled();
     const deletes = documents.calls.filter(([method]) => method === 'delete');
     assert.deepEqual(deletes, [['delete', 'd1']]);
@@ -377,11 +377,11 @@ test('should_delete_menu_target_when_it_is_not_current', async () => {
   try {
     assert.equal(element.value, 'متن دوم');
     await deleteViaMenu(element, 'd1');
-    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    const dialog = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
     assert.ok(dialog, 'expected the confirmation modal');
     assert.ok(dialog.textContent.includes('اول'), 'expected the menu target name');
     assert.ok(!dialog.textContent.includes('دوم'), 'expected no current-doc name');
-    element.shadowRoot.querySelector('[data-confirm-delete="yes"]').click();
+    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="yes"]').click();
     await settled();
     const deletes = documents.calls.filter(([method]) => method === 'delete');
     assert.deepEqual(deletes, [['delete', 'd1']]);
@@ -397,10 +397,10 @@ test('should_keep_document_when_confirmation_is_cancelled', async () => {
   const element = await mountWithDocuments(documents);
   try {
     await deleteViaMenu(element, 'd1');
-    element.shadowRoot.querySelector('[data-confirm-delete="no"]').click();
+    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="no"]').click();
     await settled();
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
-    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }
@@ -411,11 +411,11 @@ test('should_cancel_confirmation_when_backdrop_is_clicked', async () => {
   const element = await mountWithDocuments(documents);
   try {
     await deleteViaMenu(element, 'd1');
-    assert.ok(element.shadowRoot.querySelector('[part="modal-dialog"]'));
-    element.shadowRoot.querySelector('[part="modal-backdrop"]').click();
+    assert.ok(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'));
+    inChild(element, 'parsi-modal-dialog', '[part="modal-backdrop"]').click();
     await settled();
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
-    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }
@@ -426,11 +426,11 @@ test('should_cancel_confirmation_when_escape_is_pressed', async () => {
   const element = await mountWithDocuments(documents);
   try {
     await deleteViaMenu(element, 'd1');
-    assert.ok(element.shadowRoot.querySelector('[part="modal-dialog"]'));
+    assert.ok(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'));
     element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await settled();
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
-    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }
@@ -646,7 +646,7 @@ test('should_ask_confirmation_when_menu_delete_is_clicked', async () => {
     await settled();
     inChild(element, 'parsi-menu-bar', '[data-action="delete-document"]').click();
     await settled();
-    const confirm = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    const confirm = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
     assert.ok(confirm, 'expected the confirmation modal');
     assert.ok(confirm.textContent.includes('سند مهم'), 'expected the doc name');
     assert.deepEqual(documents.calls.filter(([method]) => method === 'delete'), []);
@@ -997,14 +997,14 @@ test('should_show_properties_when_properties_arrives', async () => {
     );
     await settled();
     await settled();
-    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    const dialog = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
     assert.ok(dialog, 'expected the properties modal');
     assert.equal(dialog.getAttribute('role'), 'dialog');
     assert.ok(dialog.textContent.includes('سند مهم'));
     assert.ok(dialog.textContent.includes('ویژگی‌های پرونده'));
-    element.shadowRoot.querySelector('[data-close-props]').click();
+    inChild(element, 'parsi-modal-dialog', '[data-close-props]').click();
     await settled();
-    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }
@@ -1019,7 +1019,7 @@ test('should_ignore_download_gracefully_when_unsupported', async () => {
     );
     await settled();
     await settled();
-    assert.equal(element.shadowRoot.querySelector('[part="modal-dialog"]'), null);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null);
   } finally {
     element.remove();
   }

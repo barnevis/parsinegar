@@ -1,10 +1,9 @@
 // Confirm and properties modals: centered dialog markup.
 //
 // Pure render functions owned by this module (same pattern as the view
-// modules): a separate custom element is not possible because nested
-// PeyElement children cannot be declaratively composed, so the owning page
-// renders this markup and wires behavior through its own handlers.
-// Takes explicit data, never services or DOM.
+// modules): the `parsi-modal-dialog` element renders them and maps gestures
+// to `modal-confirm`/`modal-dismiss` events. Takes explicit data, never
+// services or DOM.
 import { escapeHtml, iconMarkup } from './html.js';
 
 /**

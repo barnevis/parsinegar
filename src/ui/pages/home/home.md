@@ -1,10 +1,17 @@
 # `parsi-page-home`
 
-Page-level component: the single workbench page, mounted by the kit page host on `/`. See `../../../docs/ui/user-flows.md` for the journeys it participates in. It owns the layout plus the CodeMirror editor, and mounts four child elements for the workbench regions: `parsi-menu-bar` ([doc](../../components/menu-bar/menu-bar.md)), `parsi-activity-rail` ([doc](../../components/activity-rail/activity-rail.md)), `parsi-side-panel` ([doc](../../components/side-panel/side-panel.md)), `parsi-status-bar` ([doc](../../components/status-bar/status-bar.md)). Pure helpers behind them are documented in `../../components/workbench/workbench.md`.
+Page-level component: the single workbench page, mounted by the kit page host on `/`. See `../../../docs/ui/user-flows.md` for the journeys it participates in. It owns the layout plus the CodeMirror editor, and mounts five child elements for the workbench regions and overlays: `parsi-menu-bar` ([doc](../../components/menu-bar/menu-bar.md)), `parsi-activity-rail` ([doc](../../components/activity-rail/activity-rail.md)), `parsi-side-panel` ([doc](../../components/side-panel/side-panel.md)), `parsi-status-bar` ([doc](../../components/status-bar/status-bar.md)) and `parsi-modal-dialog` ([doc](../../components/modal-dialog/modal-dialog.md)). Pure helpers behind them are documented in `../../components/workbench/workbench.md`. Stateful orchestration lives in plain companion modules below (not in the element): `document-controller.js`, `settings-applier.js` and `scroll-spy.js`.
+
+## Companion modules
+
+- `document-controller.js` — `createDocumentController({ documents, t, format, isLive, readEditorContent })`: the document working set (list snapshot, open id/title/draft, autosave timer, delete-confirmation target, properties record). Answers with plain data (`{ apply, items }`, outcome strings); the page adopts records after unmounting the editor (unmount parks old content into the draft, so adopting earlier would be overwritten) and owns every child handle and DOM effect. No DOM, no elements, no events.
+- `settings-applier.js` — `createSettingsApplier({ settingsApi, isLive })`: preferences snapshot plus applied editor traits (direction, font size), serialized writes, and the OS color-scheme watcher. Answers `'applied'`/`'ignored'`/`'failed'`; the page remounts the editor on `applied`.
+- `scroll-spy.js` — `createScrollSpy({ getVisibleLine, getText, onActiveLine, isLive })`: watches the scrolling center column, maps the first visible editor line to its heading and pushes changes (rAF-collapsed, never steals focus).
+- `../utils/format.js` — shared locale-aware `formatNumber`/`formatDate` with plain fallbacks.
 
 ## Composition
 
-`render()` outputs only `<div data-slot="…">` placeholders; `#attachChildren()` (scheduled after render lands via `utils/mount.js`) mounts or reconfigures each child through `mountComponent`, passing data snapshots through `onConnect({ infrastructure, refs })` plus `configure(snapshot)` on every update. Children talk back only through bubbled `CustomEvent`s handled declaratively here. The editor itself stays helper-mounted (third-party widget, not an element).
+`render()` outputs only `<div data-slot="…">` placeholders (including `modal`); `#attachChildren()` (scheduled after render lands via `utils/mount.js`) mounts or reconfigures each child through `mountComponent`, passing data snapshots through `onConnect({ infrastructure, refs })` plus `configure(snapshot)` on every update. Children talk back only through bubbled `CustomEvent`s handled declaratively here. The editor itself stays helper-mounted (third-party widget, not an element).
 
 ## Dependencies
 
@@ -33,7 +40,9 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 - `view-select` with `detail: { id }` — rail view switch.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.
-- `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management (delete arrives from the per-file menu and arms the confirmation modal).
+- `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management (delete carries the file-menu target id and arms the confirmation modal for that document, falling back to the open document when no id travels, e.g. the top menu-bar action).
+- `modal-confirm` with `detail: { accepted }` — yes/no buttons of the delete confirmation (from `parsi-modal-dialog`).
+- `modal-dismiss` — properties close button or backdrop click (from `parsi-modal-dialog`; Escape stays a page-level keydown).
 - `document-rename` with `detail: { id, title }` — inline rename commit; empty titles cancel, taken titles keep the editor open with an inline error, success refreshes the list.
 - `document-download` with `detail: { id }` — downloads the document as Markdown through a temporary anchor (no-op where object URLs are unavailable).
 - `document-properties` with `detail: { id }` — opens the properties modal (name, creation/last-edit dates, size).
@@ -46,8 +55,9 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
 
 ## Local State
 
-- `#items` — last fetched document list. Looks like business data, but it is only ever a render snapshot: refreshed from the service before every render and re-read after every save (see `../../../docs/decisions.md` §9). Never edited in place as a source of truth.
-- `#currentId`, `#docTitle`, `#draft` — open-document working set, rewritten on every document switch.
+- `#docs` — document controller (working set, autosave timer, overlay targets; see Companion modules). Snapshots, never edited in place.
+- `#prefs` — settings applier (preferences snapshot, applied direction/font size, OS scheme watcher).
+- `#spy` — outline scrollspy (watched column, pending frame, active heading line).
 - `#editor` — CodeMirror controller handle (released on disconnect).
 - `#editorHost` — host node identity the editor is mounted into; a full
   re-render detaches the view while the handle stays set, so mounting tracks
@@ -55,17 +65,8 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
 - `#renderObserver` — render-completion observer that mounts the editor (the
   first render may wait behind the stylesheet gate, so microtask order cannot
   be relied on); disconnected on disconnect.
-- `#saveTimer` — pending autosave handle (cleared on disconnect).
 - `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
-- `#settingsApi` — bound settings service, or `null` when absent.
-- `#settings` — last saved preferences snapshot (drives the side panel and the editor); `null` until loaded.
-- `#documentDirection`, `#fontSize` — applied document direction and editor font size (built-in fallbacks `rtl`/`16` until settings load).
-- `#outlineActiveLine` — scrollspy highlight (heading line at or above the first visible editor line, or `null`); the center column (not the editor scroller) scrolls in this layout, so home listens to its scroll (rAF-collapsed), reads the line through the controller's `visibleLine()` and pushes to the side panel only on change — scrolling never steals focus. Reset on every document switch.
-- `#settingsWrite` — serialization chain for settings writes (never rejects itself).
-- `#colorSchemeQuery`, `#onColorSchemeChange` — operating-system scheme watcher; remounts the editor only while the stored theme is `device`. Registered in `connectedCallback`, released in `disconnectedCallback`.
-- `#menuEl`, `#railEl`, `#sideEl`, `#statusEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
-- `#confirmDeleteId` — pending delete-confirmation target rendered as a modal by the page itself.
-- `#propsRecord` — record shown in the properties modal (dates and size formatted at render); cleared together with the delete target on dismiss.
+- `#menuEl`, `#railEl`, `#sideEl`, `#statusEl`, `#modalEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
 - `#events` — scoped Event Bus facade forwarded to children (see Dependencies).
 
 ## Config

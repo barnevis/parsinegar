@@ -14,6 +14,7 @@ const STYLE_URLS = [
   new URL('../components/activity-rail/activity-rail.css', import.meta.url).href,
   new URL('../components/side-panel/side-panel.css', import.meta.url).href,
   new URL('../components/status-bar/status-bar.css', import.meta.url).href,
+  new URL('../components/modal-dialog/modal-dialog.css', import.meta.url).href,
 ];
 
 for (const styleUrl of STYLE_URLS) {
