@@ -183,7 +183,7 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'document-delete') {
-        this.#armDeleteConfirm();
+        this.#armDeleteConfirm(event.detail?.id);
         return;
       }
       if (event.type === 'document-rename') {
@@ -216,7 +216,7 @@ class ParsiPageHome extends PeyElement {
     const confirmButton = target?.closest?.('[data-confirm-delete]');
     if (confirmButton) {
       if (confirmButton.getAttribute('data-confirm-delete') === 'yes') {
-        void this.#deleteCurrent();
+        void this.#deleteConfirmed();
       } else {
         this.#confirmDeleteId = null;
         this.#requestEditor();
@@ -668,15 +668,21 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Arms the inline delete confirmation for the current document instead of
-   * deleting immediately. Re-render shows the question with the doc name.
+   * Arms the delete confirmation for the document named by the file menu
+   * (or the current document when no id travels with the event, e.g. the
+   * top menu-bar action). Re-render shows the question with the doc name.
+   * @param {unknown} id Document id from the event detail.
    * @returns {void}
    */
-  #armDeleteConfirm() {
-    if (!this.#documents || !this.#currentId) {
+  #armDeleteConfirm(id) {
+    if (!this.#documents) {
       return;
     }
-    this.#confirmDeleteId = this.#currentId;
+    const target = typeof id === 'string' && id.length > 0 ? id : this.#currentId;
+    if (!target) {
+      return;
+    }
+    this.#confirmDeleteId = target;
     this.#propsRecord = null;
     this.#requestEditor();
   }
@@ -778,12 +784,24 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
-  async #deleteCurrent() {
-    if (!this.#documents || !this.#currentId) {
+  /**
+   * Deletes the confirmed document. Removing the open document switches to
+   * the most recent survivor (or a fresh one); removing a background
+   * document leaves the editor untouched.
+   * @returns {Promise<void>}
+   */
+  async #deleteConfirmed() {
+    if (!this.#documents) {
       return;
     }
-    const removedId = this.#currentId;
-    this.#clearSaveTimer();
+    const removedId = this.#confirmDeleteId ?? this.#currentId;
+    if (!removedId) {
+      return;
+    }
+    const removingCurrent = removedId === this.#currentId;
+    if (removingCurrent) {
+      this.#clearSaveTimer();
+    }
     this.#confirmDeleteId = null;
     try {
       await this.#documents.deleteDocument(removedId);
@@ -792,6 +810,13 @@ class ParsiPageHome extends PeyElement {
       }
       const items = await this.#documents.listDocuments();
       if (!this.isConnected) {
+        return;
+      }
+      if (!removingCurrent) {
+        // A background document went away: keep editing the current one
+        // (timer, focus and undo stay alive) and only refresh the list.
+        this.#items = items;
+        this.#requestEditor();
         return;
       }
       if (items.length === 0) {

@@ -368,6 +368,30 @@ test('should_delete_current_when_confirmation_is_accepted', async () => {
   }
 });
 
+test('should_delete_menu_target_when_it_is_not_current', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'اول', content: 'متن اول', updatedAt: 100 },
+    { id: 'd2', title: 'دوم', content: 'متن دوم', updatedAt: 300 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.equal(element.value, 'متن دوم');
+    await deleteViaMenu(element, 'd1');
+    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    assert.ok(dialog, 'expected the confirmation modal');
+    assert.ok(dialog.textContent.includes('اول'), 'expected the menu target name');
+    assert.ok(!dialog.textContent.includes('دوم'), 'expected no current-doc name');
+    element.shadowRoot.querySelector('[data-confirm-delete="yes"]').click();
+    await settled();
+    const deletes = documents.calls.filter(([method]) => method === 'delete');
+    assert.deepEqual(deletes, [['delete', 'd1']]);
+    assert.equal(element.value, 'متن دوم', 'expected the open document untouched');
+    assert.equal(inChildAll(element, 'parsi-side-panel', '[data-doc-id]').length, 1);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_keep_document_when_confirmation_is_cancelled', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
