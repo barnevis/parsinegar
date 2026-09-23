@@ -2,10 +2,10 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { EditorState } from '@codemirror/state';
-import { markdownLanguage } from '@codemirror/lang-markdown';
+import { EditorSelection, EditorState } from '@codemirror/state';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { collectExtendedMarkRanges, collectInlineContainers, selectionTouches } from '../../../components/editor/live-preview.js';
+import { buildMarkRevealDecorations, collectExtendedMarkRanges, collectInlineContainers, selectionTouches } from '../../../components/editor/live-preview.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');
@@ -242,6 +242,28 @@ test('should_reveal_delimiter_space_when_cursor_is_on_heading', () => {
   } finally {
     destroy(mounted);
   }
+});
+
+test('should_sort_mixed_decorations_when_selection_touches_later_marks', () => {
+  // Cursor inside the bold pair: the `**` marks open while the earlier
+  // heading mark stays hidden. Pushing the later ranges first used to crash
+  // the RangeSetBuilder on real clicks (`Ranges must be added sorted`).
+  const doc = '# تیتر\n\n**bold**';
+  const state = EditorState.create({
+    doc,
+    selection: EditorSelection.cursor(11),
+    extensions: [markdown()],
+  });
+  const decorations = buildMarkRevealDecorations({ state, visibleRanges: [{ from: 0, to: doc.length }] });
+  const found = [];
+  decorations.between(0, doc.length, (from, to, value) => {
+    found.push({ from, to, cls: value.spec.class });
+  });
+  assert.deepEqual(found, [
+    { from: 0, to: 2, cls: 'parsi-mark' },
+    { from: 8, to: 10, cls: 'parsi-mark-open' },
+    { from: 14, to: 16, cls: 'parsi-mark-open' },
+  ]);
 });
 
 test('should_reveal_setext_marks_when_cursor_is_on_heading_text', () => {

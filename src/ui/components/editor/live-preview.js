@@ -423,19 +423,28 @@ export function collectExtendedMarkRanges(doc, tree, from, to) {
  * right after them (collected by `collectExtendedMarkRanges`), otherwise the
  * delimiter space would render at the content size and push the line off the
  * edge while plain lines hug it.
+ * Decorations from both sources are collected first and added sorted by
+ * position: `RangeSetBuilder` rejects out-of-order ranges, and the two
+ * sources interleave arbitrarily (e.g. an opened bold pair later in the
+ * document with a hidden heading mark before it).
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
-function buildMarkRevealDecorations(view) {
+export function buildMarkRevealDecorations(view) {
   const selection = view.state.selection.main;
-  const builder = [];
+  const pending = [];
   // The parser runs incrementally in the background; force it through for
   // the visible document so the first paint already reveals correctly.
   ensureSyntaxTree(view.state, view.state.doc.length);
   const tree = syntaxTree(view.state);
   if (!tree) {
-    return Decoration.set(builder);
+    return Decoration.set([]);
   }
+  const containerRevealed = (rangeFrom, rangeTo, containers) => containers.some(
+    (container) => container.from <= rangeFrom
+      && container.to >= rangeTo
+      && rangesOverlap(selection.from, selection.to, container.from, container.to),
+  );
   for (const { from, to } of view.visibleRanges) {
     const containers = collectInlineContainers(tree, from, to);
     const extended = collectExtendedMarkRanges(view.state.doc, tree, from, to);
@@ -444,29 +453,32 @@ function buildMarkRevealDecorations(view) {
         return;
       }
       if (rangesOverlap(selection.from, selection.to, rangeFrom, rangeTo)) {
-        builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(rangeFrom, rangeTo));
+        pending.push({ from: rangeFrom, to: rangeTo, cls: 'parsi-mark-open' });
         return;
       }
-      const revealed = containers.some(
-        (container) => container.from <= rangeFrom
-          && container.to >= rangeTo
-          && rangesOverlap(selection.from, selection.to, container.from, container.to),
-      );
-      if (revealed) {
-        builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(rangeFrom, rangeTo));
+      if (containerRevealed(rangeFrom, rangeTo, containers)) {
+        pending.push({ from: rangeFrom, to: rangeTo, cls: 'parsi-mark-open' });
       }
     }, from, to);
     for (const range of extended) {
       if (rangesOverlap(selection.from, selection.to, range.from, range.to)) {
-        builder.push(Decoration.mark({ class: 'parsi-mark-open' }).range(range.from, range.to));
+        pending.push({ from: range.from, to: range.to, cls: 'parsi-mark-open' });
         continue;
       }
-      const revealed = containers.some(
-        (container) => container.from <= range.from
-          && container.to >= range.to
-          && rangesOverlap(selection.from, selection.to, container.from, container.to),
-      );
-      builder.push(Decoration.mark({ class: revealed ? 'parsi-mark-open' : 'parsi-mark' }).range(range.from, range.to));
+      pending.push({
+        from: range.from,
+        to: range.to,
+        cls: containerRevealed(range.from, range.to, containers) ? 'parsi-mark-open' : 'parsi-mark',
+      });
+    }
+  }
+  pending.sort((left, right) => left.from - right.from || left.to - right.to);
+  const builder = [];
+  let previous = null;
+  for (const item of pending) {
+    if (!previous || previous.from !== item.from || previous.to !== item.to || previous.cls !== item.cls) {
+      builder.push(Decoration.mark({ class: item.cls }).range(item.from, item.to));
+      previous = item;
     }
   }
   return Decoration.set(builder);
