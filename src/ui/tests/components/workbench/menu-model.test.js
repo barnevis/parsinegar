@@ -75,6 +75,8 @@ test('should_disable_delete_when_no_document_is_open', () => {
   assert.equal(file.items.find(({ id }) => id === 'delete-document').disabled, true);
   assert.equal(file.items.find(({ id }) => id === 'new-document').disabled, false);
   assert.equal(file.items.find(({ id }) => id === 'import-document').disabled, false);
+  assert.equal(file.items.find(({ id }) => id === 'about').disabled, false);
+  assert.equal(file.items.find(({ id }) => id === 'import-document').disabled, false);
 });
 
 test('should_enable_delete_when_document_is_open', () => {

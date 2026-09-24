@@ -4,7 +4,7 @@ Single-page application (`fa`, `rtl`).
 
 | Tag | File | Role |
 |---|---|---|
-| `parsi-page-home` | `src/ui/pages/home/home.js` (+ `home.css`, [doc](../../src/ui/pages/home/home.md)) | Workbench shell: mounts four child elements plus the CodeMirror editor |
+| `parsi-page-home` | `src/ui/pages/home/home.js` (+ `home.css`, [doc](../../src/ui/pages/home/home.md)) | Workbench shell: mounts five child elements plus the CodeMirror editor |
 | `parsi-menu-bar` | `src/ui/components/menu-bar/menu-bar.js` ([doc](../../src/ui/components/menu-bar/menu-bar.md)) | Menu bar; emits `menu-action` |
 | `parsi-activity-rail` | `src/ui/components/activity-rail/activity-rail.js` ([doc](../../src/ui/components/activity-rail/activity-rail.md)) | View-switch rail; emits `view-select` |
 | `parsi-side-panel` | `src/ui/components/side-panel/side-panel.js` ([doc](../../src/ui/components/side-panel/side-panel.md)) | Files/outline side panel; emits `document-*`, `outline-jump`, `side-close` |

@@ -24,6 +24,9 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
+// Displayed on the about pane; bump together with package.json (no build
+// step exists to read it at runtime).
+const APP_VERSION = '۰.۶.۰';
 const INSERT_ACTION_PREFIX = 'insert-';
 const INSERT_MARK_KINDS = [
   'heading',
@@ -63,6 +66,7 @@ class ParsiPageHome extends PeyElement {
   #statusEl = null;
   #modalEl = null;
   #events = null;
+  #centerView = 'editor';
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -230,9 +234,13 @@ class ParsiPageHome extends PeyElement {
       if (event.type === 'settings-step') {
         void this.#applySettingStep(event.detail?.key, event.detail?.delta);
         return;
-      }      return;
+      }
     }
     const target = event.target;
+    if (target?.closest?.('[part="about-back"]')) {
+      this.#hideAboutPane();
+      return;
+    }
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
       return;
@@ -349,6 +357,15 @@ class ParsiPageHome extends PeyElement {
         case 'import-document':
           await this.#importDocument();
           return;
+        case 'about':
+          // Imperative swap on purpose: a full render replaces the shadow
+          // DOM, which would destroy the editor-host node and force an
+          // editor remount (losing undo). Toggling hidden state keeps the
+          // mounted view alive; render() below already reflects #centerView,
+          // so any later render reconciles the same state.
+          this.#centerView = 'about';
+          this.#showAboutPane();
+          return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {
             this.#requestEditor();
@@ -399,18 +416,65 @@ class ParsiPageHome extends PeyElement {
 
   render() {
     scheduleAttachments(() => this.#attachChildren());
+    const about = this.#centerView === 'about';
     return `
       <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
         <div data-slot="menubar"></div>
         <div data-slot="rail"></div>
         ${this.#sideOpen ? '<div data-slot="side"></div>' : ''}
         <div part="center">
-          <div part="editor-host"></div>
+          <div part="editor-host"${about ? ' hidden' : ''}></div>
+          ${about ? this.#renderAbout() : ''}
         </div>
         ${this.#bottomOpen ? '<div data-slot="status"></div>' : ''}
       </div>
       <div data-slot="modal"></div>
     `;
+  }
+
+  /**
+   * Shows the about pane without re-rendering (see the `about` action), and
+   * hides the editor host in place. Falls back to a render when the nodes
+   * are not there yet.
+   * @returns {void}
+   */
+  #showAboutPane() {
+    const center = this.shadowRoot.querySelector('[part="center"]');
+    const host = this.shadowRoot.querySelector('[part="editor-host"]');
+    if (!center || !host) {
+      this.requestRender();
+      return;
+    }
+    host.setAttribute('hidden', '');
+    if (!center.querySelector('[part="about"]')) {
+      host.insertAdjacentHTML('afterend', this.#renderAbout());
+    }
+  }
+
+  /**
+   * Returns to the editor without re-rendering, keeping the mounted view
+   * (and its undo history) alive.
+   * @returns {void}
+   */
+  #hideAboutPane() {
+    this.#centerView = 'editor';
+    this.shadowRoot.querySelector('[part="editor-host"]')?.removeAttribute('hidden');
+    this.shadowRoot.querySelector('[part="about"]')?.remove();
+  }
+
+  /**
+   * Renders the static about pane shown in place of the editor. The editor
+   * stays mounted (hidden) underneath, so no content, focus or undo is lost.
+   * @returns {string} About markup.
+   */
+  #renderAbout() {
+    return `
+      <div part="about">
+        <h1 part="about-title">${this.#t('parsinegar.about.title')}</h1>
+        <p part="about-lead">${this.#t('parsinegar.about.lead')}</p>
+        <p part="about-version">${this.#t('parsinegar.about.version', { version: APP_VERSION })}</p>
+        <button part="about-back" type="button">${this.#t('parsinegar.about.action')}</button>
+      </div>`;
   }
 
   /**
@@ -683,6 +747,8 @@ class ParsiPageHome extends PeyElement {
       this.#unmountEditor();
       this.#docs?.adopt(result.apply, result.items);
       this.#spy.reset();
+      // Any opened document leaves the about pane behind.
+      this.#centerView = 'editor';
     }
     this.#requestEditor();
   }

@@ -6,3 +6,4 @@
 - **Outline jump:** rail → outline view → heading click moves the cursor (marks stay hidden except on the active line).
 - **Settings:** rail gear → settings view → theme (light/dark/device), document direction (auto/rtl/ltr) or font-size stepper; each change validates in the settings service, persists, and applies (theme via the entry-point bridge, direction/font size via editor remount); everything survives reload.
 - **Unknown route:** router redirects to `/not-found`; the return button navigates home through `RouterService`.
+- **About:** file menu → about item swaps the center column to a static about pane (intro, hardcoded version, back button); opening any document returns to the editor. The editor stays mounted underneath, so undo and focus survive.

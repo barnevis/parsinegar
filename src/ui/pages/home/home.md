@@ -36,7 +36,7 @@ Everything received through `connect(refs)`:
 
 Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `handleEvent`):
 
-- `menu-action` with `detail: { action }` — string action ids (`new-document`, `delete-document`, `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused).
+- `menu-action` with `detail: { action }` — string action ids (`new-document`, `import-document`, `delete-document`, `about` (swaps the center column to the static about pane; the editor stays mounted underneath), `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused).
 - `view-select` with `detail: { id }` — rail view switch.
 - `files-sort` with `detail: { mode }` — files-view ordering (validated against `FILES_SORT_MODES`); owned here so it survives panel remounts.
 - `side-close` — side panel close request.
@@ -67,6 +67,7 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
   first render may wait behind the stylesheet gate, so microtask order cannot
   be relied on); disconnected on disconnect.
 - `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
+- `#centerView` — center column mode (`editor`/`about`). The swap is imperative (hidden attributes plus pane insertion, no render): a full render replaces the shadow DOM, which would destroy the editor-host node and force an editor remount losing undo. `render()` already reflects the mode, so any later render reconciles the same state; opening any document resets it to `editor`.
 - `#filesSort` — files-view ordering (default `updated-desc`); presentational like the view switch, so it lives here rather than in the panel, whose fields reset on every page render.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl`, `#modalEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
 - `#events` — scoped Event Bus facade forwarded to children (see Dependencies).

@@ -171,11 +171,11 @@ function createDocuments(initial = []) {
   return service;
 }
 
-async function mountWithDocuments(documents) {
+async function mountWithDocuments(documents, extraServices = {}) {
   const element = document.createElement(TAG);
   element.connect({
     infrastructure: { events: createEvents() },
-    refs: { t: translate, assetBaseUrl: ASSET_BASE_URL, events: createEvents(), services: { 'parsinegar.documents.service': documents } },
+    refs: { t: translate, assetBaseUrl: ASSET_BASE_URL, events: createEvents(), services: { 'parsinegar.documents.service': documents, ...extraServices } },
   });
   document.body.append(element);
   await settled();
@@ -453,6 +453,101 @@ test('should_ignore_empty_pick_when_document_import_arrives', async () => {
     assert.equal(element.value, 'c');
     assert.deepEqual(documents.calls.filter(([method]) => method === 'save'), []);
     assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_about_pane_when_menu_action_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
+    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    await settled();
+    const about = element.shadowRoot.querySelector('[part="about"]');
+    assert.ok(about, 'expected the about pane');
+    assert.ok(about.textContent.includes('درباره پارسی‌نگار'));
+    assert.ok(about.textContent.includes('۰.۶.۰'));
+    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]').hasAttribute('hidden'), 'expected the editor hidden');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_editor_mounted_when_about_opens', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const editor = element.shadowRoot.querySelector('.cm-editor');
+    assert.ok(editor, 'expected the editor mounted');
+    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="about"]'), 'expected the about pane');
+    assert.equal(element.shadowRoot.querySelector('.cm-editor'), editor, 'expected the same editor instance');
+    assert.equal(element.value, 'متن');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_about_visible_when_shell_rerenders', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="about"]'));
+    inChild(element, 'parsi-activity-rail', '[data-view="settings"]').click();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="about"]'), 'expected render to reconcile the pane');
+    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]').hasAttribute('hidden'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_return_to_editor_when_about_back_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="about"]'));
+    element.shadowRoot.querySelector('[part="about-back"]').click();
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
+    assert.ok(!element.shadowRoot.querySelector('[part="editor-host"]').hasAttribute('hidden'));
+    assert.equal(element.value, 'متن');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_return_to_editor_when_document_opens_from_about', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'اول', content: 'c1', updatedAt: 100 },
+    { id: 'd2', title: 'دوم', content: 'c2', updatedAt: 300 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="about"]'));
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]').click();
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
+    assert.equal(element.value, 'c1');
   } finally {
     element.remove();
   }
