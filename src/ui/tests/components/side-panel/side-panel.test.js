@@ -380,20 +380,35 @@ function rowOrder(element) {
     .map((button) => button.getAttribute('data-doc-id'));
 }
 
-test('should_render_sort_select_with_default_when_mounted', async () => {
+test('should_render_sort_button_without_menu_when_mounted', async () => {
   const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
   try {
     await flush();
-    const select = element.shadowRoot.querySelector('select[data-files-sort]');
-    assert.ok(select, 'expected the sort select');
-    assert.equal(select.value, 'updated-desc');
-    assert.equal(select.querySelectorAll('option').length, 5);
+    assert.ok(element.shadowRoot.querySelector('[data-doc-sort]'), 'expected the sort button');
+    assert.ok(element.shadowRoot.querySelector('[part="docs-new"] svg use, [part="docs-new"] svg'), 'expected the new icon');
+    assert.equal(element.shadowRoot.querySelector('[data-files-sort]'), null);
   } finally {
     element.remove();
   }
 });
 
-test('should_emit_sort_when_sort_changes', async () => {
+test('should_toggle_sort_menu_when_sort_button_is_clicked', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-doc-sort]').click();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-files-sort="name"]'), 'expected the menu open');
+    assert.equal(element.shadowRoot.querySelector('[data-doc-sort]').getAttribute('aria-expanded'), 'true');
+    element.shadowRoot.querySelector('[data-doc-sort]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-files-sort]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_sort_when_menu_option_is_clicked', async () => {
   const element = mount({
     items: [
       { id: 'a', title: 'یادداشت', createdAt: 300, updatedAt: 300 },
@@ -406,12 +421,13 @@ test('should_emit_sort_when_sort_changes', async () => {
     assert.deepEqual(rowOrder(element), ['a', 'b']);
     const seen = [];
     element.addEventListener('files-sort', (event) => seen.push(event.detail));
-    const select = element.shadowRoot.querySelector('select[data-files-sort]');
-    select.value = 'name';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    element.shadowRoot.querySelector('[data-doc-sort]').click();
     await flush();
-    assert.deepEqual(seen, [{ mode: 'name' }]);
-    // The parent owns the mode: rows stay until it configures back.
+    element.shadowRoot.querySelector('[data-files-sort="name-desc"]').click();
+    await flush();
+    assert.deepEqual(seen, [{ mode: 'name-desc' }]);
+    // The parent owns the mode: the menu closes, rows stay until configure.
+    assert.equal(element.shadowRoot.querySelector('[data-files-sort]'), null);
     assert.deepEqual(rowOrder(element), ['a', 'b']);
   } finally {
     element.remove();
@@ -432,28 +448,12 @@ test('should_apply_configured_sort_when_received', async () => {
     element.configure({ sortMode: 'name' });
     await flush();
     assert.deepEqual(rowOrder(element), ['b', 'a']);
-    assert.equal(element.shadowRoot.querySelector('select[data-files-sort]').value, 'name');
+    element.shadowRoot.querySelector('[data-doc-sort]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-files-sort="name"]').getAttribute('aria-checked'), 'true');
     element.configure({ sortMode: 'nope' });
     await flush();
     assert.deepEqual(rowOrder(element), ['b', 'a'], 'expected the last valid mode kept');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_ignore_unknown_sort_when_changed', async () => {
-  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
-  try {
-    await flush();
-    const seen = [];
-    element.addEventListener('files-sort', (event) => seen.push(event.detail));
-    const select = element.shadowRoot.querySelector('select[data-files-sort]');
-    select.value = 'nope';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await flush();
-    assert.deepEqual(seen, [], 'expected no event for a foreign value');
-    assert.deepEqual(rowOrder(element), ['a']);
-    assert.equal(element.shadowRoot.querySelector('select[data-files-sort]').value, 'updated-desc');
   } finally {
     element.remove();
   }

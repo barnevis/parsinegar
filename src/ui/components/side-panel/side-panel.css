@@ -211,6 +211,39 @@
   cursor: pointer;
   color: inherit;
 }
+[part="docs-sort"] svg {
+  inline-size: 18px;
+  block-size: 18px;
+  vertical-align: middle;
+}
+[part="docs-sort"]:hover {
+  background-color: var(--pey-color-canvas, #ffffff);
+  border-color: var(--pey-color-border, #c8c8d2);
+}
+[part="docs-sort-wrap"] {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-inline-size: 0;
+}
+[part="file-menu-group"] {
+  display: flex;
+  flex-direction: column;
+}
+[part="file-menu-group"] + [part="file-menu-group"] {
+  margin-block-start: 0.35rem;
+  padding-block-start: 0.35rem;
+  border-block-start: 1px solid var(--pey-color-border, #e2e2e8);
+}
+[part="file-menu-heading"] {
+  margin: 0;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--pey-color-text-muted, #55555f);
+}
+[part="file-menu-item"][aria-checked="true"] {
+  font-weight: 700;
+}
 [part="side-close"] {
   font: inherit;
   border: 1px solid transparent;

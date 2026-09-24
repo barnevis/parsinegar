@@ -402,16 +402,15 @@ test('should_keep_sort_mode_when_document_opens', async () => {
     const order = () => inChildAll(element, 'parsi-side-panel', '[data-doc-id]')
       .map((button) => button.getAttribute('data-doc-id'));
     assert.deepEqual(order(), ['d1', 'd2']);
-    const select = inChild(element, 'parsi-side-panel', 'select[data-files-sort]');
-    select.value = 'name';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    inChild(element, 'parsi-side-panel', '[data-doc-sort]').click();
+    await settled();
+    inChild(element, 'parsi-side-panel', '[data-files-sort="name"]').click();
     await settled();
     assert.deepEqual(order(), ['d2', 'd1']);
-    inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]').click();
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]').click();
     await settled();
-    assert.equal(element.value, 'c2');
+    assert.equal(element.value, 'c1');
     assert.deepEqual(order(), ['d2', 'd1'], 'expected the sort kept across open');
-    assert.equal(inChild(element, 'parsi-side-panel', 'select[data-files-sort]').value, 'name');
   } finally {
     element.remove();
   }

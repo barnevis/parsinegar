@@ -19,18 +19,20 @@ class ParsiSidePanel extends PeyElement {
   #assetBaseUrl = null;
   #formatNumber = null;
   #onDocumentClick = (event) => {
-    if (this.#openFileMenu === null) {
+    if (this.#openFileMenu === null && this.#sortMenuOpen === false) {
       return;
     }
     if (event.composedPath().includes(this)) {
       return;
     }
     this.#openFileMenu = null;
+    this.#sortMenuOpen = false;
     this.requestRender();
   };
   #onDocumentKeydown = (event) => {
-    if (event.key === 'Escape' && this.#openFileMenu !== null) {
+    if (event.key === 'Escape' && (this.#openFileMenu !== null || this.#sortMenuOpen)) {
       this.#openFileMenu = null;
+      this.#sortMenuOpen = false;
       this.requestRender();
     }
   };
@@ -41,6 +43,7 @@ class ParsiSidePanel extends PeyElement {
   #settings = null;
   #activeLine = null;
   #openFileMenu = null;
+  #sortMenuOpen = false;
   #editingId = null;
   #renameError = null;
   #filesSort = DEFAULT_FILES_SORT;
@@ -122,6 +125,7 @@ class ParsiSidePanel extends PeyElement {
       settings: this.#settings,
       activeLine: this.#activeLine,
       openFileMenu: this.#openFileMenu,
+      sortMenuOpen: this.#sortMenuOpen,
       editingId: this.#editingId,
       renameError: this.#renameError,
       filesSort: this.#filesSort,
@@ -191,6 +195,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.settings === next.settings
       && prev.activeLine === next.activeLine
       && prev.openFileMenu === next.openFileMenu
+      && prev.sortMenuOpen === next.sortMenuOpen
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
       && prev.filesSort === next.filesSort
@@ -225,22 +230,6 @@ class ParsiSidePanel extends PeyElement {
       return;
     }
     if (event.type === 'change') {
-      const sort = event.target?.closest?.('select[data-files-sort]');
-      if (sort) {
-        if (FILES_SORT_MODES.includes(sort.value)) {
-          this.dispatchEvent(
-            new CustomEvent('files-sort', {
-              bubbles: true,
-              composed: true,
-              detail: { mode: sort.value },
-            }),
-          );
-        } else {
-          // A foreign value cannot stick: re-render restores the select.
-          this.requestRender();
-        }
-        return;
-      }
       const input = event.target?.closest?.('input[data-setting]');
       const key = input?.getAttribute('data-setting') ?? '';
       const value = input?.value ?? '';
@@ -321,6 +310,28 @@ class ParsiSidePanel extends PeyElement {
       this.requestRender();
       return;
     }
+    const sortButton = event.target?.closest?.('[data-doc-sort]');
+    if (sortButton) {
+      this.#sortMenuOpen = !this.#sortMenuOpen;
+      this.requestRender();
+      return;
+    }
+    const sortOption = event.target?.closest?.('[data-files-sort]');
+    if (sortOption) {
+      const mode = sortOption.getAttribute('data-files-sort') ?? '';
+      this.#sortMenuOpen = false;
+      this.requestRender();
+      if (FILES_SORT_MODES.includes(mode)) {
+        this.dispatchEvent(
+          new CustomEvent('files-sort', {
+            bubbles: true,
+            composed: true,
+            detail: { mode },
+          }),
+        );
+      }
+      return;
+    }
     const menuAction = event.target?.closest?.('[data-file-rename],[data-file-download],[data-file-properties],[data-file-delete]');
     if (menuAction) {
       const renameId = menuAction.getAttribute('data-file-rename');
@@ -351,7 +362,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort })}</div>
       </aside>`;
   }
 }

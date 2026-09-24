@@ -5,20 +5,42 @@
 import { escapeHtml, iconMarkup } from './html.js';
 
 /**
- * Available files-list orderings (select values, in display order).
+ * Available files-list orderings, in menu display order.
  */
 export const FILES_SORT_MODES = [
+  'name',
+  'name-desc',
   'updated-desc',
   'updated-asc',
   'created-desc',
   'created-asc',
-  'name',
 ];
 
 /**
  * Default ordering: most recently updated first (matches the service).
  */
 export const DEFAULT_FILES_SORT = 'updated-desc';
+
+/**
+ * Sort menu groups: headings with their option modes, in display order.
+ */
+export const FILES_SORT_GROUPS = [
+  { heading: 'parsinegar.documents.sort-group-name', modes: ['name', 'name-desc'] },
+  { heading: 'parsinegar.documents.sort-group-updated', modes: ['updated-desc', 'updated-asc'] },
+  { heading: 'parsinegar.documents.sort-group-created', modes: ['created-desc', 'created-asc'] },
+];
+
+/**
+ * Translation keys for each sort mode label.
+ */
+export const FILES_SORT_LABELS = {
+  name: 'parsinegar.documents.sort-name-asc',
+  'name-desc': 'parsinegar.documents.sort-name-desc',
+  'updated-desc': 'parsinegar.documents.sort-newest',
+  'updated-asc': 'parsinegar.documents.sort-oldest',
+  'created-desc': 'parsinegar.documents.sort-newest',
+  'created-asc': 'parsinegar.documents.sort-oldest',
+};
 
 /**
  * Compares two titles in Persian alphabetical order, falling back to a
@@ -61,6 +83,8 @@ export function sortDocuments(items, mode) {
       return list.sort((left, right) => stamp(left, 'createdAt') - stamp(right, 'createdAt'));
     case 'name':
       return list.sort((left, right) => compareTitles(left.title, right.title));
+    case 'name-desc':
+      return list.sort((left, right) => compareTitles(right.title, left.title));
     default:
       return list;
   }
@@ -76,10 +100,11 @@ export function sortDocuments(items, mode) {
  * @param {string|null} [options.openMenuId] Document whose menu is open.
  * @param {object|null} [options.editing] Inline rename state `{ id, error }`.
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
- * @param {string} [options.sortMode] Active ordering for the sort select (defaults to `updated-desc`).
+ * @param {string} [options.sortMode] Active ordering for the sort menu (defaults to `updated-desc`).
+ * @param {boolean} [options.sortMenuOpen] Whether the sort menu renders open.
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, currentId, openMenuId, editing, assetBaseUrl, sortMode }) {
+export function renderFilesView({ t, items, currentId, openMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const activeSort = FILES_SORT_MODES.includes(sortMode) ? sortMode : DEFAULT_FILES_SORT;
   const rows = (Array.isArray(items) ? items : []).map((item) => {
@@ -100,18 +125,37 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
     </li>`;
   }).join('');
   const newLabel = escapeHtml(translate('parsinegar.documents.new'));
-  const newIcon = iconMarkup(assetBaseUrl, 'plus') || newLabel;
-  const sortOptions = FILES_SORT_MODES.map((mode) => `
-        <option value="${mode}"${mode === activeSort ? ' selected' : ''}>${escapeHtml(translate(`parsinegar.documents.sort-${mode}`))}</option>`).join('');
+  const newIcon = iconMarkup(assetBaseUrl, 'add-notes') || newLabel;
+  const sortLabel = escapeHtml(translate('parsinegar.documents.sort'));
+  const sortIcon = iconMarkup(assetBaseUrl, 'sort') || sortLabel;
   return `
     <div part="files-view">
       <div part="files-bar">
         <button type="button" part="docs-new" aria-label="${newLabel}" title="${newLabel}">${newIcon}</button>
-        <select part="docs-sort" data-files-sort aria-label="${escapeHtml(translate('parsinegar.documents.sort'))}">${sortOptions}
-        </select>
+        <div part="docs-sort-wrap">
+          <button type="button" part="docs-sort" data-doc-sort aria-haspopup="true" aria-expanded="${sortMenuOpen === true}" aria-label="${sortLabel}" title="${sortLabel}">${sortIcon}</button>
+          ${sortMenuOpen === true ? renderSortMenu(translate, activeSort) : ''}
+        </div>
       </div>
       <ul part="docs-list">${rows}</ul>
     </div>`;
+}
+
+/**
+ * Renders the sort menu with grouped options, marking the active mode.
+ * @param {Function} translate Translation function.
+ * @param {string} activeSort Active ordering mode.
+ * @returns {string} Sort menu markup.
+ */
+function renderSortMenu(translate, activeSort) {
+  const groups = FILES_SORT_GROUPS.map((group) => `
+      <div part="file-menu-group">
+        <p part="file-menu-heading">${escapeHtml(translate(group.heading))}</p>${group.modes.map((mode) => `
+        <button type="button" part="file-menu-item" data-files-sort="${mode}" role="menuitemradio" aria-checked="${mode === activeSort}">${escapeHtml(translate(FILES_SORT_LABELS[mode]))}</button>`).join('')}
+      </div>`).join('');
+  return `
+      <div part="file-menu" role="menu">${groups}
+      </div>`;
 }
 
 /**

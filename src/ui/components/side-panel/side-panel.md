@@ -43,7 +43,8 @@ Everything received through `connect(refs)`:
 - `#activeView`, `#items`, `#currentId`, `#documentText`, `#settings` — last applied panel data.
 - `#activeLine` — highlighted outline heading line for scrollspy (compared by value in the snapshot).
 - `#openFileMenu`, `#editingId`, `#renameError` — presentational files-view state (open menu, inline rename target, rename failure key), compared by value in the snapshot.
-- `#filesSort` — files ordering received through `configure({ sortMode })` (owned by the page, so it survives panel remounts); the sort select reports changes through the `files-sort` event, and a foreign value snaps back on re-render.
+- `#sortMenuOpen` — sort menu visibility (toggled by its button, closed by option/outside/Escape like the file menu).
+- `#filesSort` — files ordering received through `configure({ sortMode })` (owned by the page, so it survives panel remounts); the sort menu button toggles `#sortMenuOpen` and option clicks report through the `files-sort` event.
 - `#collapsedLines` — collapsed outline headings (local presentational state, cleared when the document signature changes); the toggle is handled inside the panel with no parent event.
 - `#applied` — last rendered snapshot including the outline signature; the imminent first render paints exactly the `connect()` refs.
 

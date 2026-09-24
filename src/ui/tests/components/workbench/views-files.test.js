@@ -37,7 +37,7 @@ test('should_render_actions_when_called', () => {
   assert.ok(!html.includes('part="docs-delete"'), 'expected no panel delete button');
   assert.ok(html.includes('aria-label="سند تازه"'));
   assert.ok(html.includes('<svg'));
-  assert.ok(html.includes('#plus'));
+  assert.ok(html.includes('#add-notes'));
 });
 
 test('should_render_menu_button_when_items_are_given', () => {
@@ -96,26 +96,41 @@ test('should_render_empty_list_when_no_items', () => {
   assert.ok(renderFilesView({ t: translate, items: [], currentId: null }).includes('<ul part="docs-list"></ul>'));
 });
 
-test('should_render_sort_select_with_default_when_mode_is_missing', () => {
-  const html = renderFilesView({ t: translate, items: [], currentId: null });
-  assert.ok(html.includes('data-files-sort'), 'expected the sort select');
-  assert.ok(html.includes('aria-label'), 'expected an accessible label');
+test('should_render_sort_button_without_menu_when_closed', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/' });
+  assert.ok(html.includes('data-doc-sort'), 'expected the sort button');
+  assert.ok(html.includes('#sort'), 'expected the sort icon');
+  assert.ok(!html.includes('data-files-sort='), 'expected no sort options when closed');
+  assert.ok(html.includes('#add-notes'), 'expected the add-notes icon on the new button');
+});
+
+test('should_render_grouped_sort_menu_when_open', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMenuOpen: true });
+  assert.ok(html.includes('role="menu"'), 'expected the menu');
   for (const mode of FILES_SORT_MODES) {
-    assert.ok(html.includes(`value="${mode}"`), `expected option ${mode}`);
+    assert.ok(html.includes(`data-files-sort="${mode}"`), `expected option ${mode}`);
   }
-  assert.ok(html.includes(`value="${DEFAULT_FILES_SORT}" selected`), 'expected the default selected');
+  assert.ok(!html.includes('value="x"'), 'expected buttons, not a select');
+  const checked = html.match(/aria-checked="true"/g) ?? [];
+  assert.equal(checked.length, 1, 'expected exactly one checked option');
+  assert.ok(html.includes('data-files-sort="updated-desc"'), 'expected the default option');
+  const updatedDesc = html.slice(html.indexOf('data-files-sort="updated-desc"'), html.indexOf('data-files-sort="updated-desc"') + 120);
+  assert.ok(updatedDesc.includes('aria-checked="true"'), 'expected the default checked');
   assert.equal(DEFAULT_FILES_SORT, 'updated-desc');
 });
 
-test('should_mark_given_sort_mode_when_selected', () => {
-  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMode: 'name' });
-  assert.ok(html.includes('value="name" selected'), 'expected the name option selected');
-  assert.ok(!html.includes('value="updated-desc" selected'), 'expected the default unselected');
+test('should_mark_given_sort_mode_when_menu_open', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMode: 'name-desc', sortMenuOpen: true });
+  const marked = html.slice(html.indexOf('data-files-sort="name-desc"'), html.indexOf('data-files-sort="name-desc"') + 120);
+  assert.ok(marked.includes('aria-checked="true"'), 'expected the mode checked');
+  const other = html.slice(html.indexOf('data-files-sort="name"'), html.indexOf('data-files-sort="name"') + 120);
+  assert.ok(other.includes('aria-checked="false"'), 'expected others unchecked');
 });
 
 test('should_fall_back_to_default_when_sort_mode_is_unknown', () => {
-  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMode: 'nope' });
-  assert.ok(html.includes(`value="${DEFAULT_FILES_SORT}" selected`), 'expected the default selected');
+  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMode: 'nope', sortMenuOpen: true });
+  const updatedDesc = html.slice(html.indexOf('data-files-sort="updated-desc"'), html.indexOf('data-files-sort="updated-desc"') + 120);
+  assert.ok(updatedDesc.includes('aria-checked="true"'), 'expected the default checked');
 });
 
 test('should_order_by_updated_when_sorting', () => {
@@ -146,6 +161,7 @@ test('should_order_by_name_when_sorting', () => {
     { id: 'c', title: 'اول' },
   ];
   assert.deepEqual(sortDocuments(items, 'name').map((item) => item.id), ['c', 'b', 'a']);
+  assert.deepEqual(sortDocuments(items, 'name-desc').map((item) => item.id), ['a', 'b', 'c']);
 });
 
 test('should_keep_input_order_when_mode_is_unknown', () => {
