@@ -7,11 +7,15 @@
 // listeners until destroy() releases them.
 import { EditorView, minimalSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { redo, selectAll, undo } from '@codemirror/commands';
+import { indentWithTab, redo, selectAll, undo } from '@codemirror/commands';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import { keymap } from '@codemirror/view';
 import { EditorSelection, Prec } from '@codemirror/state';
 import { editorColorScheme } from './editor-theme.js';
 import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
+import { continueList } from './list-continue.js';
+import { deletePair, pairInput } from './quote-pairs.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
 import { shortcutCommand, toggleBold, toggleCode, toggleHeading, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleUnorderedList, insertLink } from './toggle-mark.js';
@@ -90,6 +94,15 @@ export function createMarkdownView(host, options = {}) {
       ...taskListExtensions(),
       ...textHighlightExtensions(),
       ...lineDirectionExtensions(baseDirection, forcedDirection),
+      // Tab indents (Shift+Tab outdents); Alt+Arrow line moving already
+      // arrives through the default keymap in minimalSetup.
+      keymap.of([indentWithTab]),
+      // Bracket pairing (`()[]{}`) plus pair-aware Backspace from the keymap.
+      // Quotes and backticks pair through `quote-pairs.js` below instead:
+      // closeBrackets only pairs same-character tokens inside string
+      // contexts, which Markdown does not declare.
+      closeBrackets(),
+      keymap.of(closeBracketsKeymap),
       ...editorColorScheme(options.colorScheme),
       // High precedence so our layout-independent shortcuts win over
       // defaultKeymap bindings for the same gesture (e.g. Mod-i, which the
@@ -101,6 +114,29 @@ export function createMarkdownView(host, options = {}) {
             event.preventDefault();
             selectAll(editorView);
             return true;
+          }
+          // Plain Enter continues the list, task or quote under the cursor;
+          // anything unhandled (including IME composition commits) falls
+          // through to the default newline.
+          if (event.code === 'Enter'
+            && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
+            && !event.isComposing
+            && continueList(editorView)) {
+            event.preventDefault();
+            return true;
+          }
+          // Unmodified typing pairs quotes and backticks (and Backspace
+          // removes an empty pair); Shift stays allowed so shifted characters
+          // like `"` still pair.
+          if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing) {
+            if (event.key === 'Backspace' && deletePair(editorView)) {
+              event.preventDefault();
+              return true;
+            }
+            if (event.key.length === 1 && pairInput(editorView, event.key)) {
+              event.preventDefault();
+              return true;
+            }
           }
           const command = shortcutCommand(event);
           if (command) {
