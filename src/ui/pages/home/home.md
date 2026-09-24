@@ -38,6 +38,7 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 
 - `menu-action` with `detail: { action }` — string action ids (`new-document`, `import-document`, `delete-document`, `about` (swaps the center column to the static about pane; the editor stays mounted underneath), `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused).
 - `view-select` with `detail: { id }` — rail view switch.
+- `about-open` — rail logotype button; same center-pane swap as the `about` menu action.
 - `files-sort` with `detail: { mode }` — files-view ordering (validated against `FILES_SORT_MODES`); owned here so it survives panel remounts.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.

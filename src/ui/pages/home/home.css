@@ -104,6 +104,16 @@ parsi-status-bar {
   margin: 0 0 0.75rem;
 }
 
+[part="about-logo"] {
+  margin-block-end: 1rem;
+  color: inherit;
+}
+
+[part="about-logo"] svg {
+  block-size: 7rem;
+  inline-size: auto;
+}
+
 [part="about-lead"] {
   margin: 0 0 0.5rem;
   color: var(--pey-color-text-muted, #55555f);

@@ -7,6 +7,7 @@ import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
+import { logoMarkup } from '../../components/workbench/logo.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
@@ -120,6 +121,7 @@ class ParsiPageHome extends PeyElement {
       'keydown',
       'menu-action',
       'view-select',
+      'about-open',
       'side-close',
       'outline-jump',
       'document-open',
@@ -165,6 +167,10 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'view-select' && typeof event.detail?.id === 'string') {
         this.#switchView(event.detail.id);
+        return;
+      }
+      if (event.type === 'about-open') {
+        this.#openAbout();
         return;
       }
       if (event.type === 'files-sort' && FILES_SORT_MODES.includes(event.detail?.mode)) {
@@ -358,13 +364,7 @@ class ParsiPageHome extends PeyElement {
           await this.#importDocument();
           return;
         case 'about':
-          // Imperative swap on purpose: a full render replaces the shadow
-          // DOM, which would destroy the editor-host node and force an
-          // editor remount (losing undo). Toggling hidden state keeps the
-          // mounted view alive; render() below already reflects #centerView,
-          // so any later render reconciles the same state.
-          this.#centerView = 'about';
-          this.#showAboutPane();
+          this.#openAbout();
           return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {
@@ -433,7 +433,22 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Shows the about pane without re-rendering (see the `about` action), and
+   * Opens the about pane in the center column, shared by the file-menu
+   * action and the rail logotype button.
+   * @returns {void}
+   */
+  #openAbout() {
+    // Imperative swap on purpose: a full render replaces the shadow
+    // DOM, which would destroy the editor-host node and force an
+    // editor remount (losing undo). Toggling hidden state keeps the
+    // mounted view alive; render() below already reflects #centerView,
+    // so any later render reconciles the same state.
+    this.#centerView = 'about';
+    this.#showAboutPane();
+  }
+
+  /**
+   * Shows the about pane without re-rendering (see `#openAbout`), and
    * hides the editor host in place. Falls back to a render when the nodes
    * are not there yet.
    * @returns {void}
@@ -470,6 +485,7 @@ class ParsiPageHome extends PeyElement {
   #renderAbout() {
     return `
       <div part="about">
+        <div part="about-logo" aria-hidden="true">${logoMarkup()}</div>
         <h1 part="about-title">${this.#t('parsinegar.about.title')}</h1>
         <p part="about-lead">${this.#t('parsinegar.about.lead')}</p>
         <p part="about-version">${this.#t('parsinegar.about.version', { version: APP_VERSION })}</p>

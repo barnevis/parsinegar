@@ -109,3 +109,32 @@ test('should_paint_chrome_surface_when_mounted', async () => {
     element.remove();
   }
 });
+
+test('should_render_logo_last_when_mounted', async () => {
+  const element = mount({ views: VIEWS, activeView: 'files' });
+  try {
+    await flush();
+    const logo = element.shadowRoot.querySelector('[data-about]');
+    assert.ok(logo, 'expected the logotype button');
+    assert.equal(logo.hasAttribute('aria-pressed'), false, 'expected an action, not a toggle');
+    assert.ok(logo.querySelector('svg'), 'expected inline svg');
+    const buttons = [...element.shadowRoot.querySelectorAll('nav [data-view], nav [data-about]')];
+    assert.equal(buttons[buttons.length - 1].getAttribute('data-about'), '');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_about_open_when_logo_is_clicked', async () => {
+  const element = mount({ views: VIEWS, activeView: 'files' });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('about-open', () => seen.push(true));
+    element.shadowRoot.querySelector('[data-about]').click();
+    await flush();
+    assert.deepEqual(seen, [true]);
+  } finally {
+    element.remove();
+  }
+});

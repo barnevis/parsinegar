@@ -4,6 +4,7 @@
 // as `view-select` CustomEvents for the parent, which owns the active view.
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml, iconMarkup } from '../workbench/html.js';
+import { logoMarkup } from '../workbench/logo.js';
 
 const TAG = 'parsi-activity-rail';
 const STYLE_URL = new URL('./activity-rail.css', import.meta.url).href;
@@ -56,6 +57,11 @@ class ParsiActivityRail extends PeyElement {
   }
 
   handleEvent(event) {
+    const about = event.target?.closest?.('[data-about]');
+    if (about) {
+      this.dispatchEvent(new CustomEvent('about-open', { bubbles: true, composed: true }));
+      return;
+    }
     const button = event.target?.closest?.('[data-view]');
     if (!button) {
       return;
@@ -72,8 +78,22 @@ class ParsiActivityRail extends PeyElement {
   render() {
     const start = this.#views.filter((view) => view.align !== 'end');
     const end = this.#views.filter((view) => view.align === 'end');
+    const logo = this.#renderLogoButton();
     return `
-      <nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${start.map((view) => this.#renderButton(view)).join('')}${end.length > 0 ? `<div part="rail-end">${end.map((view) => this.#renderButton(view)).join('')}</div>` : ''}</nav>`;
+      <nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${start.map((view) => this.#renderButton(view)).join('')}${end.length > 0 ? `<div part="rail-end">${end.map((view) => this.#renderButton(view)).join('')}${logo}</div>` : logo}</nav>`;
+  }
+
+  /**
+   * Renders the logotype action button pinned after the end views. It opens
+   * the about pane (an action, not a view, so no `aria-pressed` and no
+   * registry entry). The mark is inline SVG so it follows the theme text
+   * color, which an `<img>` could not inherit.
+   * @returns {string} Button markup.
+   */
+  #renderLogoButton() {
+    const label = escapeHtml(this.#t('parsinegar.about.title'));
+    return `
+      <button type="button" part="rail-button" data-about aria-label="${label}" title="${label}">${logoMarkup()}</button>`;
   }
 
   /**

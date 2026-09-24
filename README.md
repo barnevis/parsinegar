@@ -1,5 +1,9 @@
 # پارسی‌نگار (Parsinegar)
 
+<p align="center">
+  <img src="src/ui/assets/logo.svg#gh-light-mode-only" width="120" alt="نشان پارسی‌نگار" />
+</p>
+
 [![AI](https://img.shields.io/badge/Built%20with-AI-blueviolet)](#)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bonyan Architecture](https://img.shields.io/badge/bonyan-0.11-56c3bf)](https://github.com/barnevis/bonyan)

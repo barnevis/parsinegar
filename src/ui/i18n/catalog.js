@@ -8,7 +8,7 @@ const catalog = {
     'parsinegar.not-found.title': 'این صفحه پیدا نشد',
     'parsinegar.not-found.action': 'بازگشت به ویرایشگر',
     'parsinegar.about.title': 'درباره پارسی‌نگار',
-    'parsinegar.about.lead': 'ویرایشگر فارسی Markdown بر پایهٔ معماری Pey؛ میزکار تک‌صفحه‌ای راست‌به‌چپ با مدیریت چندسند و autosave محلی.',
+    'parsinegar.about.lead': 'ویرایشگر فارسی مارک‌داون بر پایهٔ معماری پی؛ میزکار تک‌صفحه‌ای راست‌به‌چپ با مدیریت چند پرونده و ذخیره‌سازی خودکار محلی.',
     'parsinegar.about.version': 'نسخه {version}',
     'parsinegar.about.action': 'بازگشت به ویرایشگر',
     'parsinegar.menu.about': 'درباره پارسی‌نگار',

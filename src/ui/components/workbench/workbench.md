@@ -12,6 +12,7 @@ This folder owns the pure helper modules behind the workbench page: no services,
 - `stats.js` — `countStats(text)`: characters (with spaces), Unicode letters (no whitespace, digits, punctuation or half-space joiners), whitespace-split words (half-space safe), lines, UTF-8 bytes; `formatFileSize(bytes, formatNumber, t)`: bytes or kilobytes with one decimal.
 - `outline.js` — `parseOutline(text)`: ATX headings as `[{ level, text, line }]` with 1-based lines; `outlineSignature(value)` for cheap change detection.
 - `html.js` — `escapeHtml(value)` shared by every template that interpolates user content; `iconMarkup(base, name)` for sprite icons.
+- `logo.js` — `logoMarkup()`: project logotype as inline SVG with `currentColor` ink for themed in-app use (rail button, about hero). The file copy at `../../assets/logo.svg` keeps fixed black ink for outside contexts (README); path data is identical in both — do not hand-edit either.
 - `modal.js` — `renderConfirmModal({ t, title, assetBaseUrl })`: delete-confirmation dialog rendered by `../modal-dialog/modal-dialog.js`; `renderPropertiesModal({ t, title, createdText, updatedText, sizeText, assetBaseUrl })`: document properties dialog with preformatted values.
 
 ## Contracts

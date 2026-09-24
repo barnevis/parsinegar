@@ -4,7 +4,7 @@ Regular component: icon buttons switching the side-panel view. Mounted by `parsi
 
 ## Purpose
 
-Stateless display of the available side-panel views, driven entirely by `configure()`. Views with `align: 'end'` in their registry entry render pinned to the far end of the rail (below the document views); all others stack from the start. Selection changes leave as `view-select` `CustomEvent`s; the parent owns the active view and toggles panel visibility, so this element never stores selection authoritatively.
+Stateless display of the available side-panel views, driven entirely by `configure()`. Views with `align: 'end'` in their registry entry render pinned to the far end of the rail (below the document views); all others stack from the start. Selection changes leave as `view-select` `CustomEvent`s; the parent owns the active view and toggles panel visibility, so this element never stores selection authoritatively. A logotype action button renders last (after the end group) and opens the about pane; it is an action, not a view, so it carries no `aria-pressed` and no registry entry.
 
 ## Dependencies
 
@@ -19,7 +19,7 @@ Everything received through `connect(refs)`:
 
 ## Events
 
-**Published:** `view-select` with `detail: { id }`, `bubbles: true`, `composed: true`, on every view-button click (including clicking the already-active view — the parent decides whether that toggles the panel).
+**Published:** `view-select` with `detail: { id }`, `bubbles: true`, `composed: true`, on every view-button click (including clicking the already-active view — the parent decides whether that toggles the panel). `about-open` (no detail) on logotype-button click.
 
 **Listened to:** `click` (declared in `eventTypes()`).
 

@@ -477,6 +477,21 @@ test('should_show_about_pane_when_menu_action_arrives', async () => {
   }
 });
 
+test('should_show_about_pane_when_rail_logo_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
+    inChild(element, 'parsi-activity-rail', '[data-about]').click();
+    await settled();
+    const about = element.shadowRoot.querySelector('[part="about"]');
+    assert.ok(about, 'expected the about pane');
+    assert.ok(about.querySelector('svg'), 'expected the logotype hero');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_keep_editor_mounted_when_about_opens', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);

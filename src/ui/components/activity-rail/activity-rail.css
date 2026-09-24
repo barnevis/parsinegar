@@ -28,6 +28,10 @@
   inline-size: 20px;
   block-size: 20px;
 }
+[part="rail-button"][data-about] svg {
+  inline-size: auto;
+  block-size: 24px;
+}
 [part="rail-fallback"] {
   display: none;
 }
