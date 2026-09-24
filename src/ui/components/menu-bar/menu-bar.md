@@ -1,6 +1,6 @@
 # `parsi-menu-bar`
 
-Regular component: brand plus dropdown menus (file, edit, view) for the workbench. Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
+Regular component: dropdown menus (file, edit, insert, view) for the workbench. Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
 
 ## Purpose
 

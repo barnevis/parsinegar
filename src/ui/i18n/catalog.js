@@ -12,6 +12,7 @@ const catalog = {
     'parsinegar.about.version': 'نسخه {version}',
     'parsinegar.about.action': 'بازگشت به ویرایشگر',
     'parsinegar.menu.about': 'درباره پارسی‌نگار',
+    'parsinegar.menu.github': 'گیت‌هاب پروژه',
     'parsinegar.documents.title': 'سندها',
     'parsinegar.documents.new': 'سند تازه',
     'parsinegar.documents.new-title': 'سند تازه',

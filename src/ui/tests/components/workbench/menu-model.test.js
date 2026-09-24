@@ -10,6 +10,8 @@ const LABELS = {
   'parsinegar.menu.insert': 'افزودن',
   'parsinegar.documents.new': 'سند تازه',
   'parsinegar.documents.delete': 'حذف سند',
+  'parsinegar.menu.about': 'درباره پارسی‌نگار',
+  'parsinegar.menu.github': 'گیت‌هاب پروژه',
   'parsinegar.action.undo': 'واگرد',
   'parsinegar.action.redo': 'ازنو',
   'parsinegar.view.side': 'پنل کناری',
@@ -76,6 +78,8 @@ test('should_disable_delete_when_no_document_is_open', () => {
   assert.equal(file.items.find(({ id }) => id === 'new-document').disabled, false);
   assert.equal(file.items.find(({ id }) => id === 'import-document').disabled, false);
   assert.equal(file.items.find(({ id }) => id === 'about').disabled, false);
+  assert.equal(file.items.find(({ id }) => id === 'github').label, 'گیت‌هاب پروژه');
+  assert.equal(file.items.find(({ id }) => id === 'github').disabled, false);
   assert.equal(file.items.find(({ id }) => id === 'import-document').disabled, false);
 });
 

@@ -25,6 +25,7 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
+const GITHUB_URL = 'https://github.com/barnevis/parsinegar';
 // Displayed on the about pane; bump together with package.json (no build
 // step exists to read it at runtime).
 const APP_VERSION = '۰.۶.۰';
@@ -365,6 +366,13 @@ class ParsiPageHome extends PeyElement {
           return;
         case 'about':
           this.#openAbout();
+          return;
+        case 'github':
+          try {
+            window.open(GITHUB_URL, '_blank', 'noopener');
+          } catch {
+            // Popup blockers stay silent; the menu already closed.
+          }
           return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {

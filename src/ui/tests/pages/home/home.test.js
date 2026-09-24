@@ -54,14 +54,13 @@ function inChildAll(home, tag, selector) {
   return [...(child(home, tag)?.shadowRoot?.querySelectorAll(selector) ?? [])];
 }
 
-test('should_render_brand_and_editor_when_mounted', async () => {
+test('should_render_editor_without_brand_when_mounted', async () => {
   const element = document.createElement(TAG);
   element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
   document.body.append(element);
   await settled();
   try {
-    const brand = inChild(element, 'parsi-menu-bar', '[part="brand"]');
-    assert.equal(brand?.textContent, 'پارسی‌نگار');
+    assert.equal(inChild(element, 'parsi-menu-bar', '[part="brand"]'), null);
     assert.equal(element.shadowRoot.querySelector('[part="title"]'), null);
     assert.equal(element.shadowRoot.querySelector('[part="subtitle"]'), null);
     assert.ok(element.shadowRoot.querySelector('[part="editor-host"] .cm-editor'));
@@ -488,6 +487,24 @@ test('should_show_about_pane_when_rail_logo_is_clicked', async () => {
     assert.ok(about, 'expected the about pane');
     assert.ok(about.querySelector('svg'), 'expected the logotype hero');
   } finally {
+    element.remove();
+  }
+});
+
+test('should_open_github_when_menu_action_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  const previous = window.open;
+  const seen = [];
+  window.open = (...args) => { seen.push(args); return null; };
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-action="github"]').click();
+    await settled();
+    assert.deepEqual(seen, [['https://github.com/barnevis/parsinegar', '_blank', 'noopener']]);
+  } finally {
+    window.open = previous;
     element.remove();
   }
 });

@@ -11,14 +11,6 @@
     flex-wrap: wrap;
   }
 }
-[part="brand"] {
-  font-weight: 700;
-  font-size: inherit;
-  padding-inline-end: 0.75rem;
-  margin-inline-end: 0.5rem;
-  border-inline-end: 1px solid var(--pey-color-border, #e2e2e8);
-  white-space: nowrap;
-}
 [part="menu"] {
   position: relative;
 }

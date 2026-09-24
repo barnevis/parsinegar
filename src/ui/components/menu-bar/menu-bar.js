@@ -1,4 +1,4 @@
-// Menu bar element: brand plus dropdown menus (file, edit, view).
+// Menu bar element: dropdown menus (file, edit, insert, view).
 //
 // Owns its open-menu state and renders itself, so menu interaction never
 // re-renders the parent page (which would drop editor focus and undo
@@ -111,7 +111,7 @@ class ParsiMenuBar extends PeyElement {
         </div>`;
     }).join('');
     return `
-      <div part="menubar" role="menubar"><span part="brand">${escapeHtml(this.#t('parsinegar.app.title'))}</span>${markup}</div>`;
+      <div part="menubar" role="menubar">${markup}</div>`;
   }
 }
 
