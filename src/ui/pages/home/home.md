@@ -38,6 +38,7 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 
 - `menu-action` with `detail: { action }` — string action ids (`new-document`, `delete-document`, `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused).
 - `view-select` with `detail: { id }` — rail view switch.
+- `files-sort` with `detail: { mode }` — files-view ordering (validated against `FILES_SORT_MODES`); owned here so it survives panel remounts.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.
 - `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management (delete carries the file-menu target id and arms the confirmation modal for that document, falling back to the open document when no id travels, e.g. the top menu-bar action).
@@ -66,6 +67,7 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
   first render may wait behind the stylesheet gate, so microtask order cannot
   be relied on); disconnected on disconnect.
 - `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
+- `#filesSort` — files-view ordering (default `updated-desc`); presentational like the view switch, so it lives here rather than in the panel, whose fields reset on every page render.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl`, `#modalEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
 - `#events` — scoped Event Bus facade forwarded to children (see Dependencies).
 

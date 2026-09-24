@@ -8,6 +8,7 @@
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml } from '../workbench/html.js';
 import { FILES_VIEW, getView } from '../workbench/views.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES, sortDocuments } from '../workbench/views-files.js';
 import { outlineSignature } from '../workbench/outline.js';
 
 const TAG = 'parsi-side-panel';
@@ -42,6 +43,7 @@ class ParsiSidePanel extends PeyElement {
   #openFileMenu = null;
   #editingId = null;
   #renameError = null;
+  #filesSort = DEFAULT_FILES_SORT;
   #collapsedLines = new Set();
   #applied = null;
 
@@ -81,11 +83,13 @@ class ParsiSidePanel extends PeyElement {
   }
 
   /**
-   * Stores panel data fields, returning the full snapshot.
+   * Stores panel data fields, returning the full snapshot. The files ordering
+   * is owned by the parent (it survives panel remounts); the select only
+   * reports changes through the `files-sort` event.
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError } = {}) {
+  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -107,6 +111,9 @@ class ParsiSidePanel extends PeyElement {
     if (activeLine !== undefined) {
       this.#activeLine = activeLine;
     }
+    if (FILES_SORT_MODES.includes(sortMode)) {
+      this.#filesSort = sortMode;
+    }
     return {
       activeView: this.#activeView,
       items: this.#items,
@@ -117,6 +124,7 @@ class ParsiSidePanel extends PeyElement {
       openFileMenu: this.#openFileMenu,
       editingId: this.#editingId,
       renameError: this.#renameError,
+      filesSort: this.#filesSort,
       collapsed: [...this.#collapsedLines].sort((left, right) => left - right).join(','),
       signature: outlineSignature(this.#documentText),
     };
@@ -164,10 +172,11 @@ class ParsiSidePanel extends PeyElement {
    * @param {object|null} [data.settings] Preferences for the settings view.
    * @param {number|null} [data.activeLine] Highlighted outline heading line.
    * @param {string|null} [data.renameError] Translation key for a rename failure.
+   * @param {string} [data.sortMode] Files ordering (one of `FILES_SORT_MODES`).
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError });
+  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode } = {}) {
+    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -184,6 +193,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.openFileMenu === next.openFileMenu
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
+      && prev.filesSort === next.filesSort
       && prev.collapsed === next.collapsed
       && prev.signature === next.signature;
     if (!same) {
@@ -215,6 +225,22 @@ class ParsiSidePanel extends PeyElement {
       return;
     }
     if (event.type === 'change') {
+      const sort = event.target?.closest?.('select[data-files-sort]');
+      if (sort) {
+        if (FILES_SORT_MODES.includes(sort.value)) {
+          this.dispatchEvent(
+            new CustomEvent('files-sort', {
+              bubbles: true,
+              composed: true,
+              detail: { mode: sort.value },
+            }),
+          );
+        } else {
+          // A foreign value cannot stick: re-render restores the select.
+          this.requestRender();
+        }
+        return;
+      }
       const input = event.target?.closest?.('input[data-setting]');
       const key = input?.getAttribute('data-setting') ?? '';
       const value = input?.value ?? '';
@@ -325,7 +351,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: this.#items, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort })}</div>
       </aside>`;
   }
 }

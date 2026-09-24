@@ -200,6 +200,17 @@
   background-color: var(--pey-color-canvas, #ffffff);
   border-color: var(--pey-color-border, #c8c8d2);
 }
+[part="docs-sort"] {
+  font: inherit;
+  flex: 1;
+  min-inline-size: 0;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  color: inherit;
+}
 [part="side-close"] {
   font: inherit;
   border: 1px solid transparent;
@@ -268,6 +279,7 @@
 [part="outline-jump"]:focus-visible,
 [part="outline-toggle"]:focus-visible,
 [part="docs-new"]:focus-visible,
+[part="docs-sort"]:focus-visible,
 [part="side-close"]:focus-visible {
   outline: 2px solid var(--pey-color-focus-ring, #5eead4);
   outline-offset: 2px;

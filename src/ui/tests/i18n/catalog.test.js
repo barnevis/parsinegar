@@ -58,6 +58,12 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.documents.property-updated',
     'parsinegar.documents.property-size',
     'parsinegar.documents.close',
+    'parsinegar.documents.sort',
+    'parsinegar.documents.sort-updated-desc',
+    'parsinegar.documents.sort-updated-asc',
+    'parsinegar.documents.sort-created-desc',
+    'parsinegar.documents.sort-created-asc',
+    'parsinegar.documents.sort-name',
   ]) {
     assert.ok(typeof catalog.fa[key] === 'string' && catalog.fa[key].length > 0, `missing key: ${key}`);
   }

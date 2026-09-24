@@ -374,3 +374,87 @@ test('should_render_toggle_without_parent_event_when_clicked', async () => {
     element.remove();
   }
 });
+
+function rowOrder(element) {
+  return [...element.shadowRoot.querySelectorAll('[data-doc-id]')]
+    .map((button) => button.getAttribute('data-doc-id'));
+}
+
+test('should_render_sort_select_with_default_when_mounted', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const select = element.shadowRoot.querySelector('select[data-files-sort]');
+    assert.ok(select, 'expected the sort select');
+    assert.equal(select.value, 'updated-desc');
+    assert.equal(select.querySelectorAll('option').length, 5);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_sort_when_sort_changes', async () => {
+  const element = mount({
+    items: [
+      { id: 'a', title: 'یادداشت', createdAt: 300, updatedAt: 300 },
+      { id: 'b', title: 'اول', createdAt: 100, updatedAt: 100 },
+    ],
+    currentId: null,
+  });
+  try {
+    await flush();
+    assert.deepEqual(rowOrder(element), ['a', 'b']);
+    const seen = [];
+    element.addEventListener('files-sort', (event) => seen.push(event.detail));
+    const select = element.shadowRoot.querySelector('select[data-files-sort]');
+    select.value = 'name';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    assert.deepEqual(seen, [{ mode: 'name' }]);
+    // The parent owns the mode: rows stay until it configures back.
+    assert.deepEqual(rowOrder(element), ['a', 'b']);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_apply_configured_sort_when_received', async () => {
+  const element = mount({
+    items: [
+      { id: 'a', title: 'یادداشت', createdAt: 300, updatedAt: 300 },
+      { id: 'b', title: 'اول', createdAt: 100, updatedAt: 100 },
+    ],
+    currentId: null,
+  });
+  try {
+    await flush();
+    assert.deepEqual(rowOrder(element), ['a', 'b']);
+    element.configure({ sortMode: 'name' });
+    await flush();
+    assert.deepEqual(rowOrder(element), ['b', 'a']);
+    assert.equal(element.shadowRoot.querySelector('select[data-files-sort]').value, 'name');
+    element.configure({ sortMode: 'nope' });
+    await flush();
+    assert.deepEqual(rowOrder(element), ['b', 'a'], 'expected the last valid mode kept');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_ignore_unknown_sort_when_changed', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('files-sort', (event) => seen.push(event.detail));
+    const select = element.shadowRoot.querySelector('select[data-files-sort]');
+    select.value = 'nope';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    assert.deepEqual(seen, [], 'expected no event for a foreign value');
+    assert.deepEqual(rowOrder(element), ['a']);
+    assert.equal(element.shadowRoot.querySelector('select[data-files-sort]').value, 'updated-desc');
+  } finally {
+    element.remove();
+  }
+});

@@ -392,6 +392,31 @@ test('should_delete_menu_target_when_it_is_not_current', async () => {
   }
 });
 
+test('should_keep_sort_mode_when_document_opens', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 300 },
+    { id: 'd2', title: 'اول', content: 'c2', updatedAt: 100 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const order = () => inChildAll(element, 'parsi-side-panel', '[data-doc-id]')
+      .map((button) => button.getAttribute('data-doc-id'));
+    assert.deepEqual(order(), ['d1', 'd2']);
+    const select = inChild(element, 'parsi-side-panel', 'select[data-files-sort]');
+    select.value = 'name';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    assert.deepEqual(order(), ['d2', 'd1']);
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]').click();
+    await settled();
+    assert.equal(element.value, 'c2');
+    assert.deepEqual(order(), ['d2', 'd1'], 'expected the sort kept across open');
+    assert.equal(inChild(element, 'parsi-side-panel', 'select[data-files-sort]').value, 'name');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_keep_document_when_confirmation_is_cancelled', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);

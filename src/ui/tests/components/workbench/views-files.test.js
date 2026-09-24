@@ -1,7 +1,7 @@
 // Verifies the files view rendering (pure, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { renderFilesView } from '../../../components/workbench/views-files.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
 
 function translate(key, params) {
   const template = {
@@ -94,4 +94,75 @@ test('should_escape_titles_when_malicious', () => {
 
 test('should_render_empty_list_when_no_items', () => {
   assert.ok(renderFilesView({ t: translate, items: [], currentId: null }).includes('<ul part="docs-list"></ul>'));
+});
+
+test('should_render_sort_select_with_default_when_mode_is_missing', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null });
+  assert.ok(html.includes('data-files-sort'), 'expected the sort select');
+  assert.ok(html.includes('aria-label'), 'expected an accessible label');
+  for (const mode of FILES_SORT_MODES) {
+    assert.ok(html.includes(`value="${mode}"`), `expected option ${mode}`);
+  }
+  assert.ok(html.includes(`value="${DEFAULT_FILES_SORT}" selected`), 'expected the default selected');
+  assert.equal(DEFAULT_FILES_SORT, 'updated-desc');
+});
+
+test('should_mark_given_sort_mode_when_selected', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMode: 'name' });
+  assert.ok(html.includes('value="name" selected'), 'expected the name option selected');
+  assert.ok(!html.includes('value="updated-desc" selected'), 'expected the default unselected');
+});
+
+test('should_fall_back_to_default_when_sort_mode_is_unknown', () => {
+  const html = renderFilesView({ t: translate, items: [], currentId: null, sortMode: 'nope' });
+  assert.ok(html.includes(`value="${DEFAULT_FILES_SORT}" selected`), 'expected the default selected');
+});
+
+test('should_order_by_updated_when_sorting', () => {
+  const items = [
+    { id: 'a', title: 'a', updatedAt: 100 },
+    { id: 'b', title: 'b', updatedAt: 300 },
+    { id: 'c', title: 'c', updatedAt: 200 },
+  ];
+  assert.deepEqual(sortDocuments(items, 'updated-desc').map((item) => item.id), ['b', 'c', 'a']);
+  assert.deepEqual(sortDocuments(items, 'updated-asc').map((item) => item.id), ['a', 'c', 'b']);
+  assert.deepEqual(items.map((item) => item.id), ['a', 'b', 'c'], 'expected the input untouched');
+});
+
+test('should_order_by_created_when_sorting', () => {
+  const items = [
+    { id: 'a', title: 'a', createdAt: 300, updatedAt: 100 },
+    { id: 'b', title: 'b', createdAt: 100, updatedAt: 300 },
+    { id: 'c', title: 'c', createdAt: 200, updatedAt: 200 },
+  ];
+  assert.deepEqual(sortDocuments(items, 'created-desc').map((item) => item.id), ['a', 'c', 'b']);
+  assert.deepEqual(sortDocuments(items, 'created-asc').map((item) => item.id), ['b', 'c', 'a']);
+});
+
+test('should_order_by_name_when_sorting', () => {
+  const items = [
+    { id: 'a', title: 'یادداشت' },
+    { id: 'b', title: 'دوم' },
+    { id: 'c', title: 'اول' },
+  ];
+  assert.deepEqual(sortDocuments(items, 'name').map((item) => item.id), ['c', 'b', 'a']);
+});
+
+test('should_keep_input_order_when_mode_is_unknown', () => {
+  const items = [
+    { id: 'a', title: 'b', updatedAt: 100 },
+    { id: 'b', title: 'a', updatedAt: 300 },
+  ];
+  const ordered = sortDocuments(items, 'nope');
+  assert.deepEqual(ordered.map((item) => item.id), ['a', 'b']);
+  assert.notEqual(ordered, items, 'expected a copy');
+});
+
+test('should_tolerate_missing_fields_when_sorting', () => {
+  const items = [{ id: 'a' }, { id: 'b', title: null }, {}];
+  assert.equal(sortDocuments(items, 'updated-desc').length, 3);
+  assert.equal(sortDocuments(items, 'created-asc').length, 3);
+  assert.equal(sortDocuments(items, 'name').length, 3);
+  assert.deepEqual(sortDocuments(null, 'name'), []);
+  assert.deepEqual(sortDocuments('nope', 'name'), []);
 });

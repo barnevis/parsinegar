@@ -8,6 +8,7 @@ import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
 import { createDocumentController } from './document-controller.js';
@@ -52,6 +53,7 @@ class ParsiPageHome extends PeyElement {
   #editor = null;
   #activeView = FILES_VIEW;
   #sideOpen = true;
+  #filesSort = DEFAULT_FILES_SORT;
   #bottomOpen = true;
   #renderObserver = null;
   #editorHost = null;
@@ -124,6 +126,7 @@ class ParsiPageHome extends PeyElement {
       'document-properties',
       'modal-confirm',
       'modal-dismiss',
+      'files-sort',
       'settings-change',
       'settings-step',
     ];
@@ -157,6 +160,13 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'view-select' && typeof event.detail?.id === 'string') {
         this.#switchView(event.detail.id);
+        return;
+      }
+      if (event.type === 'files-sort' && FILES_SORT_MODES.includes(event.detail?.mode)) {
+        if (event.detail.mode !== this.#filesSort) {
+          this.#filesSort = event.detail.mode;
+          this.#requestEditor();
+        }
         return;
       }
       if (event.type === 'side-close') {
@@ -443,6 +453,7 @@ class ParsiPageHome extends PeyElement {
           documentText: this.value,
           settings: this.#prefs?.getState().settings ?? null,
           formatNumber: (value) => this.#formatNumber(value),
+          sortMode: this.#filesSort,
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
@@ -451,6 +462,7 @@ class ParsiPageHome extends PeyElement {
           documentText: this.value,
           settings: this.#prefs?.getState().settings ?? null,
           activeLine: this.#spy.getActiveLine(),
+          sortMode: this.#filesSort,
         }),
       });
     } else {
@@ -675,6 +687,7 @@ class ParsiPageHome extends PeyElement {
       currentId,
       documentText: this.value,
       settings,
+      sortMode: this.#filesSort,
     });
   }
 
