@@ -181,44 +181,30 @@
   gap: 0.4rem;
   margin-block-end: 0.6rem;
 }
-[part="docs-new"] {
-  font: inherit;
-  flex: 1;
-  border: 1px solid var(--pey-color-border, #d8d8de);
-  border-radius: 8px;
-  background-color: var(--pey-color-canvas, #ffffff);
-  padding: 0.35rem 0.5rem;
-  cursor: pointer;
-  color: inherit;
-}
-[part="docs-new"] svg {
-  inline-size: 18px;
-  block-size: 18px;
-  vertical-align: middle;
-}
-[part="docs-new"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-  border-color: var(--pey-color-border, #c8c8d2);
-}
+[part="docs-new"],
+[part="docs-import"],
 [part="docs-sort"] {
   font: inherit;
   flex: 1;
   min-inline-size: 0;
-  border: 1px solid var(--pey-color-border, #d8d8de);
+  border: 0;
   border-radius: 8px;
-  background-color: var(--pey-color-canvas, #ffffff);
+  background-color: transparent;
   padding: 0.35rem 0.5rem;
   cursor: pointer;
   color: inherit;
 }
+[part="docs-new"] svg,
+[part="docs-import"] svg,
 [part="docs-sort"] svg {
-  inline-size: 18px;
-  block-size: 18px;
+  inline-size: 20px;
+  block-size: 20px;
   vertical-align: middle;
 }
+[part="docs-new"]:hover,
+[part="docs-import"]:hover,
 [part="docs-sort"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-  border-color: var(--pey-color-border, #c8c8d2);
+  background-color: var(--pey-color-surface, #f1f1f5);
 }
 [part="docs-sort-wrap"] {
   position: relative;

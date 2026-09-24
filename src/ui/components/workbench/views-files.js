@@ -126,12 +126,15 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
   }).join('');
   const newLabel = escapeHtml(translate('parsinegar.documents.new'));
   const newIcon = iconMarkup(assetBaseUrl, 'add-notes') || newLabel;
+  const importLabel = escapeHtml(translate('parsinegar.documents.import'));
+  const importIcon = iconMarkup(assetBaseUrl, 'upload') || importLabel;
   const sortLabel = escapeHtml(translate('parsinegar.documents.sort'));
   const sortIcon = iconMarkup(assetBaseUrl, 'sort') || sortLabel;
   return `
     <div part="files-view">
       <div part="files-bar">
         <button type="button" part="docs-new" aria-label="${newLabel}" title="${newLabel}">${newIcon}</button>
+        <button type="button" part="docs-import" aria-label="${importLabel}" title="${importLabel}">${importIcon}</button>
         <div part="docs-sort-wrap">
           <button type="button" part="docs-sort" data-doc-sort aria-haspopup="true" aria-expanded="${sortMenuOpen === true}" aria-label="${sortLabel}" title="${sortLabel}">${sortIcon}</button>
           ${sortMenuOpen === true ? renderSortMenu(translate, activeSort) : ''}

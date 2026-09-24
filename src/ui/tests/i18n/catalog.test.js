@@ -58,6 +58,7 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.documents.property-updated',
     'parsinegar.documents.property-size',
     'parsinegar.documents.close',
+    'parsinegar.documents.import',
     'parsinegar.documents.sort',
     'parsinegar.documents.sort-group-name',
     'parsinegar.documents.sort-group-updated',

@@ -303,6 +303,10 @@ class ParsiSidePanel extends PeyElement {
       this.dispatchEvent(new CustomEvent('document-create', { bubbles: true, composed: true }));
       return;
     }
+    if (event.target?.closest?.('[part="docs-import"]')) {
+      this.dispatchEvent(new CustomEvent('document-import', { bubbles: true, composed: true }));
+      return;
+    }
     const menuButton = event.target?.closest?.('[data-doc-menu]');
     if (menuButton) {
       const id = menuButton.getAttribute('data-doc-menu');

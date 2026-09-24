@@ -34,10 +34,13 @@ test('should_render_items_when_documents_are_given', () => {
 test('should_render_actions_when_called', () => {
   const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/' });
   assert.ok(html.includes('part="docs-new"'));
+  assert.ok(html.includes('part="docs-import"'));
   assert.ok(!html.includes('part="docs-delete"'), 'expected no panel delete button');
   assert.ok(html.includes('aria-label="سند تازه"'));
   assert.ok(html.includes('<svg'));
   assert.ok(html.includes('#add-notes'));
+  assert.ok(html.includes('#upload'));
+  assert.ok(html.includes('#sort'));
 });
 
 test('should_render_menu_button_when_items_are_given', () => {

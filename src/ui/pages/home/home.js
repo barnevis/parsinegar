@@ -11,7 +11,7 @@ import { FILES_VIEW, getView, listViews } from '../../components/workbench/views
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
-import { createDocumentController } from './document-controller.js';
+import { createDocumentController, deriveImportTitle } from './document-controller.js';
 import { createSettingsApplier } from './settings-applier.js';
 import { createScrollSpy } from './scroll-spy.js';
 import '../../components/menu-bar/menu-bar.js';
@@ -120,6 +120,7 @@ class ParsiPageHome extends PeyElement {
       'outline-jump',
       'document-open',
       'document-create',
+      'document-import',
       'document-delete',
       'document-rename',
       'document-download',
@@ -184,6 +185,10 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'document-create') {
         void this.#createDocument();
+        return;
+      }
+      if (event.type === 'document-import') {
+        void this.#importDocument();
         return;
       }
       if (event.type === 'document-delete') {
@@ -340,6 +345,9 @@ class ParsiPageHome extends PeyElement {
       switch (action) {
         case 'new-document':
           await this.#createDocument();
+          return;
+        case 'import-document':
+          await this.#importDocument();
           return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {
@@ -519,6 +527,41 @@ class ParsiPageHome extends PeyElement {
 
   async #createDocument() {
     this.#applyResult(await this.#docs?.createDocument());
+  }
+
+  /**
+   * Imports a local Markdown file as a new document: opens the system file
+   * picker, reads the chosen file as text and hands title plus content to
+   * the controller (mirrors the download anchor trick, in reverse).
+   * @returns {Promise<void>}
+   */
+  async #importDocument() {
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+      return;
+    }
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = '.md,.markdown,.mdown,.txt';
+    picker.style.display = 'none';
+    this.shadowRoot.append(picker);
+    const cleanup = () => picker.remove();
+    picker.addEventListener('cancel', cleanup, { once: true });
+    picker.addEventListener('change', async () => {
+      try {
+        const file = picker.files?.[0] ?? null;
+        if (!file) {
+          return;
+        }
+        const content = await file.text();
+        const result = await this.#docs?.importContent({ title: deriveImportTitle(file.name), content });
+        this.#applyResult(result);
+      } catch (error) {
+        console.error('[parsi-page-home] document import failed');
+      } finally {
+        cleanup();
+      }
+    }, { once: true });
+    picker.click();
   }
 
   /**

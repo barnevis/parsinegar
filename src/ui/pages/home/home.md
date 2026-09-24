@@ -41,7 +41,7 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 - `files-sort` with `detail: { mode }` — files-view ordering (validated against `FILES_SORT_MODES`); owned here so it survives panel remounts.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.
-- `document-open` with `detail: { id }`, `document-create`, `document-delete` — files-view management (delete carries the file-menu target id and arms the confirmation modal for that document, falling back to the open document when no id travels, e.g. the top menu-bar action).
+- `document-open` with `detail: { id }`, `document-create`, `document-import`, `document-delete` — files-view management (delete carries the file-menu target id and arms the confirmation modal for that document, falling back to the open document when no id travels, e.g. the top menu-bar action; import opens the system file picker and imports the chosen Markdown file as a new document).
 - `modal-confirm` with `detail: { accepted }` — yes/no buttons of the delete confirmation (from `parsi-modal-dialog`).
 - `modal-dismiss` — properties close button or backdrop click (from `parsi-modal-dialog`; Escape stays a page-level keydown).
 - `document-rename` with `detail: { id, title }` — inline rename commit; empty titles cancel, taken titles keep the editor open with an inline error, success refreshes the list.

@@ -416,6 +416,48 @@ test('should_keep_sort_mode_when_document_opens', async () => {
   }
 });
 
+test('should_import_picked_file_when_document_import_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('document-import', { bubbles: true }));
+    await settled();
+    const picker = element.shadowRoot.querySelector('input[type="file"]');
+    assert.ok(picker, 'expected the file picker');
+    assert.equal(picker.getAttribute('accept'), '.md,.markdown,.mdown,.txt');
+    const file = new File(['# وارد\n'], 'notes.md', { type: 'text/markdown' });
+    Object.defineProperty(picker, 'files', { value: [file], configurable: true });
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    await settled();
+    assert.equal(element.value, '# وارد\n');
+    assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
+    const saves = documents.calls.filter(([method]) => method === 'save');
+    assert.ok(saves.some(([, record]) => record.title === 'notes' && record.content === '# وارد\n'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_ignore_empty_pick_when_document_import_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('document-import', { bubbles: true }));
+    await settled();
+    const picker = element.shadowRoot.querySelector('input[type="file"]');
+    assert.ok(picker, 'expected the file picker');
+    Object.defineProperty(picker, 'files', { value: [], configurable: true });
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    assert.equal(element.value, 'c');
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'save'), []);
+    assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_keep_document_when_confirmation_is_cancelled', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);

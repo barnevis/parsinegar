@@ -25,6 +25,7 @@ const catalog = {
     'parsinegar.documents.property-updated': 'آخرین ویرایش',
     'parsinegar.documents.property-size': 'حجم',
     'parsinegar.documents.close': 'بستن',
+    'parsinegar.documents.import': 'بارگذاری سند',
     'parsinegar.documents.sort': 'چینش فایل‌ها',
     'parsinegar.documents.sort-group-name': 'نام پرونده',
     'parsinegar.documents.sort-group-updated': 'زمان ویرایش',

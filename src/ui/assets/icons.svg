@@ -50,4 +50,7 @@
   <symbol id="sort" viewBox="0 -960 960 960" fill="currentColor">
     <path d="M120-240v-80h240v80H120Zm0-200v-80h480v80H120Zm0-200v-80h720v80H120Z"/>
   </symbol>
+  <symbol id="upload" viewBox="0 -960 960 960" fill="currentColor">
+    <path d="M440-320v-326L336-542l-56-58 200-200 200 200-56 58-104-104v326h-80ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/>
+  </symbol>
 </svg>

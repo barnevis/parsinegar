@@ -1,7 +1,7 @@
 // Verifies the document controller (pure logic over a fake service, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDocumentController } from '../../../pages/home/document-controller.js';
+import { createDocumentController, deriveImportTitle } from '../../../pages/home/document-controller.js';
 
 function createService(initial = []) {
   const docs = new Map(initial.map((record) => [record.id, { ...record }]));
@@ -210,6 +210,52 @@ test('should_load_record_when_showing_properties', async () => {
   assert.equal(await controller.showProperties('missing'), null);
   assert.equal(await controller.prepareDownload('d1'), record);
   assert.equal(await controller.prepareDownload('missing'), null);
+});
+
+test('should_derive_title_when_filename_is_given', () => {
+  assert.equal(deriveImportTitle('notes.md'), 'notes');
+  assert.equal(deriveImportTitle('راهنما.MARKDOWN'), 'راهنما');
+  assert.equal(deriveImportTitle('  draft.txt  '), 'draft');
+  assert.equal(deriveImportTitle('README'), 'README');
+  assert.equal(deriveImportTitle('.md'), '');
+  assert.equal(deriveImportTitle(''), '');
+  assert.equal(deriveImportTitle(null), '');
+  assert.equal(deriveImportTitle(42), '');
+});
+
+test('should_import_content_when_importing', async () => {
+  const service = createService([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const controller = createController(service);
+  apply(controller, await controller.ensureInitial());
+  const result = apply(controller, await controller.importContent({ title: 'یادداشت', content: '# سلام\n' }));
+  assert.ok(result.apply.id !== 'd1');
+  assert.equal(result.apply.title, 'یادداشت');
+  assert.equal(result.apply.content, '# سلام\n');
+  assert.equal(result.items.length, 2);
+  assert.equal(controller.getDraft(), '# سلام\n');
+});
+
+test('should_strip_bom_when_importing', async () => {
+  const service = createService();
+  const controller = createController(service);
+  const result = await controller.importContent({ title: 't', content: '\uFEFFمتن' });
+  assert.equal(result.apply.content, 'متن');
+});
+
+test('should_fall_back_to_new_title_when_import_title_is_empty', async () => {
+  const service = createService();
+  const controller = createController(service, { t: (key) => key });
+  const result = await controller.importContent({ title: '   ', content: 'c' });
+  const creates = service.calls.filter(([method]) => method === 'create');
+  assert.deepEqual(creates, []);
+  const saves = service.calls.filter(([method]) => method === 'save');
+  assert.ok(saves.length >= 1);
+  assert.equal(result.apply.title, 'parsinegar.documents.new-title');
+});
+
+test('should_report_none_when_importing_without_service', async () => {
+  const controller = createController(null);
+  assert.equal(await controller.importContent({ title: 't', content: 'c' }), null);
 });
 
 test('should_adopt_record_when_adopted', async () => {

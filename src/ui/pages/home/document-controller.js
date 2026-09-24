@@ -13,6 +13,29 @@ import { formatDate, formatNumber } from '../../utils/format.js';
 const AUTOSAVE_DELAY_MS = 1000;
 
 /**
+ * Filename extensions stripped when deriving an import title.
+ */
+const IMPORT_EXTENSIONS = ['.md', '.markdown', '.mdown', '.txt'];
+
+/**
+ * Derives a document title from an uploaded filename: trims whitespace,
+ * strips a known Markdown/text extension (case-insensitive) and keeps
+ * extensionless names whole. Returns '' when nothing remains.
+ * @param {unknown} filename Uploaded file name.
+ * @returns {string} Candidate title (possibly empty).
+ */
+export function deriveImportTitle(filename) {
+  const trimmed = typeof filename === 'string' ? filename.trim() : '';
+  const lower = trimmed.toLowerCase();
+  for (const extension of IMPORT_EXTENSIONS) {
+    if (lower.endsWith(extension)) {
+      return trimmed.slice(0, -extension.length).trim();
+    }
+  }
+  return trimmed;
+}
+
+/**
  * Creates the document working set bound to explicit dependencies.
  * @param {object} [options] Dependencies (all replaceable for tests).
  * @param {object|null} [options.documents] Documents service (null degrades to in-memory editing).
@@ -374,6 +397,48 @@ export function createDocumentController({
         }
         console.error('[parsi-document-controller] document rename failed');
         return 'failed';
+      }
+    },
+
+    /**
+     * Imports file content as a new document: the title is uniquified through
+     * `createDocument` (same Persian-digit suffixes), then the content is
+     * saved onto it. A leading byte-order mark is stripped.
+     * @param {object} [input] Import payload.
+     * @param {string} [input.title] Candidate title (falls back to a new title).
+     * @param {string} [input.content] Markdown text.
+     * @returns {Promise<object|null>} `{ apply, items }`, or null on no-op/failure.
+     */
+    async importContent({ title, content } = {}) {
+      if (!service) {
+        return null;
+      }
+      const cleanTitle = typeof title === 'string' && title.trim().length > 0
+        ? title.trim()
+        : translate('parsinegar.documents.new-title');
+      const text = typeof content === 'string' ? content.replace(/^\uFEFF/, '') : '';
+      try {
+        await controller.flushSave();
+        if (!isLive()) {
+          return null;
+        }
+        const created = await service.createDocument(cleanTitle);
+        if (!isLive()) {
+          return null;
+        }
+        const saved = await service.saveDocument({ id: created.id, title: created.title, content: text });
+        if (!isLive()) {
+          return null;
+        }
+        const listed = await service.listDocuments();
+        if (!isLive()) {
+          return null;
+        }
+        const record = { ...saved, content: text };
+        return { apply: record, items: listed };
+      } catch (error) {
+        console.error('[parsi-document-controller] document import failed');
+        return null;
       }
     },
 

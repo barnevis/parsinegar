@@ -79,6 +79,20 @@ test('should_emit_create_when_new_button_is_clicked', async () => {
   }
 });
 
+test('should_emit_import_when_import_button_is_clicked', async () => {
+  const element = mount({ items: [], currentId: null });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('document-import', () => seen.push('import'));
+    element.shadowRoot.querySelector('[part="docs-import"]').click();
+    await flush();
+    assert.deepEqual(seen, ['import']);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_toggle_file_menu_when_menu_button_is_clicked', async () => {
   const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
   try {

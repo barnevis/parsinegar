@@ -20,6 +20,7 @@ export function buildMenuModel({ t, hasDocument }) {
       label: translate('parsinegar.menu.file'),
       items: [
         { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
+        { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
         { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument },
       ],
     },
