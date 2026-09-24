@@ -241,8 +241,13 @@
   font-size: 0.8rem;
   color: var(--pey-color-text-muted, #55555f);
 }
-[part="file-menu-item"][aria-checked="true"] {
+[part="docs-sort-wrap"] [part="file-menu"] {
+  font-size: 0.85rem;
+}
+[part="docs-sort-wrap"] [part="file-menu-item"][aria-checked="true"] {
   font-weight: 700;
+  background-color: rgb(94 234 212 / 0.14);
+  background-color: color-mix(in srgb, var(--pey-color-accent, #5eead4) 18%, transparent);
 }
 [part="side-close"] {
   font: inherit;

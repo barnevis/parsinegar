@@ -458,3 +458,38 @@ test('should_apply_configured_sort_when_received', async () => {
     element.remove();
   }
 });
+
+test('should_distinguish_checked_option_when_sort_menu_renders', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(
+      style.textContent.includes('[part="docs-sort-wrap"] [part="file-menu-item"][aria-checked="true"]'),
+      'expected the checked-option rule',
+    );
+    assert.ok(
+      style.textContent.includes('color-mix(in srgb, var(--pey-color-accent, #5eead4) 18%, transparent)'),
+      'expected the accent wash for the checked option',
+    );
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_shrink_sort_menu_when_rendered', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(
+      style.textContent.includes('[part="docs-sort-wrap"] [part="file-menu"]'),
+      'expected the sort-menu rule',
+    );
+    assert.ok(style.textContent.includes('font-size: 0.85rem'), 'expected the smaller menu type');
+  } finally {
+    element.remove();
+  }
+});
