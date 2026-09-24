@@ -491,20 +491,21 @@ test('should_show_about_pane_when_rail_logo_is_clicked', async () => {
   }
 });
 
-test('should_open_github_when_menu_action_arrives', async () => {
+test('should_link_github_from_about_pane', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
-  const previous = window.open;
-  const seen = [];
-  window.open = (...args) => { seen.push(args); return null; };
   try {
     inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
     await settled();
-    inChild(element, 'parsi-menu-bar', '[data-action="github"]').click();
+    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
-    assert.deepEqual(seen, [['https://github.com/barnevis/parsinegar', '_blank', 'noopener']]);
+    const link = element.shadowRoot.querySelector('[part="about-link"]');
+    assert.ok(link, 'expected the github link');
+    assert.equal(link.getAttribute('href'), 'https://github.com/barnevis/parsinegar');
+    assert.equal(link.getAttribute('target'), '_blank');
+    assert.equal(link.getAttribute('rel'), 'noopener');
+    assert.equal(link.textContent, 'گیت‌هاب پروژه');
   } finally {
-    window.open = previous;
     element.remove();
   }
 });

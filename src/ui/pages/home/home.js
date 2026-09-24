@@ -25,7 +25,6 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
-const GITHUB_URL = 'https://github.com/barnevis/parsinegar';
 // Displayed on the about pane; bump together with package.json (no build
 // step exists to read it at runtime).
 const APP_VERSION = '۰.۶.۰';
@@ -367,13 +366,6 @@ class ParsiPageHome extends PeyElement {
         case 'about':
           this.#openAbout();
           return;
-        case 'github':
-          try {
-            window.open(GITHUB_URL, '_blank', 'noopener');
-          } catch {
-            // Popup blockers stay silent; the menu already closed.
-          }
-          return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {
             this.#requestEditor();
@@ -497,7 +489,10 @@ class ParsiPageHome extends PeyElement {
         <h1 part="about-title">${this.#t('parsinegar.about.title')}</h1>
         <p part="about-lead">${this.#t('parsinegar.about.lead')}</p>
         <p part="about-version">${this.#t('parsinegar.about.version', { version: APP_VERSION })}</p>
-        <button part="about-back" type="button">${this.#t('parsinegar.about.action')}</button>
+        <div part="about-actions">
+          <button part="about-back" type="button">${this.#t('parsinegar.about.action')}</button>
+          <a part="about-link" href="https://github.com/barnevis/parsinegar" target="_blank" rel="noopener">${this.#t('parsinegar.menu.github')}</a>
+        </div>
       </div>`;
   }
 

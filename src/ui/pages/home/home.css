@@ -124,7 +124,14 @@ parsi-status-bar {
   font-weight: 700;
 }
 
-[part="about-back"] {
+[part="about-actions"] {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+[part="about-back"],
+[part="about-link"] {
   font: inherit;
   border: 1px solid var(--pey-color-border, #d8d8de);
   border-radius: 10px;
@@ -134,11 +141,18 @@ parsi-status-bar {
   color: inherit;
 }
 
-[part="about-back"]:hover {
+[part="about-link"] {
+  display: inline-block;
+  text-decoration: none;
+}
+
+[part="about-back"]:hover,
+[part="about-link"]:hover {
   border-color: var(--pey-color-border, #c8c8d2);
 }
 
-[part="about-back"]:focus-visible {
+[part="about-back"]:focus-visible,
+[part="about-link"]:focus-visible {
   outline: 2px solid var(--pey-color-focus-ring, #5eead4);
   outline-offset: 2px;
 }

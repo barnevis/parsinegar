@@ -40,7 +40,7 @@ test('should_escape_name_when_malicious', () => {
 test('should_include_icon_when_sprite_is_available', () => {
   const html = renderConfirmModal({ t: translate, title: 'سند مهم', assetBaseUrl: 'http://localhost/assets/' });
   assert.ok(html.includes('<svg'));
-  assert.ok(html.includes('#trash'));
+  assert.ok(html.includes('#delete'));
 });
 
 test('should_render_properties_when_record_is_given', async () => {

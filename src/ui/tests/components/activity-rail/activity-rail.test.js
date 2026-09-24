@@ -6,8 +6,8 @@ import test from 'node:test';
 import { TAG } from '../../../components/activity-rail/activity-rail.js';
 
 const VIEWS = [
-  { id: 'files', icon: 'files', labelKey: 'parsinegar.views.files' },
-  { id: 'outline', icon: 'outline', labelKey: 'parsinegar.views.outline' },
+  { id: 'files', icon: 'file-copy', labelKey: 'parsinegar.views.files' },
+  { id: 'outline', icon: 'toc', labelKey: 'parsinegar.views.outline' },
 ];
 
 function createEvents() {
@@ -73,7 +73,7 @@ test('should_update_active_view_when_configured', async () => {
 
 test('should_pin_end_aligned_views_when_mounted', async () => {
   const element = mount({
-    views: [...VIEWS, { id: 'settings', icon: 'gear', labelKey: 'parsinegar.views.settings', align: 'end' }],
+    views: [...VIEWS, { id: 'settings', icon: 'settings', labelKey: 'parsinegar.views.settings', align: 'end' }],
     activeView: 'files',
   });
   try {

@@ -24,7 +24,6 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.documents.delete-no',
     'parsinegar.menu.file',
     'parsinegar.menu.about',
-    'parsinegar.menu.github',
     'parsinegar.about.title',
     'parsinegar.about.lead',
     'parsinegar.about.version',

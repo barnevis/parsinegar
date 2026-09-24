@@ -13,9 +13,9 @@ const OUTLINE_VIEW = 'outline';
 const SETTINGS_VIEW = 'settings';
 
 const registry = [
-  { id: FILES_VIEW, icon: 'files', labelKey: 'parsinegar.views.files', render: renderFilesView },
-  { id: OUTLINE_VIEW, icon: 'outline', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
-  { id: SETTINGS_VIEW, icon: 'gear', labelKey: 'parsinegar.views.settings', render: renderSettingsView, align: 'end' },
+  { id: FILES_VIEW, icon: 'file-copy', labelKey: 'parsinegar.views.files', render: renderFilesView },
+  { id: OUTLINE_VIEW, icon: 'toc', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
+  { id: SETTINGS_VIEW, icon: 'settings', labelKey: 'parsinegar.views.settings', render: renderSettingsView, align: 'end' },
 ];
 
 /**

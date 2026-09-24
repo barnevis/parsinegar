@@ -19,7 +19,7 @@ export function renderConfirmModal({ t, title, assetBaseUrl }) {
     return '';
   }
   const translate = typeof t === 'function' ? t : (key) => key;
-  const icon = iconMarkup(assetBaseUrl, 'trash');
+  const icon = iconMarkup(assetBaseUrl, 'delete');
   return `
     <div part="modal-backdrop">
       <div part="modal-dialog" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
@@ -51,7 +51,7 @@ export function renderPropertiesModal({ t, title, createdText, updatedText, size
     return '';
   }
   const translate = typeof t === 'function' ? t : (key) => key;
-  const icon = iconMarkup(assetBaseUrl, 'files');
+  const icon = iconMarkup(assetBaseUrl, 'file-copy');
   const row = (labelKey, value) => `
           <div part="modal-row">
             <dt part="modal-term">${escapeHtml(translate(labelKey))}</dt>
