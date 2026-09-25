@@ -88,6 +88,15 @@ export function editorColorScheme(colorScheme) {
         backgroundColor: dark ? DARK_HIGHLIGHT_BACKGROUND : SEPIA_HIGHLIGHT_BACKGROUND,
         color: dark ? DARK_HIGHLIGHT_INK : SEPIA_HIGHLIGHT_INK,
       },
+      // Search washes in the same amber family as the light scheme rules in
+      // `markdown-view.js`; these load after that block, so they win here.
+      '& .cm-searchMatch': {
+        backgroundColor: dark ? '#7c5e10' : '#fde68a',
+        borderRadius: '2px',
+      },
+      '& .cm-searchMatch-selected': {
+        backgroundColor: dark ? '#a16207' : '#f59e0b',
+      },
       '& .cm-line .parsi-code-keyword': { color: dark ? DARK_CODE_KEYWORD : SEPIA_CODE_KEYWORD },
       '& .cm-line .parsi-code-string': { color: dark ? DARK_CODE_STRING : SEPIA_CODE_STRING },
       '& .cm-line .parsi-code-comment': { color: dark ? DARK_CODE_COMMENT : SEPIA_CODE_COMMENT },

@@ -442,3 +442,91 @@ test('should_fall_back_to_first_line_when_destroyed', () => {
     host.remove();
   }
 });
+
+function createSearchEditor(documentText) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: documentText });
+  return { host, editor };
+}
+
+test('should_count_matches_when_search_is_set', () => {
+  const { host, editor } = createSearchEditor('یک دو یک');
+  try {
+    // Fresh cursor at 0 sits inside the first match, hence current 1.
+    assert.deepEqual(editor.setSearch({ query: 'یک' }), { invalidRegexp: false, current: 1, total: 2 });
+    assert.deepEqual(editor.setSearch({ query: '' }), { invalidRegexp: false, current: 0, total: 0 });
+    assert.deepEqual(editor.setSearch({ query: '([', regexp: true }), { invalidRegexp: true, current: 0, total: 0 });
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_step_and_wrap_when_search_step_is_called', () => {
+  const { host, editor } = createSearchEditor('یک دو یک');
+  try {
+    // Fresh cursor at 0 sits inside the first match, so next lands on 2.
+    assert.deepEqual(editor.searchStep({ query: 'یک' }, 1), { invalidRegexp: false, current: 2, total: 2 });
+    assert.deepEqual(editor.searchStep({ query: 'یک' }, 1), { invalidRegexp: false, current: 1, total: 2 });
+    assert.deepEqual(editor.searchStep({ query: 'یک' }, 1), { invalidRegexp: false, current: 2, total: 2 });
+    assert.deepEqual(editor.searchStep({ query: 'یک' }, -1), { invalidRegexp: false, current: 1, total: 2 });
+    assert.deepEqual(editor.searchStep({ query: 'نبود' }, 1), { invalidRegexp: false, current: 0, total: 0 });
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_replace_one_and_recount_when_search_replace_one_is_called', () => {
+  const { host, editor } = createSearchEditor('یک دو یک');
+  try {
+    // Fresh cursor at 0 sits inside the first match, so it replaces at once.
+    assert.deepEqual(editor.searchReplaceOne({ query: 'یک', replace: '۱' }), {
+      invalidRegexp: false, current: 0, total: 1, replaced: 1,
+    });
+    assert.equal(editor.getValue(), '۱ دو یک');
+    // Cursor between matches advances to the next match without replacing.
+    assert.deepEqual(editor.searchReplaceOne({ query: 'یک', replace: '۱' }), {
+      invalidRegexp: false, current: 1, total: 1, replaced: 0,
+    });
+    assert.equal(editor.getValue(), '۱ دو یک');
+    // Now on the match: replaces it, leaving no matches behind.
+    assert.deepEqual(editor.searchReplaceOne({ query: 'یک', replace: '۱' }), {
+      invalidRegexp: false, current: 0, total: 0, replaced: 1,
+    });
+    assert.equal(editor.getValue(), '۱ دو ۱');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_replace_all_in_one_step_when_search_replace_all_is_called', () => {
+  const { host, editor } = createSearchEditor('یک دو یک');
+  try {
+    const result = editor.searchReplaceAll({ query: 'یک', replace: '۱' });
+    assert.deepEqual(result, { invalidRegexp: false, current: 0, total: 0, replaced: 2 });
+    assert.equal(editor.getValue(), '۱ دو ۱');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_scope_to_selection_when_in_selection_is_set', () => {
+  const { host, editor } = createSearchEditor('یک دو یک');
+  try {
+    // One step from the fresh cursor lands on the second match ("دو یک"
+    // selected): only that match counts and only it gets replaced.
+    editor.searchStep({ query: 'یک' }, 1);
+    const scoped = editor.setSearch({ query: 'یک', inSelection: true });
+    assert.deepEqual(scoped, { invalidRegexp: false, current: 1, total: 1 });
+    const replaced = editor.searchReplaceAll({ query: 'یک', replace: '۱', inSelection: true });
+    assert.equal(replaced.replaced, 1);
+    assert.equal(editor.getValue(), 'یک دو ۱');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});

@@ -50,6 +50,10 @@ Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `hand
 - `document-properties` with `detail: { id }` — opens the properties modal (name, creation/last-edit dates, size).
 - `settings-change` with `detail: { key, value }` — persisted through the settings service (whitelisted to `theme`/`direction` with non-empty strings); the saved snapshot replaces `#settings` and remounts the editor. Theme itself reaches the shell through the `settings:changed` domain event handled by the entry point.
 - `settings-step` with `detail: { key, delta }` — persisted as a single font-size step (`fontSize` key, `±1` delta); out-of-range steps reject in the service and change nothing.
+- `search-query` with `detail: { query, replace, caseSensitive, wholeWord, regexp, inSelection }` — live find: applies the query to the editor controller (`setSearch`, driving the `.cm-searchMatch` highlight) and echoes `{ current, total }` back to the menubar counter. Typing in the editor recounts through the same path (`#recountSearch` on every change), so the counter stays truthful while the dropdown is open.
+- `search-next` / `search-previous` — steps the editor selection through the scope matches with wrap (`searchStep(±1)`), counter echoed back.
+- `search-replace-one` / `search-replace-all` — single/all replacement in scope through the editor controller; the run reports `{ current, total, replaced }` and the form shows the «{count} مورد جایگزین شد» confirmation. Replace-all lands in one undoable transaction.
+- `search-close` — explicit close (dropdown toggle or Escape): clears the editor highlight and resets the form. Outside clicks only hide the dropdown (highlight stays); switching documents resets the whole search.
 
 Rapid settings events serialize through a write chain (`#chainSettingWrite`) so back-to-back changes apply in order instead of racing on stale reads.
 
@@ -70,6 +74,7 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
 - `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
 - `#centerView` — center column mode (`editor`/`about`). The swap is imperative (hidden attributes plus pane insertion, no render): a full render replaces the shadow DOM, which would destroy the editor-host node and force an editor remount losing undo. `render()` already reflects the mode, so any later render reconciles the same state; opening any document resets it to `editor`.
 - `#filesSort` — files-view ordering (default `updated-desc`); presentational like the view switch, so it lives here rather than in the panel, whose fields reset on every page render.
+- `#searchOpen`, `#searchSpec` — live-search session (whether the menubar dropdown counts as open, plus the last form spec for recounting on edits). Presentation-adjacent like `#filesSort`: they survive editor remounts but reset on document switch and explicit close.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl`, `#modalEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
 - `#events` — scoped Event Bus facade forwarded to children (see Dependencies).
 
@@ -86,5 +91,5 @@ Covered under Dependencies above (`t`, `format`, `assetBaseUrl`, `direction` wit
 
 ## Related Decisions and Flows
 
-- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception), §12 (settings).
+- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception), §12 (settings), §15 (in-document search).
 - `../../../docs/ui/user-flows.md`: boot → editor, edit → autosave, switch/create/delete, outline jump.

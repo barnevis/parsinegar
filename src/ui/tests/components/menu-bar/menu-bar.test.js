@@ -20,10 +20,15 @@ function mount(refs = {}) {
   const element = document.createElement(TAG);
   element.connect({
     infrastructure: { events: createEvents() },
-    refs: { t: (key) => key, hasDocument: true, ...refs },
+    refs: { t: (key) => key, hasDocument: true, assetBaseUrl: 'http://localhost/assets/', ...refs },
   });
   document.body.append(element);
   return element;
+}
+
+function openSearch(element) {
+  element.shadowRoot.querySelector('[data-search-toggle]').click();
+  return flush();
 }
 
 test('should_render_menus_without_brand_when_mounted', async () => {
@@ -140,8 +145,7 @@ test('should_keep_button_plain_when_menu_is_open', async () => {
   }
 });
 
-test('should_show_shortcuts_when_insert_menu_is_open', async () => {
-  const element = mount();
+test('should_show_shortcuts_when_insert_menu_is_open', async () => {  const element = mount();
   try {
     await flush();
     element.shadowRoot.querySelector('[data-menu="insert"]').click();
@@ -158,6 +162,184 @@ test('should_show_shortcuts_when_insert_menu_is_open', async () => {
       'Ctrl+Shift+U',
       'Ctrl+Shift+L',
     ]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_render_search_toggle_with_icon_when_mounted', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const toggle = element.shadowRoot.querySelector('[data-search-toggle]');
+    assert.ok(toggle);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.ok(toggle.innerHTML.includes('#search'));
+    assert.equal(element.shadowRoot.querySelector('[part="search-dropdown"]').hasAttribute('hidden'), true);
+    assert.ok(element.shadowRoot.querySelector('[data-search-form]'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_disable_search_toggle_without_document_when_configured', async () => {
+  const element = mount({ hasDocument: false });
+  try {
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-search-toggle]').disabled);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_open_search_and_focus_query_when_toggled', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const toggle = element.shadowRoot.querySelector('[data-search-toggle]');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(element.shadowRoot.querySelector('[part="search-dropdown"]').hasAttribute('hidden'), false);
+    assert.equal(element.shadowRoot.activeElement?.getAttribute('data-search-query'), '');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_search_query_when_typing', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const seen = [];
+    element.addEventListener('search-query', (event) => seen.push(event.detail));
+    const input = element.shadowRoot.querySelector('[data-search-query]');
+    input.value = 'سلام';
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    await flush();
+    assert.deepEqual(seen, [{
+      query: 'سلام', replace: '', caseSensitive: false, wholeWord: false, regexp: false, inSelection: false,
+    }]);
+    assert.equal(element.shadowRoot.querySelector('[part="search-dropdown"]').hasAttribute('hidden'), false);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_search_flag_when_flag_is_changed', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const seen = [];
+    element.addEventListener('search-query', (event) => seen.push(event.detail));
+    const flag = element.shadowRoot.querySelector('[data-search-flag="regexp"]');
+    flag.checked = true;
+    flag.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    await flush();
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].regexp, true);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_search_action_when_action_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const seen = [];
+    element.addEventListener('search-next', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-search-action="next"]').click();
+    await flush();
+    assert.equal(seen.length, 1);
+    assert.deepEqual(seen[0].query, '');
+    assert.equal(element.shadowRoot.querySelector('[part="search-dropdown"]').hasAttribute('hidden'), false);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_step_on_enter_when_query_is_confirmed', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const seen = [];
+    element.addEventListener('search-next', (event) => seen.push(event.detail));
+    const input = element.shadowRoot.querySelector('[data-search-query]');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+    await flush();
+    assert.equal(seen.length, 1);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_search_close_when_escape_is_pressed_in_form', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const seen = [];
+    element.addEventListener('search-close', () => seen.push('closed'));
+    const input = element.shadowRoot.querySelector('[data-search-query]');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    await flush();
+    assert.deepEqual(seen, ['closed']);
+    assert.equal(element.shadowRoot.querySelector('[part="search-dropdown"]').hasAttribute('hidden'), true);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_hide_without_notify_when_outside_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    const seen = [];
+    element.addEventListener('search-close', () => seen.push('closed'));
+    document.body.click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="search-dropdown"]').hasAttribute('hidden'), true);
+    assert.deepEqual(seen, []);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_result_when_search_is_configured', async () => {
+  const element = mount();
+  try {
+    await flush();
+    await openSearch(element);
+    element.configure({
+      search: { query: 'a', count: { current: 1, total: 2 }, invalidRegexp: false, replaced: null },
+    });
+    await flush();
+    const count = element.shadowRoot.querySelector('[data-search-count]');
+    assert.ok(count.textContent.includes('parsinegar.search.count'));
+    element.configure({ search: { query: '([', regexp: true, invalidRegexp: true } });
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-search-message]').textContent.includes('parsinegar.search.invalid-regexp'));
+    element.configure({ search: { query: 'a', replaced: 3 } });
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-search-message]').textContent.includes('parsinegar.search.replaced'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_paint_search_chrome_when_mounted', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const styles = element.shadowRoot.querySelector('style')?.textContent ?? '';
+    assert.ok(styles.includes('margin-inline-start: auto'));
+    assert.ok(styles.includes('inset-inline-end: 0'));
+    assert.ok(styles.includes('inline-size: 17rem'));
   } finally {
     element.remove();
   }

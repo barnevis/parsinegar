@@ -62,6 +62,8 @@ class ParsiPageHome extends PeyElement {
   #renderObserver = null;
   #editorHost = null;
   #menuEl = null;
+  #searchOpen = false;
+  #searchSpec = null;
   #railEl = null;
   #sideEl = null;
   #statusEl = null;
@@ -136,6 +138,12 @@ class ParsiPageHome extends PeyElement {
       'files-sort',
       'settings-change',
       'settings-step',
+      'search-query',
+      'search-next',
+      'search-previous',
+      'search-replace-one',
+      'search-replace-all',
+      'search-close',
     ];
   }
 
@@ -150,6 +158,15 @@ class ParsiPageHome extends PeyElement {
 
   handleEvent(event) {
     if (event.type === 'keydown') {
+      // Layout-independent (physical KeyF): Ctrl+H stays the heading toggle,
+      // so replace-focus takes Ctrl+Shift+F instead. The browser find is
+      // only claimed when a document is actually open to search.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === 'KeyF') {
+        if (this.#openSearch(event.shiftKey ? 'replace' : 'query')) {
+          event.preventDefault();
+        }
+        return;
+      }
       if (event.key === 'Escape' && this.#docs) {
         const { confirmDeleteId, propsRecord } = this.#docs.getState();
         if (confirmDeleteId !== null || propsRecord !== null) {
@@ -163,6 +180,18 @@ class ParsiPageHome extends PeyElement {
       const action = event.detail?.action;
       if (event.type === 'menu-action' && typeof action === 'string') {
         void this.#runMenuAction(action);
+        return;
+      }
+      if (event.type === 'search-close') {
+        this.#clearSearch();
+        return;
+      }
+      if (event.type === 'search-query'
+        || event.type === 'search-next'
+        || event.type === 'search-previous'
+        || event.type === 'search-replace-one'
+        || event.type === 'search-replace-all') {
+        this.#runSearch(event.type, event.detail);
         return;
       }
       if (event.type === 'view-select' && typeof event.detail?.id === 'string') {
@@ -400,6 +429,109 @@ class ParsiPageHome extends PeyElement {
     }
   }
 
+  /**
+   * Opens the search dropdown and focuses a form field. No-op without an
+   * open document or a mounted editor.
+   * @param {string} focus 'replace' focuses the replacement input, anything
+   *   else the query input.
+   * @returns {boolean} True when the dropdown was opened.
+   */
+  #openSearch(focus) {
+    const { currentId = null } = this.#docs?.getState() ?? {};
+    if (currentId === null || !this.#editor) {
+      return false;
+    }
+    this.#searchOpen = true;
+    this.#menuEl?.configure({ searchOpen: true, searchFocus: focus === 'replace' ? 'replace' : 'query' });
+    return true;
+  }
+
+  /**
+   * Sanitizes a search event detail into a form spec.
+   * @param {object} detail Event detail from the menubar.
+   * @returns {object} `{ query, replace, caseSensitive, wholeWord, regexp, inSelection }`.
+   */
+  #searchSpecFrom(detail) {
+    const source = detail !== null && typeof detail === 'object' ? detail : {};
+    return {
+      query: typeof source.query === 'string' ? source.query : '',
+      replace: typeof source.replace === 'string' ? source.replace : '',
+      caseSensitive: source.caseSensitive === true,
+      wholeWord: source.wholeWord === true,
+      regexp: source.regexp === true,
+      inSelection: source.inSelection === true,
+    };
+  }
+
+  /**
+   * Runs one search event against the editor and echoes the fresh result
+   * back to the menubar form. No-op without a mounted editor.
+   * @param {string} kind Search event type.
+   * @param {object} detail Event detail with the form spec.
+   * @returns {void}
+   */
+  #runSearch(kind, detail) {
+    if (!this.#editor) {
+      return;
+    }
+    const spec = this.#searchSpecFrom(detail);
+    this.#searchOpen = true;
+    this.#searchSpec = spec;
+    let result;
+    if (kind === 'search-next') {
+      result = this.#editor.searchStep(spec, 1);
+    } else if (kind === 'search-previous') {
+      result = this.#editor.searchStep(spec, -1);
+    } else if (kind === 'search-replace-one') {
+      result = this.#editor.searchReplaceOne(spec);
+    } else if (kind === 'search-replace-all') {
+      result = this.#editor.searchReplaceAll(spec);
+    } else {
+      result = this.#editor.setSearch(spec);
+    }
+    this.#menuEl?.configure({
+      search: {
+        ...spec,
+        count: spec.query === '' ? null : { current: result.current, total: result.total },
+        invalidRegexp: result.invalidRegexp === true,
+        replaced: Number.isInteger(result.replaced) ? result.replaced : null,
+      },
+    });
+  }
+
+  /**
+   * Clears the editor highlight and resets the menubar form after an
+   * explicit search close.
+   * @returns {void}
+   */
+  #clearSearch() {
+    this.#searchOpen = false;
+    this.#searchSpec = null;
+    this.#editor?.setSearch({ query: '' });
+    this.#menuEl?.configure({ searchOpen: false, search: null });
+  }
+
+  /**
+   * Recounts the live search result after the document changed under an
+   * open search (typing, undo, replace). Keeps the counter truthful while
+   * the dropdown stays open.
+   * @returns {void}
+   */
+  #recountSearch() {
+    if (!this.#searchOpen || !this.#searchSpec || !this.#editor) {
+      return;
+    }
+    const result = this.#editor.setSearch(this.#searchSpec);
+    this.#menuEl?.configure({
+      search: {
+        ...this.#searchSpec,
+        count: this.#searchSpec.query === '' ? null : { current: result.current, total: result.total },
+        invalidRegexp: result.invalidRegexp === true,
+        replaced: null,
+      },
+    });
+  }
+
   #switchView(id) {
     const view = getView(id);
     if (!view) {
@@ -513,7 +645,12 @@ class ParsiPageHome extends PeyElement {
       slot: '[data-slot="menubar"]',
       tag: 'parsi-menu-bar',
       infrastructure,
-      refs: { t: this.#t, hasDocument: currentId !== null },
+      refs: {
+        t: this.#t,
+        hasDocument: currentId !== null,
+        formatNumber: (value) => this.#formatNumber(value),
+        assetBaseUrl: this.#assetBaseUrl,
+      },
       configure: (element) => element.configure({ hasDocument: currentId !== null }),
     });
     this.#railEl = mountComponent({
@@ -768,6 +905,10 @@ class ParsiPageHome extends PeyElement {
       this.#spy.reset();
       // Any opened document leaves the about pane behind.
       this.#centerView = 'editor';
+      // A new document owns a new search: drop the old query and form.
+      this.#searchOpen = false;
+      this.#searchSpec = null;
+      this.#menuEl?.configure({ searchOpen: false, search: null });
     }
     this.#requestEditor();
   }
@@ -846,6 +987,7 @@ class ParsiPageHome extends PeyElement {
             }),
           );
           this.#pushLiveUpdates();
+          this.#recountSearch();
           this.#docs?.scheduleSave();
         },
       });

@@ -1245,3 +1245,128 @@ test('should_ignore_download_gracefully_when_unsupported', async () => {
     element.remove();
   }
 });
+
+function searchDropdown(element) {
+  return inChild(element, 'parsi-menu-bar', '[part="search-dropdown"]');
+}
+
+function typeSearch(element, query, replace = '') {
+  const menu = child(element, 'parsi-menu-bar');
+  const queryInput = menu.shadowRoot.querySelector('[data-search-query]');
+  queryInput.value = query;
+  queryInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  if (replace !== '') {
+    const replaceInput = menu.shadowRoot.querySelector('[data-search-replace]');
+    replaceInput.value = replace;
+    replaceInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  }
+}
+
+test('should_open_search_when_ctrl_f_is_pressed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو یک', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), true);
+    const content = element.shadowRoot.querySelector('[part="editor-host"] .cm-content');
+    content.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', ctrlKey: true, bubbles: true, composed: true }));
+    await settled();
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), false);
+    assert.equal(child(element, 'parsi-menu-bar').shadowRoot.activeElement?.getAttribute('data-search-query'), '');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_focus_replace_when_ctrl_shift_f_is_pressed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو یک', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const content = element.shadowRoot.querySelector('[part="editor-host"] .cm-content');
+    content.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', ctrlKey: true, shiftKey: true, bubbles: true, composed: true }));
+    await settled();
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), false);
+    assert.equal(child(element, 'parsi-menu-bar').shadowRoot.activeElement?.getAttribute('data-search-replace'), '');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_count_matches_when_query_is_typed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو یک', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-search-toggle]').click();
+    await settled();
+    typeSearch(element, 'یک');
+    await settled();
+    const count = inChild(element, 'parsi-menu-bar', '[data-search-count]').textContent;
+    assert.ok(count.includes('1') && count.includes('2'), `expected 1-of-2 count, got: ${count}`);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_step_and_replace_all_when_actions_are_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو یک', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-search-toggle]').click();
+    await settled();
+    typeSearch(element, 'یک', '۱');
+    await settled();
+    const menu = child(element, 'parsi-menu-bar');
+    menu.shadowRoot.querySelector('[data-search-action="next"]').click();
+    await settled();
+    const count = inChild(element, 'parsi-menu-bar', '[data-search-count]').textContent;
+    assert.ok(count.includes('2'), `expected to land on match 2, got: ${count}`);
+    menu.shadowRoot.querySelector('[data-search-action="replace-all"]').click();
+    await settled();
+    assert.equal(element.value, '۱ دو ۱');
+    const message = inChild(element, 'parsi-menu-bar', '[data-search-message]').textContent;
+    assert.ok(message.includes('2'), `expected a 2-item confirmation, got: ${message}`);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_clear_search_when_escape_is_pressed', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'یک دو یک', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-menu-bar', '[data-search-toggle]').click();
+    await settled();
+    typeSearch(element, 'یک');
+    await settled();
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), false);
+    const input = inChild(element, 'parsi-menu-bar', '[data-search-query]');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    await settled();
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), true);
+    assert.equal(inChild(element, 'parsi-menu-bar', '[data-search-count]').textContent, '');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_reset_search_when_document_is_switched', async () => {
+  const documents = createDocuments([
+    { id: 'first', title: 'اول', content: 'یک دو یک', updatedAt: 100 },
+    { id: 'second', title: 'دوم', content: 'متن دوم', updatedAt: 300 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-side-panel', '[data-doc-id="first"]').click();
+    await settled();
+    inChild(element, 'parsi-menu-bar', '[data-search-toggle]').click();
+    await settled();
+    typeSearch(element, 'یک');
+    await settled();
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), false);
+    inChild(element, 'parsi-side-panel', '[data-doc-id="second"]').click();
+    await settled();
+    assert.equal(searchDropdown(element).hasAttribute('hidden'), true);
+    assert.equal(inChild(element, 'parsi-menu-bar', '[data-search-count]').textContent, '');
+  } finally {
+    element.remove();
+  }
+});
