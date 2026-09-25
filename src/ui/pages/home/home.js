@@ -834,6 +834,8 @@ class ParsiPageHome extends PeyElement {
         direction: this.#prefs?.getState().direction ?? 'rtl',
         fontSize: this.#prefs?.getState().fontSize ?? 16,
         colorScheme: this.#resolveColorScheme(),
+        t: this.#t,
+        assetBaseUrl: this.#assetBaseUrl,
         onChange: (value) => {
           this.#docs?.setDraft(value);
           this.dispatchEvent(

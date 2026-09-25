@@ -22,6 +22,22 @@ const SEPIA_CURSOR = '#5f4b32';
 const SEPIA_HIGHLIGHT_BACKGROUND = '#fcd34d';
 const SEPIA_HIGHLIGHT_INK = '#5f4b32';
 
+const DARK_CODE_KEYWORD = '#c084fc';
+const DARK_CODE_STRING = '#a3e635';
+const DARK_CODE_COMMENT = '#7d8aa0';
+const DARK_CODE_NUMBER = '#fbbf24';
+const DARK_CODE_OPERATOR = '#94a3b8';
+const DARK_CODE_TYPE = '#5eead4';
+const DARK_CODE_PROPERTY = '#6ea8ff';
+
+const SEPIA_CODE_KEYWORD = '#7c3aed';
+const SEPIA_CODE_STRING = '#047857';
+const SEPIA_CODE_COMMENT = '#8a7a5f';
+const SEPIA_CODE_NUMBER = '#b45309';
+const SEPIA_CODE_OPERATOR = '#8a7a5f';
+const SEPIA_CODE_TYPE = '#0e7490';
+const SEPIA_CODE_PROPERTY = '#1d4ed8';
+
 /**
  * Returns the color-scheme extensions for the given scheme name.
  * @param {string} colorScheme 'dark' or 'sepia' enables overrides, anything else none.
@@ -72,6 +88,14 @@ export function editorColorScheme(colorScheme) {
         backgroundColor: dark ? DARK_HIGHLIGHT_BACKGROUND : SEPIA_HIGHLIGHT_BACKGROUND,
         color: dark ? DARK_HIGHLIGHT_INK : SEPIA_HIGHLIGHT_INK,
       },
+      '& .cm-line .parsi-code-keyword': { color: dark ? DARK_CODE_KEYWORD : SEPIA_CODE_KEYWORD },
+      '& .cm-line .parsi-code-string': { color: dark ? DARK_CODE_STRING : SEPIA_CODE_STRING },
+      '& .cm-line .parsi-code-comment': { color: dark ? DARK_CODE_COMMENT : SEPIA_CODE_COMMENT },
+      '& .cm-line .parsi-code-number': { color: dark ? DARK_CODE_NUMBER : SEPIA_CODE_NUMBER },
+      '& .cm-line .parsi-code-variable': { color: dark ? DARK_TEXT : SEPIA_TEXT },
+      '& .cm-line .parsi-code-operator': { color: dark ? DARK_CODE_OPERATOR : SEPIA_CODE_OPERATOR },
+      '& .cm-line .parsi-code-type': { color: dark ? DARK_CODE_TYPE : SEPIA_CODE_TYPE },
+      '& .cm-line .parsi-code-property': { color: dark ? DARK_CODE_PROPERTY : SEPIA_CODE_PROPERTY },
     }),
   ];
 }

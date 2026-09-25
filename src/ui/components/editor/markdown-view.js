@@ -12,6 +12,8 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { keymap } from '@codemirror/view';
 import { EditorSelection, Prec } from '@codemirror/state';
 import { editorColorScheme } from './editor-theme.js';
+import { codeCopyExtensions } from './code-copy.js';
+import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
 import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList } from './list-continue.js';
@@ -60,6 +62,8 @@ function isSelectAllEvent(event) {
  * @param {string} [options.direction] Writing direction: 'rtl' locks every line right (fenced code stays ltr), 'ltr' locks every line left, 'auto' detects per line from the first strong letter (default 'rtl'; letter-less lines take the rtl base so the caret stays right).
  * @param {number} [options.fontSize] Editor font size in pixels (12-24, default 16).
  * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
+ * @param {Function} [options.t] Translation function for widget labels (falls back to identity).
+ * @param {string|null} [options.assetBaseUrl] Resolved asset directory URL for widget icons.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
  *   focus(), undo(), redo(), gotoLine(line), visibleLine(),
@@ -88,11 +92,13 @@ export function createMarkdownView(host, options = {}) {
     doc: current,
     extensions: [
       minimalSetup,
-      markdown({ base: markdownLanguage }),
+      markdown({ base: markdownLanguage, codeLanguages: codeLanguageDescriptions }),
       EditorView.lineWrapping,
       ...livePreviewExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
+      ...codeHighlightExtensions(),
+      ...codeCopyExtensions({ t: options.t, assetBaseUrl: options.assetBaseUrl ?? null }),
       ...lineDirectionExtensions(baseDirection, forcedDirection),
       // Tab indents (Shift+Tab outdents); Alt+Arrow line moving already
       // arrives through the default keymap in minimalSetup.
