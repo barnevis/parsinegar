@@ -19,6 +19,7 @@ import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
+import { imageViewExtensions } from './image-view.js';
 import { collectSearchMatches, createSearchQuery, indexOfMatchAt, normalizeSearchSpec, resolveSearchScope } from './search-ops.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
@@ -128,6 +129,7 @@ export function createMarkdownView(host, options = {}) {
       // our own match colors below always win over the base theme.
       search(),
       ...livePreviewExtensions(),
+      ...imageViewExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
       ...codeHighlightExtensions(),

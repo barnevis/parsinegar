@@ -443,6 +443,89 @@ test('should_fall_back_to_first_line_when_destroyed', () => {
   }
 });
 
+function createImageEditor(documentText) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: documentText });
+  return { host, editor };
+}
+
+test('should_render_picture_when_remote_image_is_present', () => {
+  const { host, editor } = createImageEditor('متن ![alt text](https://example.com/a.png) بعد');
+  try {
+    const picture = host.querySelector('.parsi-image');
+    assert.ok(picture, 'expected a picture widget');
+    assert.equal(picture.getAttribute('src'), 'https://example.com/a.png');
+    assert.equal(picture.getAttribute('alt'), 'alt text');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_source_when_cursor_touches_image', () => {
+  // Fresh cursor at 0 touches the leading image span, like link reveal.
+  const { host, editor } = createImageEditor('![alt](https://example.com/a.png) بعد');
+  try {
+    assert.equal(host.querySelector('.parsi-image'), null);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_alt_text_when_image_is_local', () => {
+  const { host, editor } = createImageEditor('متن ![alt](./x.png) بعد');
+  try {
+    assert.equal(host.querySelector('.parsi-image'), null);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_link_picture_when_image_is_nested_in_link', () => {
+  const { host, editor } = createImageEditor('متن [![badge](https://img.shields.io/x)](#) بعد');
+  try {
+    const link = host.querySelector('.parsi-image-link');
+    assert.ok(link, 'expected a linked picture');
+    assert.equal(link.getAttribute('href'), '#');
+    assert.equal(link.getAttribute('target'), '_blank');
+    assert.equal(link.getAttribute('rel'), 'noopener');
+    assert.ok(link.querySelector('.parsi-image'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_fall_back_to_alt_when_picture_fails', () => {
+  const { host, editor } = createImageEditor('متن ![alt text](https://example.com/a.png) بعد');
+  try {
+    const picture = host.querySelector('.parsi-image');
+    assert.ok(picture, 'expected a picture widget');
+    picture.dispatchEvent(new Event('error'));
+    const fallback = host.querySelector('.parsi-image-fallback');
+    assert.ok(fallback, 'expected an alt fallback');
+    assert.equal(fallback.textContent, 'alt text');
+    assert.equal(host.querySelector('.parsi-image'), null);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_size_pictures_when_theme_is_loaded', () => {
+  const { host, editor } = createImageEditor('متن ![alt](https://example.com/a.png) بعد');
+  try {
+    assert.ok(hasRule('.parsi-image', 'max-width', '100%'));
+    assert.ok(hasRule('.parsi-image', 'max-height', '16rem'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 function createSearchEditor(documentText) {
   const host = document.createElement('div');
   document.body.append(host);
