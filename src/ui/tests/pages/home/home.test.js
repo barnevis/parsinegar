@@ -525,7 +525,7 @@ async function openViewMenu(element) {
 }
 
 test('should_open_help_doc_when_menu_action_arrives', async () => {
-  const restore = stubBuiltinFetch({ './README.md': '# راهنمای پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './GUIDE.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
@@ -583,7 +583,7 @@ test('should_return_to_document_when_document_opens_from_builtin', async () => {
 });
 
 test('should_keep_draft_clean_when_builtin_is_open', async () => {
-  const restore = stubBuiltinFetch({ './README.md': '# راهنمای پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './GUIDE.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {

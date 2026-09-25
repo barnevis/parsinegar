@@ -19,13 +19,13 @@ test('should_list_builtin_docs_when_listed', () => {
 });
 
 test('should_load_and_cache_when_opened', async () => {
-  const { fetchImpl, calls } = stubFetch({ './README.md': '# راهنما' });
+  const { fetchImpl, calls } = stubFetch({ './GUIDE.md': '# راهنما' });
   const guides = createBuiltinDocs({ fetchImpl, t: (key) => `t:${key}` });
   const first = await guides.open('help');
   assert.deepEqual(first, { id: 'help', title: 't:parsinegar.builtin.help', content: '# راهنما' });
   const second = await guides.open('help');
   assert.deepEqual(second, first);
-  assert.deepEqual(calls, ['./README.md']);
+  assert.deepEqual(calls, ['./GUIDE.md']);
 });
 
 test('should_return_null_when_id_is_unknown', async () => {
@@ -42,10 +42,10 @@ test('should_return_null_when_load_fails', async () => {
 });
 
 test('should_return_null_when_page_is_dead', async () => {
-  const { fetchImpl, calls } = stubFetch({ './README.md': '# راهنما' });
+  const { fetchImpl, calls } = stubFetch({ './GUIDE.md': '# راهنما' });
   const guides = createBuiltinDocs({ fetchImpl, isLive: () => false });
   assert.equal(await guides.open('help'), null);
-  assert.deepEqual(calls, ['./README.md']);
+  assert.deepEqual(calls, ['./GUIDE.md']);
 });
 
 test('should_return_null_without_fetch_when_omitted', async () => {

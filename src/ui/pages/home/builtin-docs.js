@@ -5,7 +5,7 @@
 // The page opens them through the same editor, locked for reading. Fetch is
 // injected so tests never touch the network.
 export const BUILTIN_DOCS = [
-  { id: 'help', titleKey: 'parsinegar.builtin.help', url: './README.md' },
+  { id: 'help', titleKey: 'parsinegar.builtin.help', url: './GUIDE.md' },
   { id: 'changelog', titleKey: 'parsinegar.builtin.changelog', url: './CHANGELOG.md' },
   { id: 'about', titleKey: 'parsinegar.builtin.about', url: './ABOUT.md' },
 ];

@@ -42,6 +42,7 @@ npm test
 ```text
 parsinegar/
 ├── ABOUT.md            # درباره (سند داخلی فقط-خواندن در اپ)
+├── GUIDE.md            # راهنمای کاربر (سند داخلی فقط-خواندن در اپ)
 ├── CHANGELOG.md        # تاریخچه تغییرات (سند داخلی فقط-خواندن در اپ)
 ├── src/app/            # Runtime Host (ConfigSource / EnvSource / ModuleLoader + core.start)
 ├── src/ui/             # رابط کاربری روی pey.webui (صفحات، کامپوننت‌ها، هلپرها + تست‌ها)
