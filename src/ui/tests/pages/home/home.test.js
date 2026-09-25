@@ -468,7 +468,7 @@ test('should_ignore_empty_pick_when_document_import_arrives', async () => {
 });
 
 test('should_open_about_doc_when_menu_action_arrives', async () => {
-  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار\n\nمتن درباره' });
+  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار\n\nمتن درباره' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
@@ -484,7 +484,7 @@ test('should_open_about_doc_when_menu_action_arrives', async () => {
 });
 
 test('should_open_about_doc_when_rail_logo_is_clicked', async () => {
-  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
@@ -525,7 +525,7 @@ async function openViewMenu(element) {
 }
 
 test('should_open_help_doc_when_menu_action_arrives', async () => {
-  const restore = stubBuiltinFetch({ './GUIDE.md': '# راهنمای پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/userGuide.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
@@ -540,7 +540,7 @@ test('should_open_help_doc_when_menu_action_arrives', async () => {
 });
 
 test('should_return_to_document_when_back_is_clicked', async () => {
-  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
@@ -561,7 +561,7 @@ test('should_return_to_document_when_back_is_clicked', async () => {
 });
 
 test('should_return_to_document_when_document_opens_from_builtin', async () => {
-  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار' });
   const documents = createDocuments([
     { id: 'd1', title: 'اول', content: 'c1', updatedAt: 100 },
     { id: 'd2', title: 'دوم', content: 'c2', updatedAt: 300 },
@@ -583,7 +583,7 @@ test('should_return_to_document_when_document_opens_from_builtin', async () => {
 });
 
 test('should_keep_draft_clean_when_builtin_is_open', async () => {
-  const restore = stubBuiltinFetch({ './GUIDE.md': '# راهنمای پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/userGuide.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
