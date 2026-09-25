@@ -74,3 +74,18 @@ test('should_toggle_task_when_checkbox_is_clicked', () => {
     destroy(mounted);
   }
 });
+
+test('should_freeze_task_when_editor_is_locked', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن\n\n- [ ] خرید', readOnly: true });
+  try {
+    const box = host.querySelector('.parsi-task-marker');
+    assert.ok(box, 'expected a checkbox widget while locked');
+    box.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    assert.ok(editor.getValue().includes('- [ ] خرید'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});

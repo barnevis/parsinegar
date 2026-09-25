@@ -7,12 +7,12 @@ import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
-import { logoMarkup } from '../../components/workbench/logo.js';
 import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
 import { createDocumentController, deriveImportTitle } from './document-controller.js';
+import { createBuiltinDocs } from './builtin-docs.js';
 import { createSettingsApplier } from './settings-applier.js';
 import { createScrollSpy } from './scroll-spy.js';
 import '../../components/menu-bar/menu-bar.js';
@@ -25,9 +25,6 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
-// Displayed on the about pane; bump together with package.json (no build
-// step exists to read it at runtime).
-const APP_VERSION = '۰.۶.۰';
 const INSERT_ACTION_PREFIX = 'insert-';
 const INSERT_MARK_KINDS = [
   'heading',
@@ -64,12 +61,13 @@ class ParsiPageHome extends PeyElement {
   #menuEl = null;
   #searchOpen = false;
   #searchSpec = null;
+  #builtIn = null;
+  #guides = null;
   #railEl = null;
   #sideEl = null;
   #statusEl = null;
   #modalEl = null;
   #events = null;
-  #centerView = 'editor';
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -114,6 +112,9 @@ class ParsiPageHome extends PeyElement {
       this.#prefs = createSettingsApplier({ settingsApi, isLive: () => this.isConnected });
     } else {
       this.#prefs.reconnect({ settingsApi });
+    }
+    if (!this.#guides) {
+      this.#guides = createBuiltinDocs({ t: this.#t, isLive: () => this.isConnected });
     }
   }
 
@@ -199,7 +200,7 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'about-open') {
-        this.#openAbout();
+        void this.#openBuiltin('about');
         return;
       }
       if (event.type === 'files-sort' && FILES_SORT_MODES.includes(event.detail?.mode)) {
@@ -272,10 +273,6 @@ class ParsiPageHome extends PeyElement {
       }
     }
     const target = event.target;
-    if (target?.closest?.('[part="about-back"]')) {
-      this.#hideAboutPane();
-      return;
-    }
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
       return;
@@ -393,7 +390,19 @@ class ParsiPageHome extends PeyElement {
           await this.#importDocument();
           return;
         case 'about':
-          this.#openAbout();
+          await this.#openBuiltin('about');
+          return;
+        case 'open-help':
+          await this.#openBuiltin('help');
+          return;
+        case 'open-changelog':
+          await this.#openBuiltin('changelog');
+          return;
+        case 'back-to-documents':
+          this.#closeBuiltin();
+          return;
+        case 'toggle-lock':
+          await this.#toggleLock();
           return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {
@@ -548,15 +557,13 @@ class ParsiPageHome extends PeyElement {
 
   render() {
     scheduleAttachments(() => this.#attachChildren());
-    const about = this.#centerView === 'about';
     return `
       <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
         <div data-slot="menubar"></div>
         <div data-slot="rail"></div>
         ${this.#sideOpen ? '<div data-slot="side"></div>' : ''}
         <div part="center">
-          <div part="editor-host"${about ? ' hidden' : ''}></div>
-          ${about ? this.#renderAbout() : ''}
+          <div part="editor-host"></div>
         </div>
         ${this.#bottomOpen ? '<div data-slot="status"></div>' : ''}
       </div>
@@ -565,67 +572,89 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Opens the about pane in the center column, shared by the file-menu
-   * action and the rail logotype button.
-   * @returns {void}
+   * Opens a built-in project doc (help, changelog, about) in the mounted
+   * editor, locked for reading. The user draft is parked first, so closing
+   * returns to it untouched; the built-in never touches the draft, the
+   * save timer or the documents service.
+   * @param {unknown} id Built-in doc id.
+   * @returns {Promise<void>}
    */
-  #openAbout() {
-    // Imperative swap on purpose: a full render replaces the shadow
-    // DOM, which would destroy the editor-host node and force an
-    // editor remount (losing undo). Toggling hidden state keeps the
-    // mounted view alive; render() below already reflects #centerView,
-    // so any later render reconciles the same state.
-    this.#centerView = 'about';
-    this.#showAboutPane();
-  }
-
-  /**
-   * Shows the about pane without re-rendering (see `#openAbout`), and
-   * hides the editor host in place. Falls back to a render when the nodes
-   * are not there yet.
-   * @returns {void}
-   */
-  #showAboutPane() {
-    const center = this.shadowRoot.querySelector('[part="center"]');
-    const host = this.shadowRoot.querySelector('[part="editor-host"]');
-    if (!center || !host) {
-      this.requestRender();
+  async #openBuiltin(id) {
+    const opened = await this.#guides?.open(id);
+    if (!opened || !this.isConnected || !this.#editor) {
       return;
     }
-    host.setAttribute('hidden', '');
-    if (!center.querySelector('[part="about"]')) {
-      host.insertAdjacentHTML('afterend', this.#renderAbout());
-    }
+    this.#docs?.setDraft(this.#editor.getValue());
+    this.#builtIn = opened;
+    this.#editor.setDocument(opened.content);
+    this.#editor.setReadOnly(true);
+    this.#refreshChrome();
   }
 
   /**
-   * Returns to the editor without re-rendering, keeping the mounted view
-   * (and its undo history) alive.
+   * Returns from a built-in doc to the open user document, restoring its
+   * draft content and its stored lock. No-op when no built-in is open.
    * @returns {void}
    */
-  #hideAboutPane() {
-    this.#centerView = 'editor';
-    this.shadowRoot.querySelector('[part="editor-host"]')?.removeAttribute('hidden');
-    this.shadowRoot.querySelector('[part="about"]')?.remove();
+  #closeBuiltin() {
+    if (!this.#builtIn) {
+      return;
+    }
+    this.#builtIn = null;
+    if (this.#editor) {
+      this.#editor.setDocument(this.#docs?.getDraft() ?? SAMPLE_DOCUMENT);
+      this.#editor.setReadOnly(this.#currentLocked());
+    }
+    this.#refreshChrome();
   }
 
   /**
-   * Renders the static about pane shown in place of the editor. The editor
-   * stays mounted (hidden) underneath, so no content, focus or undo is lost.
-   * @returns {string} About markup.
+   * Reports whether the open user document carries the stored lock.
+   * Built-in docs are always locked; they never reach this check.
+   * @returns {boolean} True when the current record is locked.
    */
-  #renderAbout() {
-    return `
-      <div part="about">
-        <div part="about-logo" aria-hidden="true">${logoMarkup()}</div>
-        <h1 part="about-title">${this.#t('parsinegar.about.title')}</h1>
-        <p part="about-lead">${this.#t('parsinegar.about.lead')}</p>
-        <p part="about-version">${this.#t('parsinegar.about.version', { version: APP_VERSION })}</p>
-        <div part="about-actions">
-          <button part="about-back" type="button">${this.#t('parsinegar.about.action')}</button>
-          <a part="about-link" href="https://github.com/barnevis/parsinegar" target="_blank" rel="noopener">${this.#t('parsinegar.menu.github')}</a>
-        </div>
-      </div>`;
+  #currentLocked() {
+    const { items = [], currentId = null } = this.#docs?.getState() ?? {};
+    return items.some((item) => item.id === currentId && item.readOnly === true);
+  }
+
+  /**
+   * Toggles the stored lock on the open user document and applies it to
+   * the mounted editor without remounting. No-op for built-ins (always
+   * locked) and without a document or service.
+   * @returns {Promise<void>}
+   */
+  async #toggleLock() {
+    if (this.#builtIn) {
+      return;
+    }
+    const { currentId = null } = this.#docs?.getState() ?? {};
+    if (!currentId) {
+      return;
+    }
+    const updated = await this.#docs?.setLock(currentId, !this.#currentLocked());
+    if (!updated || !this.isConnected) {
+      return;
+    }
+    this.#editor?.setReadOnly(updated.readOnly === true);
+    this.#refreshChrome();
+  }
+
+  /**
+   * Refreshes chrome snapshots (menu capabilities, status bar) without a
+   * page render: re-rendering would detach the editor host and force a
+   * remount, losing undo history.
+   * @returns {void}
+   */
+  #refreshChrome() {
+    const { currentId = null } = this.#docs?.getState() ?? {};
+    const locked = this.#builtIn !== null || this.#currentLocked();
+    this.#menuEl?.configure({
+      hasDocument: currentId !== null,
+      readOnly: locked,
+      builtInOpen: this.#builtIn !== null,
+    });
+    this.#pushLiveUpdates();
   }
 
   /**
@@ -651,7 +680,11 @@ class ParsiPageHome extends PeyElement {
         formatNumber: (value) => this.#formatNumber(value),
         assetBaseUrl: this.#assetBaseUrl,
       },
-      configure: (element) => element.configure({ hasDocument: currentId !== null }),
+      configure: (element) => element.configure({
+        hasDocument: currentId !== null,
+        readOnly: this.#builtIn !== null || this.#currentLocked(),
+        builtInOpen: this.#builtIn !== null,
+      }),
     });
     this.#railEl = mountComponent({
       shadowRoot: this.shadowRoot,
@@ -711,6 +744,7 @@ class ParsiPageHome extends PeyElement {
         configure: (element) => element.configure({
           stats: countStats(this.value),
           formatNumber: (value) => this.#formatNumber(value),
+          readOnly: this.#builtIn !== null || this.#currentLocked(),
         }),
       });
     } else {
@@ -903,8 +937,9 @@ class ParsiPageHome extends PeyElement {
       this.#unmountEditor();
       this.#docs?.adopt(result.apply, result.items);
       this.#spy.reset();
-      // Any opened document leaves the about pane behind.
-      this.#centerView = 'editor';
+      // Any opened document leaves a built-in doc behind; the fresh mount
+      // below picks the adopted record content and its stored lock.
+      this.#builtIn = null;
       // A new document owns a new search: drop the old query and form.
       this.#searchOpen = false;
       this.#searchSpec = null;
@@ -947,6 +982,7 @@ class ParsiPageHome extends PeyElement {
     this.#statusEl?.configure({
       stats,
       formatNumber: (value) => this.#formatNumber(value),
+      readOnly: this.#builtIn !== null || this.#currentLocked(),
     });
     const { items = [], currentId = null } = this.#docs?.getState() ?? {};
     const { settings = null } = this.#prefs?.getState() ?? {};
@@ -970,14 +1006,22 @@ class ParsiPageHome extends PeyElement {
     }
     try {
       this.#editor = createMarkdownView(host, {
-        document: this.#docs?.getDraft() ?? SAMPLE_DOCUMENT,
+        document: this.#builtIn?.content ?? this.#docs?.getDraft() ?? SAMPLE_DOCUMENT,
         label: this.#t('parsinegar.editor.label'),
         direction: this.#prefs?.getState().direction ?? 'rtl',
         fontSize: this.#prefs?.getState().fontSize ?? 16,
         colorScheme: this.#resolveColorScheme(),
+        readOnly: this.#builtIn !== null || this.#currentLocked(),
         t: this.#t,
         assetBaseUrl: this.#assetBaseUrl,
         onChange: (value) => {
+          // Built-in docs never touch the draft, the change event or the
+          // save timer: loading them dispatches through setDocument, and
+          // the lock refuses every user edit anyway.
+          if (this.#builtIn) {
+            this.#pushLiveUpdates();
+            return;
+          }
           this.#docs?.setDraft(value);
           this.dispatchEvent(
             new CustomEvent(CHANGE_EVENT, {

@@ -1,5 +1,13 @@
 # Changelog — parsinegar.documents
 
+## [0.3.0]
+
+### Added
+
+- `readOnly` flag on records (defaults to `false`, backfilled for older records).
+- `setReadOnly(id, readOnly)` to lock/unlock a document for reading, publishing `documents:changed`.
+- `saveDocument` preserves the stored lock unless `input.readOnly` states it explicitly.
+
 ## [0.2.0] - 1405-06-27
 
 ### Added

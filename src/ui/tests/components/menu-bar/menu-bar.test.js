@@ -332,14 +332,49 @@ test('should_show_result_when_search_is_configured', async () => {
   }
 });
 
-test('should_paint_search_chrome_when_mounted', async () => {
-  const element = mount();
+test('should_paint_search_chrome_when_mounted', async () => {  const element = mount();
   try {
     await flush();
     const styles = element.shadowRoot.querySelector('style')?.textContent ?? '';
     assert.ok(styles.includes('margin-inline-start: auto'));
     assert.ok(styles.includes('inset-inline-end: 0'));
     assert.ok(styles.includes('inline-size: 17rem'));
+  } finally {
+    element.remove();
+  }
+});
+
+function fileActions(element) {
+  return [...element.shadowRoot.querySelectorAll('[data-action]')].map((node) => node.getAttribute('data-action'));
+}
+
+test('should_offer_help_and_lock_when_file_menu_is_open', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    await flush();
+    const actions = fileActions(element);
+    for (const id of ['open-help', 'open-changelog', 'about', 'toggle-lock']) {
+      assert.ok(actions.includes(id), `expected item: ${id}`);
+    }
+    assert.ok(!actions.includes('back-to-documents'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_back_and_freeze_lock_when_builtin_is_configured', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.configure({ readOnly: true, builtInOpen: true });
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    await flush();
+    const actions = fileActions(element);
+    assert.ok(actions.includes('back-to-documents'));
+    assert.ok(element.shadowRoot.querySelector('[data-action="toggle-lock"]').disabled);
   } finally {
     element.remove();
   }

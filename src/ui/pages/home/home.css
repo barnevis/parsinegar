@@ -86,75 +86,8 @@ parsi-status-bar {
   min-block-size: 65vh;
 }
 
-[part="editor-host"][hidden],
-[part="about"][hidden] {
+[part="editor-host"][hidden] {
   display: none;
-}
-
-[part="about"] {
-  box-sizing: border-box;
-  max-inline-size: 800px;
-  margin-inline: auto;
-  padding: 3rem 2.25rem;
-  text-align: center;
-}
-
-[part="about-title"] {
-  font-size: 1.5rem;
-  margin: 0 0 0.75rem;
-}
-
-[part="about-logo"] {
-  margin-block-end: 1rem;
-  color: inherit;
-}
-
-[part="about-logo"] svg {
-  block-size: 7rem;
-  inline-size: auto;
-}
-
-[part="about-lead"] {
-  margin: 0 0 0.5rem;
-  color: var(--pey-color-text-muted, #55555f);
-}
-
-[part="about-version"] {
-  margin: 0 0 1.5rem;
-  font-weight: 700;
-}
-
-[part="about-actions"] {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
-[part="about-back"],
-[part="about-link"] {
-  font: inherit;
-  border: 1px solid var(--pey-color-border, #d8d8de);
-  border-radius: 10px;
-  background-color: transparent;
-  padding: 0.55rem 1.5rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-[part="about-link"] {
-  display: inline-block;
-  text-decoration: none;
-}
-
-[part="about-back"]:hover,
-[part="about-link"]:hover {
-  border-color: var(--pey-color-border, #c8c8d2);
-}
-
-[part="about-back"]:focus-visible,
-[part="about-link"]:focus-visible {
-  outline: 2px solid var(--pey-color-focus-ring, #5eead4);
-  outline-offset: 2px;
 }
 
 @media (max-width: 56rem) {

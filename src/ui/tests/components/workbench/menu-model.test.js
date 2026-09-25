@@ -85,3 +85,33 @@ test('should_enable_delete_when_document_is_open', () => {
   const file = menus.find(({ id }) => id === 'file');
   assert.equal(file.items.find(({ id }) => id === 'delete-document').disabled, false);
 });
+
+test('should_offer_builtin_docs_when_file_menu_is_read', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true });
+  const file = menus.find(({ id }) => id === 'file');
+  for (const id of ['open-help', 'open-changelog', 'about']) {
+    const item = file.items.find((entry) => entry.id === id);
+    assert.ok(item, `expected item: ${id}`);
+    assert.equal(item.disabled, false);
+  }
+  assert.equal(file.items.find(({ id }) => id === 'back-to-documents'), undefined);
+});
+
+test('should_switch_lock_label_when_read_only_changes', () => {
+  const open = buildMenuModel({ t: translate, hasDocument: true });
+  const locked = buildMenuModel({ t: translate, hasDocument: true, readOnly: true });
+  assert.equal(open.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').label, 'parsinegar.documents.lock');
+  assert.equal(locked.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').label, 'parsinegar.documents.unlock');
+  assert.equal(locked.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').disabled, false);
+});
+
+test('should_disable_lock_without_document_or_for_builtin', () => {
+  const none = buildMenuModel({ t: translate, hasDocument: false });
+  assert.equal(none.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').disabled, true);
+  const builtIn = buildMenuModel({ t: translate, hasDocument: true, readOnly: true, builtInOpen: true });
+  const file = builtIn.find(({ id }) => id === 'file');
+  assert.equal(file.items.find(({ id }) => id === 'toggle-lock').disabled, true);
+  const back = file.items.find(({ id }) => id === 'back-to-documents');
+  assert.ok(back, 'expected the back item while a built-in is open');
+  assert.equal(back.disabled, false);
+});

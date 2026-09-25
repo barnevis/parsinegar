@@ -4,7 +4,8 @@ Page-level component: the single workbench page, mounted by the kit page host on
 
 ## Companion modules
 
-- `document-controller.js` — `createDocumentController({ documents, t, format, isLive, readEditorContent })`: the document working set (list snapshot, open id/title/draft, autosave timer, delete-confirmation target, properties record). Answers with plain data (`{ apply, items }`, outcome strings); the page adopts records after unmounting the editor (unmount parks old content into the draft, so adopting earlier would be overwritten) and owns every child handle and DOM effect. No DOM, no elements, no events.
+- `document-controller.js` — `createDocumentController({ documents, t, format, isLive, readEditorContent })`: the document working set (list snapshot, open id/title/draft, autosave timer, delete-confirmation target, properties record). Answers with plain data (`{ apply, items }`, outcome strings); the page adopts records after unmounting the editor (unmount parks old content into the draft, so adopting earlier would be overwritten) and owns every child handle and DOM effect. No DOM, no elements, no events. `setLock(id, locked)` persists the read-only flag through the service (degrading to null on older contracts) and syncs the snapshot.
+- `builtin-docs.js` — `createBuiltinDocs({ fetchImpl, t, isLive })`: static project docs (help, changelog, about) fetched once per session and cached; answers `{ id, title, content }` or null. No DOM, no services, no events.
 - `settings-applier.js` — `createSettingsApplier({ settingsApi, isLive })`: preferences snapshot plus applied editor traits (direction, font size), serialized writes, and the OS color-scheme watcher. Answers `'applied'`/`'ignored'`/`'failed'`; the page remounts the editor on `applied`.
 - `scroll-spy.js` — `createScrollSpy({ getVisibleLine, getText, onActiveLine, isLive })`: watches the scrolling center column, maps the first visible editor line to its heading and pushes changes (rAF-collapsed, never steals focus).
 - `../utils/format.js` — shared locale-aware `formatNumber`/`formatDate` with plain fallbacks.
@@ -36,9 +37,9 @@ Everything received through `connect(refs)`:
 
 Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `handleEvent`):
 
-- `menu-action` with `detail: { action }` — string action ids (`new-document`, `import-document`, `delete-document`, `about` (swaps the center column to the static about pane, which links the repository; the editor stays mounted underneath), `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused).
+- `menu-action` with `detail: { action }` — string action ids (`new-document`, `import-document`, `delete-document`, `open-help`/`open-changelog`/`about` (open the built-in project docs locked for reading through `builtin-docs.js`), `back-to-documents` (returns from a built-in doc, shown only while one is open), `toggle-lock` (flips the stored `readOnly` flag on the open user document; disabled without a document or while a built-in is open), `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused — refused while locked).
 - `view-select` with `detail: { id }` — rail view switch.
-- `about-open` — rail logotype button; same center-pane swap as the `about` menu action.
+- `about-open` — rail logotype button; opens the about built-in doc like the `about` menu action.
 - `files-sort` with `detail: { mode }` — files-view ordering (validated against `FILES_SORT_MODES`); owned here so it survives panel remounts.
 - `side-close` — side panel close request.
 - `outline-jump` with `detail: { line }` — outline navigation target.
@@ -72,7 +73,8 @@ DOM page-level notification (not a bus event, declared nowhere because the manif
   first render may wait behind the stylesheet gate, so microtask order cannot
   be relied on); disconnected on disconnect.
 - `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
-- `#centerView` — center column mode (`editor`/`about`). The swap is imperative (hidden attributes plus pane insertion, no render): a full render replaces the shadow DOM, which would destroy the editor-host node and force an editor remount losing undo. `render()` already reflects the mode, so any later render reconciles the same state; opening any document resets it to `editor`.
+- `#builtIn` — open built-in doc (`{ id, title, content }`) or null; shown through the same mounted editor locked for reading, never touching the draft, the change event, autosave or the documents service. Closed by the back menu item, by opening any user document (which also resets it), or by new/import flows.
+- `#guides` — built-in docs companion (`builtin-docs.js`): static project Markdown fetched once per session and cached.
 - `#filesSort` — files-view ordering (default `updated-desc`); presentational like the view switch, so it lives here rather than in the panel, whose fields reset on every page render.
 - `#searchOpen`, `#searchSpec` — live-search session (whether the menubar dropdown counts as open, plus the last form spec for recounting on edits). Presentation-adjacent like `#filesSort`: they survive editor remounts but reset on document switch and explicit close.
 - `#menuEl`, `#railEl`, `#sideEl`, `#statusEl`, `#modalEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
@@ -91,5 +93,5 @@ Covered under Dependencies above (`t`, `format`, `assetBaseUrl`, `direction` wit
 
 ## Related Decisions and Flows
 
-- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception), §12 (settings), §15 (in-document search).
-- `../../../docs/ui/user-flows.md`: boot → editor, edit → autosave, switch/create/delete, outline jump.
+- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception), §12 (settings), §15 (in-document search), §17 (read-only mode).
+- `../../../docs/ui/user-flows.md`: boot → editor, edit → autosave, switch/create/delete, outline jump, built-in docs, document lock.

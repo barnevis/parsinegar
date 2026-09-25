@@ -9,21 +9,37 @@
  * @param {object} options Model options.
  * @param {Function} options.t Translation function.
  * @param {boolean} options.hasDocument Whether a document is open.
+ * @param {boolean} [options.readOnly] Whether the open view is locked for reading.
+ * @param {boolean} [options.builtInOpen] Whether a built-in doc is showing.
  * @returns {Array<object>} Menus with `{ id, label, items: [{ id, label, action, disabled, shortcut }] }`.
  * Insert items carry their keyboard shortcut display (`shortcut` is absent elsewhere).
  */
-export function buildMenuModel({ t, hasDocument }) {
+export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen = false } = {}) {
   const translate = typeof t === 'function' ? t : (key) => key;
+  const locked = readOnly === true;
+  const builtIn = builtInOpen === true;
+  const fileItems = [
+    { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
+    { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
+    { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument },
+    { id: 'open-help', label: translate('parsinegar.builtin.help'), action: 'open-help', disabled: false },
+    { id: 'open-changelog', label: translate('parsinegar.builtin.changelog'), action: 'open-changelog', disabled: false },
+    { id: 'about', label: translate('parsinegar.menu.about'), action: 'about', disabled: false },
+  ];
+  if (builtIn) {
+    fileItems.push({ id: 'back-to-documents', label: translate('parsinegar.builtin.back'), action: 'back-to-documents', disabled: false });
+  }
+  fileItems.push({
+    id: 'toggle-lock',
+    label: translate(locked ? 'parsinegar.documents.unlock' : 'parsinegar.documents.lock'),
+    action: 'toggle-lock',
+    disabled: !hasDocument || builtIn,
+  });
   return [
     {
       id: 'file',
       label: translate('parsinegar.menu.file'),
-      items: [
-        { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
-        { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
-        { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument },
-        { id: 'about', label: translate('parsinegar.menu.about'), action: 'about', disabled: false },
-      ],
+      items: fileItems,
     },
     {
       id: 'edit',

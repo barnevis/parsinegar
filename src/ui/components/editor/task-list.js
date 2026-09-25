@@ -133,6 +133,10 @@ export function taskListExtensions() {
         if (!marker) {
           return false;
         }
+        // Frozen while locked for reading: toggling edits the document.
+        if (!view.state.facet(EditorView.editable)) {
+          return false;
+        }
         const position = Number(marker.dataset?.taskFrom);
         if (!Number.isInteger(position)) {
           return false;

@@ -61,6 +61,18 @@ function withCreatedAt(record) {
 }
 
 /**
+ * Backfills the read-only flag for records stored before it existed.
+ * @param {object|null} record Stored record.
+ * @returns {object|null} Record with a boolean `readOnly`.
+ */
+function withReadOnly(record) {
+  if (!record || typeof record !== 'object') {
+    return record;
+  }
+  return { ...record, readOnly: record.readOnly === true };
+}
+
+/**
  * Checks whether another record already carries the title.
  * @param {object} state Activation-bound references.
  * @param {string} title Candidate title.
@@ -99,11 +111,11 @@ function createService(state) {
   const service = {
     async listDocuments() {
       const records = await requireStorage(state).query(COLLECTION, {});
-      return orderByUpdated(records).map(withCreatedAt);
+      return orderByUpdated(records).map(withCreatedAt).map(withReadOnly);
     },
     async openDocument(id) {
       try {
-        return withCreatedAt(await requireStorage(state).read(COLLECTION, id));
+        return withReadOnly(withCreatedAt(await requireStorage(state).read(COLLECTION, id)));
       } catch (error) {
         if (error?.code === 'RECORD_NOT_FOUND') {
           return null;
@@ -122,7 +134,9 @@ function createService(state) {
         throw documentsError('DOCUMENT_TITLE_DUPLICATE', `Document title is taken: ${record.title}`, { field: 'title' });
       }
       const existing = await service.openDocument(record.id);
-      const stored = { ...record, createdAt: existing?.createdAt ?? record.updatedAt };
+      // The lock survives overwrites unless the caller states it explicitly.
+      const readOnly = typeof input.readOnly === 'boolean' ? input.readOnly : existing?.readOnly === true;
+      const stored = { ...record, readOnly, createdAt: existing?.createdAt ?? record.updatedAt };
       await requireStorage(state).write(COLLECTION, stored);
       state.events?.publish(CHANGED_EVENT, { id: stored.id });
       return stored;
@@ -161,6 +175,16 @@ function createService(state) {
     async deleteDocument(id) {
       await requireStorage(state).delete(COLLECTION, id);
       state.events?.publish(CHANGED_EVENT, { id });
+    },
+    async setReadOnly(id, readOnly) {
+      const existing = await service.openDocument(id);
+      if (!existing) {
+        return null;
+      }
+      const stored = { ...existing, readOnly: readOnly === true, updatedAt: Date.now() };
+      await requireStorage(state).write(COLLECTION, stored);
+      state.events?.publish(CHANGED_EVENT, { id });
+      return stored;
     },
   };
   return service;

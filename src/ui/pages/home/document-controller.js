@@ -401,6 +401,31 @@ export function createDocumentController({
     },
 
     /**
+     * Locks or unlocks a document for reading through the service, keeping
+     * the working-set snapshot in sync. Missing service or method degrades
+     * to null (older service contracts carry no lock).
+     * @param {unknown} id Document id.
+     * @param {boolean} locked True locks, anything else unlocks.
+     * @returns {Promise<object|null>} Updated record, or null on no-op/failure.
+     */
+    async setLock(id, locked) {
+      if (!service || typeof service.setReadOnly !== 'function' || typeof id !== 'string' || id.length === 0) {
+        return null;
+      }
+      try {
+        const updated = await service.setReadOnly(id, locked === true);
+        if (!isLive() || !updated) {
+          return null;
+        }
+        items = items.map((item) => (item.id === id ? { ...item, readOnly: updated.readOnly } : item));
+        return updated;
+      } catch (error) {
+        console.error('[parsi-document-controller] document lock failed');
+        return null;
+      }
+    },
+
+    /**
      * Imports file content as a new document: the title is uniquified through
      * `createDocument` (same Persian-digit suffixes), then the content is
      * saved onto it. A leading byte-order mark is stripped.

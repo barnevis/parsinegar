@@ -526,6 +526,50 @@ test('should_size_pictures_when_theme_is_loaded', () => {
   }
 });
 
+test('should_start_locked_when_read_only_is_set', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'یک دو یک', readOnly: true });
+  try {
+    assert.equal(editor.isReadOnly(), true);
+    assert.equal(editor.insertMark('bold'), false);
+    assert.deepEqual(editor.searchReplaceAll({ query: 'یک', replace: '۱' }), {
+      invalidRegexp: false, current: 1, total: 2, replaced: 0,
+    });
+    assert.equal(editor.getValue(), 'یک دو یک');
+    // Programmatic content still loads while locked.
+    editor.setDocument('متن تازه');
+    assert.equal(editor.getValue(), 'متن تازه');
+    // Finding and stepping (reading) keep working while locked.
+    assert.deepEqual(editor.searchStep({ query: 'متن' }, 1), { invalidRegexp: false, current: 1, total: 1 });
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_lock_without_remount_when_set_read_only_is_called', () => {
+  const { host, editor } = createSearchEditor('a a');
+  try {
+    editor.searchReplaceAll({ query: 'a', replace: 'b' });
+    assert.equal(editor.getValue(), 'b b');
+    editor.setReadOnly(true);
+    assert.equal(editor.isReadOnly(), true);
+    assert.equal(editor.insertMark('bold'), false);
+    editor.undo();
+    assert.equal(editor.getValue(), 'b b');
+    editor.setReadOnly(false);
+    assert.equal(editor.isReadOnly(), false);
+    // History survived the lock cycle: no remount happened.
+    editor.undo();
+    assert.equal(editor.getValue(), 'a a');
+    assert.equal(editor.insertMark('bold'), true);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 function createSearchEditor(documentText) {
   const host = document.createElement('div');
   document.body.append(host);

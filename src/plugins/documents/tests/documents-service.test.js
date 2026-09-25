@@ -165,3 +165,39 @@ test('should_return_null_when_renaming_missing_document', async () => {
   const { service } = setup();
   assert.equal(await service.renameDocument('absent', 'x'), null);
 });
+
+test('should_default_read_only_when_records_predate_it', async () => {
+  const { service } = setup([{ id: 'd1', title: 'اول', content: '', updatedAt: 1 }]);
+  assert.equal((await service.openDocument('d1')).readOnly, false);
+  const listed = await service.listDocuments();
+  assert.equal(listed[0].readOnly, false);
+});
+
+test('should_lock_and_publish_when_read_only_is_set', async () => {
+  const published = [];
+  const { service } = setup([{ id: 'd1', title: 'اول', content: 'x', updatedAt: 1 }], published);
+  const locked = await service.setReadOnly('d1', true);
+  assert.equal(locked.readOnly, true);
+  assert.equal(locked.title, 'اول');
+  assert.equal(locked.content, 'x');
+  assert.deepEqual(published, [{ type: 'documents:changed', data: { id: 'd1' } }]);
+  assert.equal((await service.openDocument('d1')).readOnly, true);
+  const unlocked = await service.setReadOnly('d1', false);
+  assert.equal(unlocked.readOnly, false);
+});
+
+test('should_return_null_when_locking_missing_document', async () => {
+  const published = [];
+  const { service } = setup([], published);
+  assert.equal(await service.setReadOnly('absent', true), null);
+  assert.deepEqual(published, []);
+});
+
+test('should_preserve_lock_when_saved_without_flag', async () => {
+  const { service } = setup([{ id: 'd1', title: 'اول', content: 'x', updatedAt: 1, readOnly: true }]);
+  const saved = await service.saveDocument({ id: 'd1', title: 'اول', content: 'y' });
+  assert.equal(saved.readOnly, true);
+  assert.equal(saved.content, 'y');
+  const cleared = await service.saveDocument({ id: 'd1', title: 'اول', content: 'z', readOnly: false });
+  assert.equal(cleared.readOnly, false);
+});

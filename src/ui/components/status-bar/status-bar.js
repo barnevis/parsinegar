@@ -12,6 +12,7 @@ class ParsiStatusBar extends PeyElement {
   #t = (key) => key;
   #stats = { chars: 0, letters: 0, words: 0, lines: 0, bytes: 0 };
   #formatNumber = null;
+  #readOnly = false;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -33,14 +34,18 @@ class ParsiStatusBar extends PeyElement {
    * @param {object} data New data.
    * @param {object} [data.stats] `{ chars, letters, words, lines, bytes }`.
    * @param {Function} [data.formatNumber] Number formatter.
+   * @param {boolean} [data.readOnly] Whether the open view is locked for reading.
    * @returns {void}
    */
-  configure({ stats, formatNumber } = {}) {
+  configure({ stats, formatNumber, readOnly } = {}) {
     if (stats && typeof stats === 'object') {
       this.#stats = stats;
     }
     if (typeof formatNumber === 'function') {
       this.#formatNumber = formatNumber;
+    }
+    if (typeof readOnly === 'boolean') {
+      this.#readOnly = readOnly;
     }
     this.requestRender();
   }
@@ -50,6 +55,7 @@ class ParsiStatusBar extends PeyElement {
     const safe = this.#stats ?? { chars: 0, letters: 0, words: 0, lines: 0, bytes: 0 };
     return `
       <footer part="statusbar">
+        ${this.#readOnly ? `<span part="lock-chip">${escapeHtml(this.#t('parsinegar.status.locked'))}</span>` : ''}
         <span part="stat">${escapeHtml(this.#t('parsinegar.stats.chars'))} <b part="stat-value" data-stat="chars">${format(safe.chars ?? 0)}</b></span>
         <span part="stat">${escapeHtml(this.#t('parsinegar.stats.letters'))} <b part="stat-value" data-stat="letters">${format(safe.letters ?? 0)}</b></span>
         <span part="stat">${escapeHtml(this.#t('parsinegar.stats.words'))} <b part="stat-value" data-stat="words">${format(safe.words ?? 0)}</b></span>

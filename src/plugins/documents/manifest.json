@@ -1,6 +1,6 @@
 {
   "name": "parsinegar.documents",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "architecture": "0.11",
   "description": "Parsinegar document management: Markdown documents over pey.storage.service",
   "type": "product",
@@ -64,6 +64,16 @@
             { "name": "id", "type": "string" }
           ],
           "returns": "Promise<void>",
+          "errors": []
+        },
+        {
+          "name": "setReadOnly",
+          "description": "Locks or unlocks a document for reading by id (no-op null when absent), publishes documents:changed.",
+          "params": [
+            { "name": "id", "type": "string" },
+            { "name": "readOnly", "type": "boolean" }
+          ],
+          "returns": "Promise<object | null>",
           "errors": []
         }
       ]

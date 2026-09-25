@@ -20,7 +20,7 @@ Application plugin for Parsinegar: multi-document management for Markdown record
 
 ## Public API
 
-**Service:** `parsinegar.documents.service`. Records are `{ id, title, content, createdAt, updatedAt }` stored in the `documents` collection.
+**Service:** `parsinegar.documents.service`. Records are `{ id, title, content, createdAt, updatedAt, readOnly }` stored in the `documents` collection (`readOnly` defaults to `false` for records stored before it existed).
 
 ### `listDocuments()`
 
@@ -72,11 +72,19 @@ Deletes a document by id (no-op when absent), publishes `documents:changed`.
 await service.deleteDocument('doc-id');
 ```
 
+### `setReadOnly(id, readOnly)`
+
+Locks or unlocks a document for reading by id, stamps `updatedAt`, publishes `documents:changed`. Returns `null` when the id does not exist; anything but `true` unlocks.
+
+```js
+const locked = await service.setReadOnly('doc-id', true);
+```
+
 ## Events
 
 | Event | When | Data |
 |---|---|---|
-| `documents:changed` | After a document is saved, renamed or deleted. | `{ id }` |
+| `documents:changed` | After a document is saved, renamed, deleted or (un)locked. | `{ id }` |
 
 This plugin listens to no events.
 
@@ -99,7 +107,8 @@ No config keys. Store layout (`documents` collection with `keyPath: id`) is proj
 - Listing order is always most-recently-updated first.
 - `openDocument` never throws for a missing id — it returns `null`.
 - `deleteDocument` never throws for a missing id — storage delete is a no-op then.
-- Every save and every delete publishes exactly one `documents:changed` with the affected `id`.
+- Every record carries `readOnly` (default `false`); `saveDocument` preserves the stored lock unless `input.readOnly` states it explicitly, and `setReadOnly` flips it.
+- Every save, delete and lock change publishes exactly one `documents:changed` with the affected `id`.
 
 ## Constraints
 

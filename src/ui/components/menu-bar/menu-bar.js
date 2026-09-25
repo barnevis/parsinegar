@@ -28,6 +28,8 @@ const SEARCH_FLAGS = new Set(['caseSensitive', 'wholeWord', 'regexp', 'inSelecti
 class ParsiMenuBar extends PeyElement {
   #t = (key) => key;
   #hasDocument = false;
+  #readOnly = false;
+  #builtInOpen = false;
   #openMenu = null;
   #searchOpen = false;
   #search = { ...SEARCH_DEFAULTS };
@@ -94,9 +96,15 @@ class ParsiMenuBar extends PeyElement {
    * @param {Function} [data.formatNumber] Number formatter.
    * @returns {void}
    */
-  configure({ hasDocument, searchOpen, search, searchFocus, formatNumber } = {}) {
+  configure({ hasDocument, searchOpen, search, searchFocus, formatNumber, readOnly, builtInOpen } = {}) {
     if (typeof hasDocument === 'boolean') {
       this.#hasDocument = hasDocument;
+    }
+    if (typeof readOnly === 'boolean') {
+      this.#readOnly = readOnly;
+    }
+    if (typeof builtInOpen === 'boolean') {
+      this.#builtInOpen = builtInOpen;
     }
     if (typeof searchOpen === 'boolean') {
       this.#searchOpen = searchOpen;
@@ -263,7 +271,12 @@ class ParsiMenuBar extends PeyElement {
   }
 
   render() {
-    const menus = buildMenuModel({ t: this.#t, hasDocument: this.#hasDocument });
+    const menus = buildMenuModel({
+      t: this.#t,
+      hasDocument: this.#hasDocument,
+      readOnly: this.#readOnly,
+      builtInOpen: this.#builtInOpen,
+    });
     const markup = menus.map((menu) => {
       const open = this.#openMenu === menu.id;
       return `

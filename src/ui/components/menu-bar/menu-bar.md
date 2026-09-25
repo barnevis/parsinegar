@@ -16,11 +16,12 @@ Everything received through `connect(refs)`:
 ## Public API
 
 - `configure({ hasDocument })` — updates menu capabilities (e.g. after a document opens or closes) and re-renders. Example: `menu.configure({ hasDocument: true })`.
+- `configure({ readOnly, builtInOpen })` — drives the file-menu lock state: `readOnly` flips the toggle-lock label (lock/unlock), `builtInOpen` shows the back-to-documents item and disables the toggle (built-ins are always locked). Example: `menu.configure({ readOnly: true, builtInOpen: false })`.
 - `configure({ searchOpen, search, searchFocus })` — drives the search dropdown: `searchOpen` shows/hides it (opening focuses the query input, or the replace input with `searchFocus: 'replace'`), `search` replaces the displayed form state (`{ query, replace, caseSensitive, wholeWord, regexp, inSelection, count, invalidRegexp, replaced }`), and `search: null` resets the form to defaults. Example: `menu.configure({ searchOpen: true, search: { query: 'a', count: { current: 1, total: 2 } } })`.
 
 ## Events
 
-**Published:** `menu-action` with `detail: { action }`, `bubbles: true`, `composed: true`. Action ids are plain strings (`new-document`, `delete-document`, `undo`, `redo`, `toggle-side`, `toggle-status`) defined by `../workbench/menu-model.js`.
+**Published:** `menu-action` with `detail: { action }`, `bubbles: true`, `composed: true`. Action ids are plain strings (`new-document`, `delete-document`, `open-help`, `open-changelog`, `about`, `back-to-documents`, `toggle-lock`, `undo`, `redo`, `toggle-side`, `toggle-status`) defined by `../workbench/menu-model.js`.
 
 Search events (all `bubbles: true`, `composed: true`, with the form spec as detail) for the parent to run against the editor:
 
@@ -36,6 +37,7 @@ Search events (all `bubbles: true`, `composed: true`, with the form spec as deta
 - `#hasDocument` — whether a document is open (drives item `disabled` flags).
 - `#openMenu` — currently open menu id, or `null`.
 - `#searchOpen` — whether the search dropdown is shown.
+- `#readOnly`, `#builtInOpen` — file-menu lock state (toggle-lock label/disabled, back-item visibility).
 - `#search` — displayed form state (values plus the last echoed `count` / `invalidRegexp` / `replaced`).
 - `#formatNumber`, `#assetBaseUrl` — counter digits and toggle icon (see Dependencies).
 
@@ -50,5 +52,5 @@ Covered under Dependencies above (`t`, `hasDocument` with their fallbacks). No o
 
 ## Related Decisions and Flows
 
-- `../../../../docs/decisions.md` §8 (workbench composition), §11 (child-composition exception), §15 (in-document search).
+- `../../../../docs/decisions.md` §8 (workbench composition), §11 (child-composition exception), §15 (in-document search), §17 (read-only mode).
 - `../workbench/workbench.md`: `menu-model.js` contract.

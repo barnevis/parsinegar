@@ -148,6 +148,16 @@ function createDocuments(initial = []) {
     async createDocument(title) {
       return service.saveDocument({ title, content: '' });
     },
+    async setReadOnly(id, readOnly) {
+      const record = docs.get(id) ?? null;
+      if (!record) {
+        return null;
+      }
+      const updated = { ...record, readOnly: readOnly === true, updatedAt: Date.now() };
+      docs.set(id, updated);
+      service.calls.push(['lock', { id, readOnly: updated.readOnly }]);
+      return updated;
+    },
     async renameDocument(id, title) {
       const record = docs.get(id) ?? null;
       if (!record) {
@@ -457,130 +467,178 @@ test('should_ignore_empty_pick_when_document_import_arrives', async () => {
   }
 });
 
-test('should_show_about_pane_when_menu_action_arrives', async () => {
+test('should_open_about_doc_when_menu_action_arrives', async () => {
+  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار\n\nمتن درباره' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
-    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
-    await settled();
+    await openFileMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
-    const about = element.shadowRoot.querySelector('[part="about"]');
-    assert.ok(about, 'expected the about pane');
-    assert.ok(about.textContent.includes('درباره پارسی‌نگار'));
-    assert.ok(about.textContent.includes('۰.۶.۰'));
-    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]').hasAttribute('hidden'), 'expected the editor hidden');
+    assert.ok(element.value.includes('درباره پارسی‌نگار'));
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the read-only chip');
   } finally {
+    restore();
     element.remove();
   }
 });
 
-test('should_show_about_pane_when_rail_logo_is_clicked', async () => {
+test('should_open_about_doc_when_rail_logo_is_clicked', async () => {
+  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
     inChild(element, 'parsi-activity-rail', '[data-about]').click();
     await settled();
-    const about = element.shadowRoot.querySelector('[part="about"]');
-    assert.ok(about, 'expected the about pane');
-    assert.ok(about.querySelector('svg'), 'expected the logotype hero');
+    assert.ok(element.value.includes('درباره پارسی‌نگار'));
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'));
   } finally {
+    restore();
     element.remove();
   }
 });
 
-test('should_link_github_from_about_pane', async () => {
+function stubBuiltinFetch(texts = {}) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => texts[url] ?? `# mock for ${url}`,
+  });
+  return () => {
+    globalThis.fetch = realFetch;
+  };
+}
+
+async function openFileMenu(element) {
+  inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+  await settled();
+}
+
+test('should_open_help_doc_when_menu_action_arrives', async () => {
+  const restore = stubBuiltinFetch({ './README.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
+    await openFileMenu(element);
+    inChild(element, 'parsi-menu-bar', '[data-action="open-help"]').click();
     await settled();
-    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
-    await settled();
-    const link = element.shadowRoot.querySelector('[part="about-link"]');
-    assert.ok(link, 'expected the github link');
-    assert.equal(link.getAttribute('href'), 'https://github.com/barnevis/parsinegar');
-    assert.equal(link.getAttribute('target'), '_blank');
-    assert.equal(link.getAttribute('rel'), 'noopener');
-    assert.equal(link.textContent, 'گیت‌هاب پروژه');
+    assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
   } finally {
+    restore();
     element.remove();
   }
 });
 
-test('should_keep_editor_mounted_when_about_opens', async () => {
+test('should_return_to_document_when_back_is_clicked', async () => {
+  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    const editor = element.shadowRoot.querySelector('.cm-editor');
-    assert.ok(editor, 'expected the editor mounted');
-    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
-    await settled();
+    await openFileMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="about"]'), 'expected the about pane');
-    assert.equal(element.shadowRoot.querySelector('.cm-editor'), editor, 'expected the same editor instance');
+    assert.ok(element.value.includes('درباره پارسی‌نگار'));
+    await openFileMenu(element);
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]'), 'expected the back item');
+    inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]').click();
+    await settled();
     assert.equal(element.value, 'متن');
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
   } finally {
+    restore();
     element.remove();
   }
 });
 
-test('should_keep_about_visible_when_shell_rerenders', async () => {
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents);
-  try {
-    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
-    await settled();
-    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
-    await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="about"]'));
-    inChild(element, 'parsi-activity-rail', '[data-view="settings"]').click();
-    await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="about"]'), 'expected render to reconcile the pane');
-    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]').hasAttribute('hidden'));
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_return_to_editor_when_about_back_is_clicked', async () => {
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents);
-  try {
-    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
-    await settled();
-    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
-    await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="about"]'));
-    element.shadowRoot.querySelector('[part="about-back"]').click();
-    await settled();
-    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
-    assert.ok(!element.shadowRoot.querySelector('[part="editor-host"]').hasAttribute('hidden'));
-    assert.equal(element.value, 'متن');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_return_to_editor_when_document_opens_from_about', async () => {
+test('should_return_to_document_when_document_opens_from_builtin', async () => {
+  const restore = stubBuiltinFetch({ './ABOUT.md': '# درباره پارسی‌نگار' });
   const documents = createDocuments([
     { id: 'd1', title: 'اول', content: 'c1', updatedAt: 100 },
     { id: 'd2', title: 'دوم', content: 'c2', updatedAt: 300 },
   ]);
   const element = await mountWithDocuments(documents);
   try {
-    inChild(element, 'parsi-menu-bar', '[data-menu="file"]').click();
-    await settled();
+    await openFileMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="about"]'));
+    assert.ok(element.value.includes('درباره پارسی‌نگار'));
     inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]').click();
     await settled();
-    assert.equal(element.shadowRoot.querySelector('[part="about"]'), null);
     assert.equal(element.value, 'c1');
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
+  } finally {
+    restore();
+    element.remove();
+  }
+});
+
+test('should_keep_draft_clean_when_builtin_is_open', async () => {
+  const restore = stubBuiltinFetch({ './README.md': '# راهنمای پارسی‌نگار' });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await openFileMenu(element);
+    inChild(element, 'parsi-menu-bar', '[data-action="open-help"]').click();
+    await settled();
+    assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
+    // Loading the built-in must not park its content into the user draft:
+    // switching back still shows the user text, and no save carried it.
+    await openFileMenu(element);
+    inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]').click();
+    await settled();
+    assert.equal(element.value, 'متن');
+    const saves = documents.calls.filter(([method]) => method === 'save');
+    assert.ok(saves.every(([, record]) => !String(record.content).includes('راهنما')), 'expected no builtin save');
+  } finally {
+    restore();
+    element.remove();
+  }
+});
+
+test('should_lock_and_unlock_when_toggle_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
+    await openFileMenu(element);
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').textContent.includes('قفل سند'));
+    inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').click();
+    await settled();
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the chip while locked');
+    await openFileMenu(element);
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').textContent.includes('بازکردن قفل سند'));
+    inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').click();
+    await settled();
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'lock'), [
+      ['lock', { id: 'd1', readOnly: true }],
+      ['lock', { id: 'd1', readOnly: false }],
+    ]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_lock_when_document_is_reopened', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'اول', content: 'c1', updatedAt: 100 },
+    { id: 'd2', title: 'دوم', content: 'c2', updatedAt: 300 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]').click();
+    await settled();
+    await openFileMenu(element);
+    inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').click();
+    await settled();
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'));
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]').click();
+    await settled();
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]').click();
+    await settled();
+    assert.equal(element.value, 'c1');
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the stored lock reapplied');
   } finally {
     element.remove();
   }

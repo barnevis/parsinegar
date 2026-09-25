@@ -6,4 +6,6 @@
 - **Outline jump:** rail → outline view → heading click moves the cursor (marks stay hidden except on the active line).
 - **Settings:** rail gear → settings view → theme (light/dark/device), document direction (auto/rtl/ltr) or font-size stepper; each change validates in the settings service, persists, and applies (theme via the entry-point bridge, direction/font size via editor remount); everything survives reload.
 - **Unknown route:** router redirects to `/not-found`; the return button navigates home through `RouterService`.
-- **About:** file menu → about item swaps the center column to a static about pane (intro, hardcoded version, back button); opening any document returns to the editor. The editor stays mounted underneath, so undo and focus survive.
+- **About:** file menu → about item (or the rail logotype) opens the about file as a read-only document in the editor; the file-menu back item, or opening any document, returns to it.
+- **Built-in docs:** file menu → help/changelog items fetch the project Markdown files once per session (cached) and show them locked for reading; loading never touches the user draft, autosave or the documents service.
+- **Document lock:** file menu → lock item flips the stored `readOnly` flag (persisted by `parsinegar.documents.service` 0.3.0) and applies it to the mounted editor without remounting, so undo history survives; the status bar shows a read-only chip. While locked, typing, marks, task toggles and replacements refuse, while selection, copy, find and stepping keep working.

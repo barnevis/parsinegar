@@ -9,3 +9,12 @@
 [part="stat-value"] {
   font-weight: 700;
 }
+[part="lock-chip"] {
+  align-self: center;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  color: var(--pey-color-text-muted, #55555f);
+}

@@ -41,6 +41,16 @@ function createService(initial = []) {
       docs.delete(id);
       service.calls.push(['delete', id]);
     },
+    async setReadOnly(id, readOnly) {
+      const record = docs.get(id) ?? null;
+      if (!record) {
+        return null;
+      }
+      const updated = { ...record, readOnly: readOnly === true, updatedAt: Date.now() };
+      docs.set(id, updated);
+      service.calls.push(['lock', { id, readOnly: updated.readOnly }]);
+      return updated;
+    },
   };
   return service;
 }
@@ -303,4 +313,29 @@ test('should_keep_working_set_when_reconnected', async () => {
   apply(controller, await controller.ensureInitial());
   controller.reconnect({ documents: createService() });
   assert.equal(controller.getState().currentId, 'd1');
+});
+
+test('should_lock_and_sync_items_when_lock_is_set', async () => {
+  const service = createService([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const controller = createController(service);
+  apply(controller, await controller.ensureInitial());
+  const locked = await controller.setLock('d1', true);
+  assert.equal(locked.readOnly, true);
+  assert.equal(controller.getState().items[0].readOnly, true);
+  const unlocked = await controller.setLock('d1', false);
+  assert.equal(unlocked.readOnly, false);
+  assert.equal(controller.getState().items[0].readOnly, false);
+});
+
+test('should_return_null_when_locking_missing_document', async () => {
+  const controller = createController(createService());
+  assert.equal(await controller.setLock('absent', true), null);
+});
+
+test('should_return_null_when_service_has_no_lock', async () => {
+  const legacy = createService([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  delete legacy.setReadOnly;
+  const controller = createController(legacy);
+  apply(controller, await controller.ensureInitial());
+  assert.equal(await controller.setLock('d1', true), null);
 });

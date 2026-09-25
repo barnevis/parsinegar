@@ -93,3 +93,21 @@ test('should_render_label_before_value_when_mounted', async () => {
     element.remove();
   }
 });
+
+test('should_show_lock_chip_when_read_only_is_configured', async () => {
+  const element = mount();
+  try {
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="lock-chip"]'), null);
+    element.configure({ readOnly: true });
+    await flush();
+    const chip = element.shadowRoot.querySelector('[part="lock-chip"]');
+    assert.ok(chip, 'expected the lock chip');
+    assert.equal(chip.textContent, 'parsinegar.status.locked');
+    element.configure({ readOnly: false });
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="lock-chip"]'), null);
+  } finally {
+    element.remove();
+  }
+});

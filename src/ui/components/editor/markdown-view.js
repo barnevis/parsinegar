@@ -11,7 +11,7 @@ import { indentWithTab, redo, selectAll, undo } from '@codemirror/commands';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { SearchQuery, search, setSearchQuery } from '@codemirror/search';
 import { keymap } from '@codemirror/view';
-import { EditorSelection, Prec } from '@codemirror/state';
+import { Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
 import { editorColorScheme } from './editor-theme.js';
 import { codeCopyExtensions } from './code-copy.js';
 import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
@@ -89,13 +89,17 @@ function countSearchMatches(matches, head) {
  * @param {string} [options.direction] Writing direction: 'rtl' locks every line right (fenced code stays ltr), 'ltr' locks every line left, 'auto' detects per line from the first strong letter (default 'rtl'; letter-less lines take the rtl base so the caret stays right).
  * @param {number} [options.fontSize] Editor font size in pixels (12-24, default 16).
  * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
+ * @param {boolean} [options.readOnly] Starts locked for reading: typing,
+ *   marks, tasks and replacements refuse while selection, scrolling, copy,
+ *   find and stepping keep working (default false).
  * @param {Function} [options.t] Translation function for widget labels (falls back to identity).
  * @param {string|null} [options.assetBaseUrl] Resolved asset directory URL for widget icons.
  * @param {Function} [options.onChange] Called with the new text on every edit.
  * @returns {object} Controller with getValue(), setDocument(text),
  *   focus(), undo(), redo(), gotoLine(line), visibleLine(),
  *   insertMark(kind), setSearch(spec), searchStep(spec, direction),
- *   searchReplaceOne(spec), searchReplaceAll(spec), destroy().
+ *   searchReplaceOne(spec), searchReplaceAll(spec), setReadOnly(locked),
+ *   isReadOnly(), destroy().
  * @throws {Error} When host is not an element.
  */
 export function createMarkdownView(host, options = {}) {
@@ -114,6 +118,17 @@ export function createMarkdownView(host, options = {}) {
   const forcedDirection = direction === 'auto' ? null : direction;
   let current = typeof options.document === 'string' ? options.document : '';
   let destroyed = false;
+  // Locking lives in a compartment so it never remounts (remounting would
+  // drop undo history). Both facets matter: `editable` drops the DOM
+  // `contenteditable` (no typing input reaches the view at all, while
+  // setDocument keeps working), and `readOnly` makes the library commands
+  // (default keymap, history, bracket pairs) refuse on their own.
+  const editableCompartment = new Compartment();
+  const lockExtensions = (locked) => [
+    EditorView.editable.of(!locked),
+    EditorState.readOnly.of(locked),
+  ];
+  const isLocked = () => !view.state.facet(EditorView.editable);
 
   const view = new EditorView({
     parent: host,
@@ -122,6 +137,7 @@ export function createMarkdownView(host, options = {}) {
       minimalSetup,
       markdown({ base: markdownLanguage, codeLanguages: codeLanguageDescriptions }),
       EditorView.lineWrapping,
+      editableCompartment.of(lockExtensions(options.readOnly === true)),
       // Search state plus match highlighting; the default panel and keymap
       // stay out on purpose (the menubar form owns the UI, and its
       // layout-independent shortcuts live outside the editor). The panel
@@ -159,6 +175,11 @@ export function createMarkdownView(host, options = {}) {
             event.preventDefault();
             selectAll(editorView);
             return true;
+          }
+          // Locked for reading: selection, scrolling and copy stay alive,
+          // every edit path below refuses.
+          if (!editorView.state.facet(EditorView.editable)) {
+            return false;
           }
           // Plain Enter continues the list, task or quote under the cursor;
           // anything unhandled (including IME composition commits) falls
@@ -271,20 +292,22 @@ export function createMarkdownView(host, options = {}) {
       }
     },
     /**
-     * Undoes the last change. No-op after destroy or with empty history.
+     * Undoes the last change. No-op after destroy, while locked, or with
+     * empty history.
      * @returns {void}
      */
     undo() {
-      if (!destroyed) {
+      if (!destroyed && !isLocked()) {
         undo(view);
       }
     },
     /**
-     * Redoes the last undone change. No-op after destroy or with empty future.
+     * Redoes the last undone change. No-op after destroy, while locked, or
+     * with empty future.
      * @returns {void}
      */
     redo() {
-      if (!destroyed) {
+      if (!destroyed && !isLocked()) {
         redo(view);
       }
     },
@@ -430,6 +453,9 @@ export function createMarkdownView(host, options = {}) {
       const scope = resolveSearchScope(view.state, normalized);
       const head = view.state.selection.main.head;
       const matches = collectSearchMatches(view.state, built.query, scope);
+      if (isLocked()) {
+        return { invalidRegexp: false, ...countSearchMatches(matches, head), replaced: 0 };
+      }
       const at = indexOfMatchAt(matches, head);
       if (at < 0) {
         const advanced = this.searchStep(normalized, 1);
@@ -469,6 +495,13 @@ export function createMarkdownView(host, options = {}) {
       if (matches.length === 0) {
         return { invalidRegexp: false, current: 0, total: 0, replaced: 0 };
       }
+      if (isLocked()) {
+        return {
+          invalidRegexp: false,
+          ...countSearchMatches(matches, view.state.selection.main.head),
+          replaced: 0,
+        };
+      }
       // All ranges address the pre-change document; the cursor lands at the
       // end of the last replacement by accumulating the shift of earlier
       // changes (matches arrive ascending).
@@ -493,13 +526,14 @@ export function createMarkdownView(host, options = {}) {
     },
     /**
      * Inserts a Markdown mark at the cursor or wraps the selection, using
-     * the same toggle commands as the keyboard shortcuts.
+     * the same toggle commands as the keyboard shortcuts. Refuses while
+     * locked for reading.
      * @param {string} kind Mark kind (heading, bold, italic, strikethrough,
      *   quote, link, code, unordered-list, ordered-list).
      * @returns {boolean} True when a mark was inserted.
      */
     insertMark(kind) {
-      if (destroyed) {
+      if (destroyed || isLocked()) {
         return false;
       }
       const command = INSERT_COMMANDS[kind] ?? null;
@@ -508,6 +542,28 @@ export function createMarkdownView(host, options = {}) {
       }
       view.focus();
       return command(view) === true;
+    },
+    /**
+     * Locks or unlocks the view for reading without remounting (undo
+     * history survives). Programmatic setDocument keeps working while
+     * locked; user edits refuse. No-op after destroy.
+     * @param {boolean} locked True locks, false unlocks.
+     * @returns {void}
+     */
+    setReadOnly(locked) {
+      if (destroyed) {
+        return;
+      }
+      view.dispatch({
+        effects: editableCompartment.reconfigure(lockExtensions(locked === true)),
+      });
+    },
+    /**
+     * Reports whether the view is locked for reading (or destroyed).
+     * @returns {boolean} True when locked or destroyed.
+     */
+    isReadOnly() {
+      return destroyed || isLocked();
     },
     /**
      * Destroys the view and releases its listeners. Keeps the last text.
