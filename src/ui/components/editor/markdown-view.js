@@ -21,6 +21,7 @@ import { continueList } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
 import { imageViewExtensions } from './image-view.js';
 import { linkFollowExtensions } from './link-follow.js';
+import { tableViewExtensions } from './table-view.js';
 import { collectSearchMatches, createSearchQuery, indexOfMatchAt, normalizeSearchSpec, resolveSearchScope } from './search-ops.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
@@ -148,6 +149,7 @@ export function createMarkdownView(host, options = {}) {
       ...livePreviewExtensions(),
       ...imageViewExtensions(),
       ...linkFollowExtensions(),
+      ...tableViewExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
       ...codeHighlightExtensions(),
