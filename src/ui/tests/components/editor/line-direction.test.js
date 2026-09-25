@@ -47,6 +47,18 @@ test('should_resolve_null_when_line_has_no_letter', () => {
   assert.equal(resolveLineDirection(42), null);
 });
 
+test('should_skip_checkbox_when_resolving_task_lines', () => {
+  // The Latin `x` of a checked box must not decide the direction.
+  assert.equal(resolveLineDirection('- [x] سه'), 'rtl');
+  assert.equal(resolveLineDirection('- [X] سه'), 'rtl');
+  assert.equal(resolveLineDirection('- [ ] دو'), 'rtl');
+  assert.equal(resolveLineDirection('  - [x] سه'), 'rtl');
+  assert.equal(resolveLineDirection('1. [x] سه'), 'rtl');
+  assert.equal(resolveLineDirection('- [x] item'), 'ltr');
+  assert.equal(resolveLineDirection('- [x]'), null);
+  assert.equal(resolveLineDirection('- [x] ۱۲۳'), null);
+});
+
 test('should_pin_every_line_when_mounted', () => {
   const host = document.createElement('div');
   document.body.append(host);
@@ -57,6 +69,22 @@ test('should_pin_every_line_when_mounted', () => {
     assert.ok(lines[0].classList.contains('parsi-dir-rtl'), 'expected the Persian line pinned right');
     assert.ok(lines[1].classList.contains('parsi-dir-ltr'), 'expected the English line pinned left');
     assert.ok(lines[2].classList.contains('parsi-base-rtl'), 'expected the digits line on the base');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_pin_checked_tasks_right_when_mounted', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: '- [ ] یک\n- [ ] دو\n- [x] سه\n- [x] چهار', direction: 'auto' });
+  try {
+    const lines = [...host.querySelectorAll('.cm-line')];
+    assert.equal(lines.length, 4);
+    for (const [index, line] of lines.entries()) {
+      assert.ok(line.classList.contains('parsi-dir-rtl'), `expected task line ${index + 1} pinned right`);
+    }
   } finally {
     editor.destroy();
     host.remove();

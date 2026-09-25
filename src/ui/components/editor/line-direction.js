@@ -26,6 +26,9 @@ import { FENCE_PATTERN } from './live-preview.js';
  */
 const RTL_LETTER_PATTERN = /[֐-ٟ؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/;
 const ANY_LETTER_PATTERN = /\p{L}/u;
+// Task checkbox prefix, mirroring TASK_LINE_PATTERN in `task-list.js`
+// (ASCII digits there, so ASCII digits here too).
+const TASK_BOX_PREFIX_PATTERN = /^[ \t]*(?:[*+-]|\d+[.)])\s+\[[ xX]\]/;
 
 /**
  * Checks whether a line holds no Unicode letter (empty, digits,
@@ -40,7 +43,10 @@ export function isNeutralLine(text) {
 /**
  * Resolves a line to an explicit direction from its first strong letter,
  * mirroring the `unicode-bidi: plaintext` heuristic without the stylesheet
- * rule (which Firefox misaligns on wrapped continuation rows).
+ * rule (which Firefox misaligns on wrapped continuation rows). A leading
+ * task checkbox is skipped first: its Latin `x` must not decide, so
+ * `- [x] سه` resolves rtl from the text (and a bare `- [x]` resolves to
+ * null, taking the base like any letter-less line).
  * @param {string} text Line text.
  * @returns {string|null} 'rtl', 'ltr', or null when the line has no letter.
  */
@@ -48,7 +54,8 @@ export function resolveLineDirection(text) {
   if (typeof text !== 'string') {
     return null;
   }
-  for (const character of text) {
+  const content = text.replace(TASK_BOX_PREFIX_PATTERN, '');
+  for (const character of content) {
     if (!ANY_LETTER_PATTERN.test(character)) {
       continue;
     }
