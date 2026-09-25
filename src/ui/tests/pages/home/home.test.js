@@ -472,7 +472,7 @@ test('should_open_about_doc_when_menu_action_arrives', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    await openFileMenu(element);
+    await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
     assert.ok(element.value.includes('درباره پارسی‌نگار'));
@@ -514,12 +514,22 @@ async function openFileMenu(element) {
   await settled();
 }
 
+async function openHelpMenu(element) {
+  inChild(element, 'parsi-menu-bar', '[data-menu="help"]').click();
+  await settled();
+}
+
+async function openViewMenu(element) {
+  inChild(element, 'parsi-menu-bar', '[data-menu="view"]').click();
+  await settled();
+}
+
 test('should_open_help_doc_when_menu_action_arrives', async () => {
   const restore = stubBuiltinFetch({ './README.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    await openFileMenu(element);
+    await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="open-help"]').click();
     await settled();
     assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
@@ -534,11 +544,11 @@ test('should_return_to_document_when_back_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    await openFileMenu(element);
+    await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
     assert.ok(element.value.includes('درباره پارسی‌نگار'));
-    await openFileMenu(element);
+    await openHelpMenu(element);
     assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]'), 'expected the back item');
     inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]').click();
     await settled();
@@ -558,7 +568,7 @@ test('should_return_to_document_when_document_opens_from_builtin', async () => {
   ]);
   const element = await mountWithDocuments(documents);
   try {
-    await openFileMenu(element);
+    await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
     assert.ok(element.value.includes('درباره پارسی‌نگار'));
@@ -577,13 +587,13 @@ test('should_keep_draft_clean_when_builtin_is_open', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    await openFileMenu(element);
+    await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="open-help"]').click();
     await settled();
     assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
     // Loading the built-in must not park its content into the user draft:
     // switching back still shows the user text, and no save carried it.
-    await openFileMenu(element);
+    await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]').click();
     await settled();
     assert.equal(element.value, 'متن');
@@ -639,6 +649,46 @@ test('should_keep_lock_when_document_is_reopened', async () => {
     await settled();
     assert.equal(element.value, 'c1');
     assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the stored lock reapplied');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_lock_and_unlock_when_mode_items_are_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    await openViewMenu(element);
+    // Unlocked: read-mode switches, write-mode is the active (disabled) one.
+    inChild(element, 'parsi-menu-bar', '[data-action="read-mode"]').click();
+    await settled();
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected read-mode to lock');
+    await openViewMenu(element);
+    inChild(element, 'parsi-menu-bar', '[data-action="write-mode"]').click();
+    await settled();
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
+    assert.deepEqual(documents.calls.filter(([method]) => method === 'lock'), [
+      ['lock', { id: 'd1', readOnly: true }],
+      ['lock', { id: 'd1', readOnly: false }],
+    ]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_toggle_lock_when_mode_toggle_is_clicked', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const toggle = () => inChild(element, 'parsi-menu-bar', '[data-mode-toggle]');
+    assert.ok(toggle().innerHTML.includes('#lock-open'));
+    toggle().click();
+    await settled();
+    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the toggle to lock');
+    assert.ok(toggle().innerHTML.includes('#lock'));
+    toggle().click();
+    await settled();
+    assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
   } finally {
     element.remove();
   }
@@ -767,7 +817,7 @@ test('should_render_menubar_when_mounted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const buttons = inChildAll(element, 'parsi-menu-bar', '[data-menu]');
-    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'insert', 'view']);
+    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'insert', 'view', 'help']);
     assert.ok(inChild(element, 'parsi-menu-bar', '[part="menu-dropdown"][hidden]'), 'expected hidden dropdowns');
   } finally {
     element.remove();

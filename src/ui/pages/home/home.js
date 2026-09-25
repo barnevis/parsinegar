@@ -404,6 +404,12 @@ class ParsiPageHome extends PeyElement {
         case 'toggle-lock':
           await this.#toggleLock();
           return;
+        case 'read-mode':
+          await this.#setLockState(true);
+          return;
+        case 'write-mode':
+          await this.#setLockState(false);
+          return;
         case 'delete-document':
           if (this.#docs?.armDelete()) {
             this.#requestEditor();
@@ -619,9 +625,7 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Toggles the stored lock on the open user document and applies it to
-   * the mounted editor without remounting. No-op for built-ins (always
-   * locked) and without a document or service.
+   * Toggles the stored lock on the open user document.
    * @returns {Promise<void>}
    */
   async #toggleLock() {
@@ -632,7 +636,25 @@ class ParsiPageHome extends PeyElement {
     if (!currentId) {
       return;
     }
-    const updated = await this.#docs?.setLock(currentId, !this.#currentLocked());
+    await this.#setLockState(!this.#currentLocked());
+  }
+
+  /**
+   * Sets the stored lock on the open user document to an explicit value
+   * and applies it to the mounted editor without remounting. No-op for
+   * built-ins (always locked) and without a document or service.
+   * @param {boolean} locked True locks, false unlocks.
+   * @returns {Promise<void>}
+   */
+  async #setLockState(locked) {
+    if (this.#builtIn) {
+      return;
+    }
+    const { currentId = null } = this.#docs?.getState() ?? {};
+    if (!currentId) {
+      return;
+    }
+    const updated = await this.#docs?.setLock(currentId, locked === true);
     if (!updated || !this.isConnected) {
       return;
     }

@@ -230,9 +230,17 @@ class ParsiMenuBar extends PeyElement {
       }
       return;
     }
+    const modeToggle = event.target?.closest?.('[data-mode-toggle]');
+    if (modeToggle && !modeToggle.disabled) {
+      // Same road as the file-menu lock item and the view-mode items: the
+      // parent maps the action to behavior and echoes the state back.
+      this.dispatchEvent(
+        new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action: 'toggle-lock' } }),
+      );
+      return;
+    }
     const toggle = event.target?.closest?.('[data-search-toggle]');
-    if (toggle) {
-      this.#searchOpen = !this.#searchOpen;
+    if (toggle) {      this.#searchOpen = !this.#searchOpen;
       if (this.#searchOpen) {
         this.requestRender();
         // The render lands on a microtask; focus the query input after it.
@@ -277,6 +285,10 @@ class ParsiMenuBar extends PeyElement {
       readOnly: this.#readOnly,
       builtInOpen: this.#builtInOpen,
     });
+    // The mode toggle mirrors the file-menu lock item: it shows the current
+    // state (locked/unlocked) and its label names the switch it performs.
+    const lockedLabel = this.#readOnly ? 'parsinegar.documents.unlock' : 'parsinegar.documents.lock';
+    const modeDisabled = !this.#hasDocument || this.#builtInOpen;
     const markup = menus.map((menu) => {
       const open = this.#openMenu === menu.id;
       return `
@@ -289,6 +301,9 @@ class ParsiMenuBar extends PeyElement {
     }).join('');
     return `
       <div part="menubar" role="menubar">${markup}
+        <div part="mode">
+          <button type="button" part="mode-toggle" data-mode-toggle data-pey-preserve="mode-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(lockedLabel))}" title="${escapeHtml(this.#t(lockedLabel))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#readOnly ? 'lock' : 'lock-open')}</button>
+        </div>
         <div part="search">
           <button type="button" part="search-toggle" data-search-toggle data-pey-preserve="search-toggle" data-pey-preserve-state="focus" aria-expanded="${this.#searchOpen}" aria-label="${escapeHtml(this.#t('parsinegar.search.button'))}" title="${escapeHtml(this.#t('parsinegar.search.button'))}" ${this.#hasDocument ? '' : 'disabled'}>${iconMarkup(this.#assetBaseUrl, 'search')}</button>
           <div part="search-dropdown" ${this.#searchOpen ? '' : 'hidden'}>${renderSearchForm({ t: this.#t, state: this.#search, formatNumber: this.#formatNumber })}</div>

@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const SPRITE_URL = new URL('../../assets/icons.svg', import.meta.url);
-const REQUIRED_SYMBOLS = ['file-copy', 'toc', 'delete', 'settings', 'add-notes', 'sort', 'upload', 'content-copy', 'check', 'search'];
+const REQUIRED_SYMBOLS = ['file-copy', 'toc', 'delete', 'settings', 'add-notes', 'sort', 'upload', 'content-copy', 'check', 'search', 'lock', 'lock-open'];
 
 test('should_define_required_symbols_when_sprite_is_loaded', async () => {
   const markup = await readFile(SPRITE_URL, 'utf8');

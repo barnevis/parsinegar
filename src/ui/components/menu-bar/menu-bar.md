@@ -1,10 +1,10 @@
 # `parsi-menu-bar`
 
-Regular component: dropdown menus (file, edit, insert, view) plus the find/replace dropdown for the workbench. Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
+Regular component: dropdown menus (file, edit, insert, view, help) plus the find/replace dropdown and the read/write mode toggle for the workbench. Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
 
 ## Purpose
 
-Renders the menu structure from the pure `menu-model.js` data and owns its open-menu state locally, so menu interaction never re-renders the parent page (which would drop editor focus and undo history). Menu actions leave the element as `menu-action` `CustomEvent`s for the parent to map to behavior. The search form (pure `../workbench/search-form.js`) lives in a second dropdown pinned to the bar end (visual left in RTL): it owns the transient form values locally, reports every keystroke and action as `search-*` events, and displays the result the parent echoes back through `configure()`. Typing state survives those re-renders through `data-pey-preserve` on the inputs (value, selection, focus) and action buttons (focus).
+Renders the menu structure from the pure `menu-model.js` data and owns its open-menu state locally, so menu interaction never re-renders the parent page (which would drop editor focus and undo history). Menu actions leave the element as `menu-action` `CustomEvent`s for the parent to map to behavior. The mode toggle next to the search button mirrors the file-menu lock item (lock/unlock icon for the current state, same `toggle-lock` action road). The search form (pure `../workbench/search-form.js`) lives in a second dropdown pinned to the bar end (visual left in RTL): it owns the transient form values locally, reports every keystroke and action as `search-*` events, and displays the result the parent echoes back through `configure()`. Typing state survives those re-renders through `data-pey-preserve` on the inputs (value, selection, focus) and action buttons (focus).
 
 ## Dependencies
 
@@ -21,7 +21,7 @@ Everything received through `connect(refs)`:
 
 ## Events
 
-**Published:** `menu-action` with `detail: { action }`, `bubbles: true`, `composed: true`. Action ids are plain strings (`new-document`, `delete-document`, `open-help`, `open-changelog`, `about`, `back-to-documents`, `toggle-lock`, `undo`, `redo`, `toggle-side`, `toggle-status`) defined by `../workbench/menu-model.js`.
+**Published:** `menu-action` with `detail: { action }`, `bubbles: true`, `composed: true`. Action ids are plain strings (`new-document`, `delete-document`, `open-help`, `open-changelog`, `about`, `back-to-documents`, `toggle-lock` (also emitted by the mode toggle button), `read-mode`, `write-mode`, `undo`, `redo`, `toggle-side`, `toggle-status`) defined by `../workbench/menu-model.js`.
 
 Search events (all `bubbles: true`, `composed: true`, with the form spec as detail) for the parent to run against the editor:
 

@@ -36,7 +36,7 @@ test('should_render_menus_without_brand_when_mounted', async () => {
   try {
     await flush();
     const buttons = [...element.shadowRoot.querySelectorAll('[data-menu]')];
-    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'insert', 'view']);
+    assert.deepEqual(buttons.map((button) => button.getAttribute('data-menu')), ['file', 'edit', 'insert', 'view', 'help']);
     assert.equal(element.shadowRoot.querySelector('[part="brand"]'), null);
     assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
   } finally {
@@ -345,20 +345,87 @@ test('should_paint_search_chrome_when_mounted', async () => {  const element = m
 });
 
 function fileActions(element) {
-  return [...element.shadowRoot.querySelectorAll('[data-action]')].map((node) => node.getAttribute('data-action'));
+  const open = element.shadowRoot.querySelector('[part="menu-dropdown"]:not([hidden])');
+  return [...(open?.querySelectorAll('[data-action]') ?? [])].map((node) => node.getAttribute('data-action'));
 }
 
-test('should_offer_help_and_lock_when_file_menu_is_open', async () => {
+test('should_offer_help_and_lock_when_menus_are_open', async () => {
   const element = mount();
   try {
     await flush();
-    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    element.shadowRoot.querySelector('[data-menu="help"]').click();
     await flush();
     const actions = fileActions(element);
-    for (const id of ['open-help', 'open-changelog', 'about', 'toggle-lock']) {
+    for (const id of ['open-help', 'open-changelog', 'about']) {
       assert.ok(actions.includes(id), `expected item: ${id}`);
     }
     assert.ok(!actions.includes('back-to-documents'));
+    assert.ok(!actions.includes('toggle-lock'));
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    await flush();
+    assert.ok(fileActions(element).includes('toggle-lock'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_offer_read_and_write_when_view_menu_is_open', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="view"]').click();
+    await flush();
+    // Unlocked: write-mode is the active one (disabled), read-mode switches.
+    const read = element.shadowRoot.querySelector('[data-action="read-mode"]');
+    const write = element.shadowRoot.querySelector('[data-action="write-mode"]');
+    assert.ok(read && write);
+    assert.equal(read.disabled, false);
+    assert.equal(write.disabled, true);
+    element.configure({ readOnly: true });
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="view"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-action="read-mode"]').disabled, true);
+    assert.equal(element.shadowRoot.querySelector('[data-action="write-mode"]').disabled, false);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_toggle_lock_when_mode_toggle_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('menu-action', (event) => seen.push(event.detail));
+    const toggle = element.shadowRoot.querySelector('[data-mode-toggle]');
+    assert.ok(toggle, 'expected the mode toggle');
+    assert.ok(toggle.innerHTML.includes('#lock-open'));
+    toggle.click();
+    await flush();
+    assert.deepEqual(seen, [{ action: 'toggle-lock' }]);
+    element.configure({ readOnly: true });
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-mode-toggle]').innerHTML.includes('#lock'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_disable_mode_toggle_without_document_or_for_builtin', async () => {
+  const bare = mount({ hasDocument: false });
+  try {
+    await flush();
+    assert.ok(bare.shadowRoot.querySelector('[data-mode-toggle]').disabled);
+  } finally {
+    bare.remove();
+  }
+  const element = mount();
+  try {
+    await flush();
+    element.configure({ readOnly: true, builtInOpen: true });
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-mode-toggle]').disabled);
   } finally {
     element.remove();
   }
@@ -370,11 +437,17 @@ test('should_show_back_and_freeze_lock_when_builtin_is_configured', async () => 
     await flush();
     element.configure({ readOnly: true, builtInOpen: true });
     await flush();
-    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    element.shadowRoot.querySelector('[data-menu="help"]').click();
     await flush();
     const actions = fileActions(element);
     assert.ok(actions.includes('back-to-documents'));
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
+    await flush();
     assert.ok(element.shadowRoot.querySelector('[data-action="toggle-lock"]').disabled);
+    element.shadowRoot.querySelector('[data-menu="view"]').click();
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-action="read-mode"]').disabled);
+    assert.ok(element.shadowRoot.querySelector('[data-action="write-mode"]').disabled);
   } finally {
     element.remove();
   }

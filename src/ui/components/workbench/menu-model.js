@@ -22,9 +22,6 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
     { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
     { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
     { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument },
-    { id: 'open-help', label: translate('parsinegar.builtin.help'), action: 'open-help', disabled: false },
-    { id: 'open-changelog', label: translate('parsinegar.builtin.changelog'), action: 'open-changelog', disabled: false },
-    { id: 'about', label: translate('parsinegar.menu.about'), action: 'about', disabled: false },
   ];
   if (builtIn) {
     fileItems.push({ id: 'back-to-documents', label: translate('parsinegar.builtin.back'), action: 'back-to-documents', disabled: false });
@@ -35,6 +32,15 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
     action: 'toggle-lock',
     disabled: !hasDocument || builtIn,
   });
+  const helpItems = [
+    { id: 'open-help', label: translate('parsinegar.builtin.help'), action: 'open-help', disabled: false },
+    { id: 'open-changelog', label: translate('parsinegar.builtin.changelog'), action: 'open-changelog', disabled: false },
+    { id: 'about', label: translate('parsinegar.menu.about'), action: 'about', disabled: false },
+  ];
+  if (builtIn) {
+    helpItems.push({ id: 'back-to-documents', label: translate('parsinegar.builtin.back'), action: 'back-to-documents', disabled: false });
+  }
+  const modeDisabled = !hasDocument || builtIn;
   return [
     {
       id: 'file',
@@ -70,7 +76,14 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
       items: [
         { id: 'toggle-side', label: translate('parsinegar.view.side'), action: 'toggle-side', disabled: false },
         { id: 'toggle-status', label: translate('parsinegar.view.status'), action: 'toggle-status', disabled: false },
+        { id: 'read-mode', label: translate('parsinegar.view.read'), action: 'read-mode', disabled: modeDisabled || locked },
+        { id: 'write-mode', label: translate('parsinegar.view.write'), action: 'write-mode', disabled: modeDisabled || !locked },
       ],
+    },
+    {
+      id: 'help',
+      label: translate('parsinegar.menu.help'),
+      items: helpItems,
     },
   ];
 }
