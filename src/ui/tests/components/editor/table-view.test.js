@@ -1,4 +1,4 @@
-// Verifies table readability collection (pure) and role washes.
+// Verifies live-table collection (pure) and widget rendering.
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -20,10 +20,22 @@ function collect(text, selection) {
   return collectTablesFrom(state, 0, state.doc.length);
 }
 
-test('should_collect_table_span_when_scanning', () => {
-  const tables = collect('متن\n\n| a | b |\n|---|---|\n| 1 | 2 |');
+test('should_collect_header_rows_and_aligns_when_scanning', () => {
+  const tables = collect('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
   assert.equal(tables.length, 1);
-  assert.ok(tables[0].from > 0 && tables[0].to <= 'متن\n\n| a | b |\n|---|---|\n| 1 | 2 |'.length);
+  assert.deepEqual(tables[0].header, ['نام', 'سن']);
+  assert.deepEqual(tables[0].rows, [['علی', '۳۰']]);
+  assert.deepEqual(tables[0].aligns, ['start', 'end']);
+});
+
+test('should_default_align_when_delimiter_is_plain', () => {
+  const tables = collect('متن\n\n| a | b |\n|---|---|\n| 1 | 2 |');
+  assert.deepEqual(tables[0].aligns, ['start', 'start']);
+});
+
+test('should_center_when_delimiter_is_wrapped', () => {
+  const tables = collect('متن\n\n| a |\n|:--:|\n| 1 |');
+  assert.deepEqual(tables[0].aligns, ['center']);
 });
 
 test('should_skip_touched_table_when_selected', () => {
@@ -35,6 +47,7 @@ test('should_skip_touched_table_when_selected', () => {
 test('should_skip_fenced_tables_when_scanning', () => {
   const tables = collect('```\n| a |\n|---|\n| 1 |\n```\n\n| b |\n|---|\n| 2 |');
   assert.equal(tables.length, 1);
+  assert.deepEqual(tables[0].header, ['b']);
 });
 
 function createEditor(documentText) {
@@ -44,37 +57,41 @@ function createEditor(documentText) {
   return { host, editor };
 }
 
-test('should_wash_roles_when_table_is_present', () => {
-  const { host, editor } = createEditor('متن\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |');
+test('should_render_table_when_present', () => {
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
   try {
-    const lines = [...host.querySelectorAll('.cm-line')];
-    const byText = (start) => lines.find((line) => line.textContent.startsWith(start));
-    assert.ok(byText('| a | b |').classList.contains('parsi-table-header'), 'expected the header wash');
-    assert.ok(byText('|---|---|').classList.contains('parsi-table-delimiter'), 'expected the delimiter wash');
-    assert.ok(byText('| 1 | 2 |').classList.contains('parsi-table-row'), 'expected a plain body row');
-    assert.ok(byText('| 3 | 4 |').classList.contains('parsi-table-row-alt'), 'expected the zebra row');
-    assert.ok(!byText('متن').classList.contains('parsi-table-header'));
+    const table = host.querySelector('.parsi-table');
+    assert.ok(table, 'expected a table widget');
+    assert.deepEqual(
+      [...table.querySelectorAll('thead th')].map((cell) => cell.textContent),
+      ['نام', 'سن'],
+    );
+    assert.deepEqual(
+      [...table.querySelectorAll('tbody td')].map((cell) => cell.textContent),
+      ['علی', '۳۰'],
+    );
+    const heads = [...table.querySelectorAll('thead th')];
+    assert.equal(heads[0].style.textAlign, 'start');
+    assert.equal(heads[1].style.textAlign, 'end');
   } finally {
     editor.destroy();
     host.remove();
   }
 });
 
-test('should_leave_source_alone_when_cursor_touches_table', () => {
-  // Fresh cursor at 0 sits before the table here... a table opening the
-  // document is touched at the boundary (like links) and stays plain.
+test('should_keep_source_when_cursor_touches_table', () => {
+  // A table opening the document is touched at the boundary cursor (like
+  // links) and keeps its source.
   const { host, editor } = createEditor('| a |\n|---|\n| 1 |');
   try {
-    for (const line of host.querySelectorAll('.cm-line')) {
-      assert.ok(!line.classList.contains('parsi-table-header'), 'expected no wash while touched');
-    }
+    assert.equal(host.querySelector('.parsi-table'), null);
   } finally {
     editor.destroy();
     host.remove();
   }
 });
 
-test('should_paint_roles_when_theme_is_loaded', () => {
+test('should_paint_tables_when_theme_is_loaded', () => {
   const { host, editor } = createEditor('متن\n\n| a |\n|---|\n| 1 |');
   try {
     const styleSheets = [...document.styleSheets];
@@ -85,9 +102,9 @@ test('should_paint_roles_when_theme_is_loaded', () => {
         return false;
       }
     });
-    assert.ok(has('.parsi-table-header', 'font-weight', '700'));
-    assert.ok(has('.parsi-table-delimiter', 'color', 'text-muted'));
-    assert.ok(has('.parsi-table-row-alt', 'background-color', '127'));
+    assert.ok(has('.parsi-table', 'border-collapse', 'collapse'));
+    assert.ok(has('.parsi-table-wrapper', 'overflow-x', 'auto'));
+    assert.ok(has('.parsi-table thead th', 'font-weight', '700'));
   } finally {
     editor.destroy();
     host.remove();
