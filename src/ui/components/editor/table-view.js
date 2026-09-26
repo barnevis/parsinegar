@@ -5,7 +5,8 @@
 // keeps the editable source visible (the same reveal contract images and
 // links already have). Column alignment comes from the delimiter row as
 // logical values, so it sits correctly in both directions; cell content
-// stays plain text in v1.
+// keeps its inline marks (strong, emphasis, code, links, images) rendered
+// from the syntax tree, never from reparsed HTML.
 //
 // Provisioning note: multi-line replacements and block widgets throw
 // `RangeError` from ViewPlugin decorations, but StateField values travel
@@ -15,6 +16,107 @@
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 import { StateField } from '@codemirror/state';
+
+const REMOTE_PATTERN = /^https?:\/\//i;
+// Marks own no content: gaps between children carry the plain text, and
+// these names are skipped while walking.
+const MARK_NAMES = new Set(['EmphasisMark', 'CodeMark', 'StrikethroughMark', 'LinkMark', 'URL']);
+
+/**
+ * Reads the alt text of an Image node (raw slice between `![` and `]`).
+ * @param {object} doc Document text accessor (`sliceString`).
+ * @param {object} node Image syntax node.
+ * @returns {string} Alt text.
+ */
+function readImageAlt(doc, node) {
+  let child = node.firstChild;
+  while (child) {
+    if (child.name === 'LinkMark' && doc.sliceString(child.from, child.to) === ']') {
+      return doc.sliceString(node.from + 2, child.from);
+    }
+    child = child.nextSibling;
+  }
+  return '';
+}
+
+/**
+ * Reads one Image node as a segment.
+ * @param {object} doc Document text accessor (`sliceString`).
+ * @param {object} node Image syntax node.
+ * @returns {object} `{ t: 'image', alt, src }` segment.
+ */
+function readImageSegment(doc, node) {
+  let src = '';
+  let child = node.firstChild;
+  while (child) {
+    if (child.name === 'URL' && src === '') {
+      src = doc.sliceString(child.from, child.to);
+    }
+    child = child.nextSibling;
+  }
+  return { t: 'image', alt: readImageAlt(doc, node), src };
+}
+
+/**
+ * Reads the href of a Link node (its URL child).
+ * @param {object} doc Document text accessor (`sliceString`).
+ * @param {object} node Link syntax node.
+ * @returns {string} URL text, or '' when absent.
+ */
+function readLinkHref(doc, node) {
+  let child = node.firstChild;
+  while (child) {
+    if (child.name === 'URL') {
+      return doc.sliceString(child.from, child.to);
+    }
+    child = child.nextSibling;
+  }
+  return '';
+}
+
+/**
+ * Reads inline content as segments: plain-text gaps plus formatted spans
+ * (strong, emphasis, strikethrough, code, links, images). Unknown
+ * containers flatten into their children; marks never surface.
+ * @param {object} doc Document text accessor (`sliceString`).
+ * @param {object} node Syntax node whose children to read.
+ * @returns {Array} Segments (`text`, `strong`, `em`, `strike`, `code`,
+ *   `link` with href, `image` with alt/src).
+ */
+function readInline(doc, node) {
+  const segments = [];
+  let pos = node.from;
+  const flush = (to) => {
+    if (to > pos) {
+      segments.push({ t: 'text', text: doc.sliceString(pos, to) });
+    }
+    pos = to;
+  };
+  let child = node.firstChild;
+  while (child) {
+    flush(child.from);
+    if (child.name === 'StrongEmphasis') {
+      segments.push({ t: 'strong', kids: readInline(doc, child) });
+    } else if (child.name === 'Emphasis') {
+      segments.push({ t: 'em', kids: readInline(doc, child) });
+    } else if (child.name === 'Strikethrough') {
+      segments.push({ t: 'strike', kids: readInline(doc, child) });
+    } else if (child.name === 'InlineCode') {
+      segments.push({ t: 'code', kids: readInline(doc, child) });
+    } else if (child.name === 'Link') {
+      segments.push({ t: 'link', href: readLinkHref(doc, child), kids: readInline(doc, child) });
+    } else if (child.name === 'Image') {
+      segments.push(readImageSegment(doc, child));
+    } else if (!MARK_NAMES.has(child.name)) {
+      // Unknown containers flatten into their children; marks vanish.
+      segments.push(...readInline(doc, child));
+    }
+    pos = child.to;
+    child = child.nextSibling;
+  }
+  flush(node.to);
+  return segments;
+}
 
 /**
  * Resolves one delimiter cell (`:---`, `:--:`, `---:`, `---`) to a
@@ -36,17 +138,17 @@ function alignFor(cell) {
 }
 
 /**
- * Reads the plain-text cells of a header or row node.
+ * Reads the inline segments of the cells of a header or row node.
  * @param {object} doc Document text accessor (`sliceString`).
  * @param {object} node TableHeader or TableRow syntax node.
- * @returns {Array<string>} Cell texts in order.
+ * @returns {Array} One segment array per cell, in order.
  */
 function readCells(doc, node) {
   const cells = [];
   let child = node.firstChild;
   while (child) {
     if (child.name === 'TableCell') {
-      cells.push(doc.sliceString(child.from, child.to));
+      cells.push(readInline(doc, child));
     }
     child = child.nextSibling;
   }
@@ -135,18 +237,73 @@ export function collectTablesFrom(state, from, to) {
 }
 
 /**
+ * Renders inline segments into a parent node. Text travels through
+ * `textContent` and links/images accept remote http(s) targets only, so no
+ * markup from the document ever reaches the DOM as HTML.
+ * @param {object} document Owner document.
+ * @param {HTMLElement} parent Parent node.
+ * @param {Array} segments Inline segments.
+ * @returns {void}
+ */
+function renderInline(document, parent, segments) {
+  for (const segment of segments) {
+    if (segment.t === 'strong' || segment.t === 'em' || segment.t === 'strike' || segment.t === 'code') {
+      const tag = segment.t === 'strong' ? 'strong' : segment.t === 'em' ? 'em' : segment.t === 'strike' ? 'del' : 'code';
+      const element = document.createElement(tag);
+      if (tag === 'code') {
+        element.className = 'parsi-table-code';
+      }
+      renderInline(document, element, segment.kids ?? []);
+      parent.append(element);
+    } else if (segment.t === 'link') {
+      const kids = segment.kids ?? [];
+      if (REMOTE_PATTERN.test(segment.href ?? '')) {
+        const anchor = document.createElement('a');
+        anchor.className = 'parsi-table-link';
+        anchor.href = segment.href;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener';
+        renderInline(document, anchor, kids);
+        parent.append(anchor);
+      } else {
+        const span = document.createElement('span');
+        renderInline(document, span, kids);
+        parent.append(span);
+      }
+    } else if (segment.t === 'image') {
+      if (REMOTE_PATTERN.test(segment.src ?? '')) {
+        const picture = document.createElement('img');
+        picture.className = 'parsi-table-image';
+        picture.src = segment.src;
+        picture.alt = segment.alt ?? '';
+        const fallback = document.createElement('span');
+        fallback.textContent = segment.alt ?? '';
+        picture.addEventListener('error', () => {
+          picture.replaceWith(fallback);
+        }, { once: true });
+        parent.append(picture);
+      } else {
+        parent.append(document.createTextNode(segment.alt ?? ''));
+      }
+    } else {
+      parent.append(document.createTextNode(segment.text ?? ''));
+    }
+  }
+}
+
+/**
  * Builds one table cell (`th` for headers, `td` for body) with its
- * logical alignment. Text travels through `textContent`, never HTML.
+ * logical alignment and formatted inline content.
  * @param {object} document Owner document.
  * @param {string} tag 'th' or 'td'.
- * @param {string} text Plain cell text.
+ * @param {Array} segments Inline cell segments.
  * @param {string} align Logical alignment.
  * @returns {HTMLElement} Cell element.
  */
-function buildCell(document, tag, text, align) {
+function buildCell(document, tag, segments, align) {
   const cell = document.createElement(tag);
   cell.style.textAlign = align;
-  cell.textContent = text.trim();
+  renderInline(document, cell, segments);
   return cell;
 }
 
@@ -181,8 +338,8 @@ class TableWidget extends WidgetType {
     table.className = 'parsi-table';
     const head = document.createElement('thead');
     const headRow = document.createElement('tr');
-    header.forEach((text, index) => {
-      headRow.append(buildCell(document, 'th', text, aligns[index] ?? 'start'));
+    header.forEach((segments, index) => {
+      headRow.append(buildCell(document, 'th', segments, aligns[index] ?? 'start'));
     });
     head.append(headRow);
     table.append(head);
@@ -191,8 +348,8 @@ class TableWidget extends WidgetType {
       const bodyRow = document.createElement('tr');
       // Cells beyond the header ride the last alignment; missing cells
       // simply leave the row shorter, like the source does.
-      row.forEach((text, index) => {
-        bodyRow.append(buildCell(document, 'td', text, aligns[Math.min(index, aligns.length - 1)] ?? 'start'));
+      row.forEach((segments, index) => {
+        bodyRow.append(buildCell(document, 'td', segments, aligns[Math.min(index, aligns.length - 1)] ?? 'start'));
       });
       body.append(bodyRow);
     }
@@ -254,6 +411,20 @@ const tableTheme = EditorView.theme({
   '& .parsi-table tbody td': {
     border: '1px solid var(--pey-color-border, #e2e2e8)',
     padding: '0.3rem 0.6rem',
+  },
+  '& .parsi-table-link': {
+    color: 'var(--pey-color-accent, #0e7490)',
+  },
+  '& .parsi-table-code': {
+    fontFamily: 'ui-monospace, monospace',
+    backgroundColor: 'var(--pey-color-surface, #f1f1f5)',
+    borderRadius: '4px',
+    padding: '0 0.25rem',
+  },
+  '& .parsi-table-image': {
+    maxWidth: '100%',
+    borderRadius: '4px',
+    verticalAlign: 'middle',
   },
 });
 
