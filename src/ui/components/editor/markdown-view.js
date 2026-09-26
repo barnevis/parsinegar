@@ -19,6 +19,8 @@ import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
+import { admonitionViewExtensions } from './admonition-view.js';
+import { poemViewExtensions } from './poem-view.js';
 import { imageViewExtensions } from './image-view.js';
 import { linkFollowExtensions } from './link-follow.js';
 import { tableViewExtensions } from './table-view.js';
@@ -147,6 +149,8 @@ export function createMarkdownView(host, options = {}) {
       // our own match colors below always win over the base theme.
       search(),
       ...livePreviewExtensions(),
+      ...admonitionViewExtensions(),
+      ...poemViewExtensions(),
       ...imageViewExtensions(),
       ...linkFollowExtensions(),
       ...tableViewExtensions(),

@@ -7,6 +7,7 @@
 // match it. Highlight washes keep a fixed per-scheme ink because their
 // background stays constant across schemes.
 import { EditorView } from 'codemirror';
+import { admonitionSchemeRules } from './admonition-view.js';
 
 const DARK_TEXT = '#e8eaf0';
 const DARK_SELECTION = '#26436e';
@@ -48,6 +49,9 @@ export function editorColorScheme(colorScheme) {
     return [];
   }
   const dark = colorScheme === 'dark';
+  const schemeRules = Object.fromEntries(
+    admonitionSchemeRules(dark).map((rule) => [rule.selector, rule.declarations]),
+  );
   return [
     EditorView.theme({
       '&': {
@@ -105,6 +109,7 @@ export function editorColorScheme(colorScheme) {
       '& .cm-line .parsi-code-operator': { color: dark ? DARK_CODE_OPERATOR : SEPIA_CODE_OPERATOR },
       '& .cm-line .parsi-code-type': { color: dark ? DARK_CODE_TYPE : SEPIA_CODE_TYPE },
       '& .cm-line .parsi-code-property': { color: dark ? DARK_CODE_PROPERTY : SEPIA_CODE_PROPERTY },
+      ...schemeRules,
     }),
   ];
 }
