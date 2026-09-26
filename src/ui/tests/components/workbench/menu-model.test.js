@@ -4,7 +4,7 @@ import test from 'node:test';
 import { buildMenuModel } from '../../../components/workbench/menu-model.js';
 
 const LABELS = {
-  'parsinegar.menu.file': 'پرونده',
+  'parsinegar.menu.file': 'سند',
   'parsinegar.menu.edit': 'ویرایش',
   'parsinegar.menu.view': 'نمایش',
   'parsinegar.menu.insert': 'افزودن',
@@ -33,7 +33,7 @@ function translate(key) {
 test('should_build_five_menus_when_called', () => {
   const menus = buildMenuModel({ t: translate, hasDocument: true });
   assert.deepEqual(menus.map(({ id }) => id), ['file', 'edit', 'insert', 'view', 'help']);
-  assert.deepEqual(menus.map(({ label }) => label), ['پرونده', 'ویرایش', 'افزودن', 'نمایش', 'parsinegar.menu.help']);
+  assert.deepEqual(menus.map(({ label }) => label), ['سند', 'ویرایش', 'افزودن', 'نمایش', 'parsinegar.menu.help']);
   for (const menu of menus) {
     assert.ok(menu.items.length > 0, `expected items in ${menu.id}`);
     for (const item of menu.items) {

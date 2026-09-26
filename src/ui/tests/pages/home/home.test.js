@@ -1330,7 +1330,7 @@ test('should_show_properties_when_properties_arrives', async () => {
     assert.ok(dialog, 'expected the properties modal');
     assert.equal(dialog.getAttribute('role'), 'dialog');
     assert.ok(dialog.textContent.includes('سند مهم'));
-    assert.ok(dialog.textContent.includes('ویژگی‌های پرونده'));
+    assert.ok(dialog.textContent.includes('ویژگی‌های سند'));
     inChild(element, 'parsi-modal-dialog', '[data-close-props]').click();
     await settled();
     assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null);
