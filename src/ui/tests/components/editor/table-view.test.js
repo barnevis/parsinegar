@@ -91,6 +91,25 @@ test('should_keep_source_when_cursor_touches_table', () => {
   }
 });
 
+test('should_render_when_cursor_leaves_after_paste', () => {
+  // Pasting parks the cursor at the table end (source showing); moving
+  // away — like clicking elsewhere — renders the widget.
+  const { host, editor } = createEditor('| ستون ۱ | ستون ۲ |\n|---|---|\n| محتوا | محتوا |\n\nمتن بعد');
+  try {
+    assert.equal(host.querySelector('.parsi-table'), null);
+    editor.gotoLine(5);
+    const table = host.querySelector('.parsi-table');
+    assert.ok(table, 'expected the table widget after leaving');
+    assert.deepEqual(
+      [...table.querySelectorAll('tbody td')].map((cell) => cell.textContent),
+      ['محتوا', 'محتوا'],
+    );
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 test('should_paint_tables_when_theme_is_loaded', () => {
   const { host, editor } = createEditor('متن\n\n| a |\n|---|\n| 1 |');
   try {
