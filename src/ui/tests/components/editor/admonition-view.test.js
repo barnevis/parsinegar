@@ -15,7 +15,7 @@ test('should_know_five_kinds_when_listed', () => {
   assert.deepEqual(Object.keys(ADMONITION_KINDS), ['هشدار', 'احتیاط', 'مهم', 'راهنما', 'نکته']);
   for (const kind of Object.values(ADMONITION_KINDS)) {
     for (const scheme of ['light', 'dark', 'sepia']) {
-      assert.ok(kind.accent[scheme] && kind.wash[scheme], `expected ${scheme} colors`);
+      assert.ok(kind.accent[scheme], `expected ${scheme} accent`);
     }
   }
 });
@@ -24,6 +24,11 @@ test('should_collect_block_when_fenced', () => {
   const blocks = collect('متن\n\n... هشدار\nمحتوا\n...\n\nبعد');
   assert.equal(blocks.length, 1);
   assert.equal(blocks[0].kind, 'هشدار');
+});
+
+test('should_accept_glued_opener_when_scanning', () => {
+  assert.equal(collect('...هشدار\nمحتوا\n...').length, 1);
+  assert.equal(collect('... هشدار\nمحتوا\n...').length, 1);
 });
 
 test('should_reject_unknown_kind_and_extra_words_when_scanning', () => {
@@ -58,25 +63,57 @@ function createEditor(documentText) {
 }
 
 test('should_wash_and_label_when_block_is_present', () => {
-  const { host, editor } = createEditor('متن\n\n... هشدار\nمحتوا\n...\n\nبعد');
+  const { host, editor } = createEditor('متن\n\n...هشدار\nمحتوا\n...\n\nبعد');
   try {
+    // Only the content line carries the border; fences hide per the rule.
     const washed = [...host.querySelectorAll('.parsi-admonition-line')];
     assert.equal(washed.length, 1);
     assert.ok(washed[0].textContent.includes('محتوا'));
     const label = host.querySelector('.parsi-admonition-label');
-    assert.ok(label, 'expected the kind chip');
+    assert.ok(label, 'expected the kind label');
     assert.equal(label.textContent, 'هشدار');
+    assert.equal(host.querySelectorAll('.parsi-fence-hidden').length, 2);
   } finally {
     editor.destroy();
     host.remove();
   }
 });
 
-test('should_reveal_fence_when_cursor_touches_it', () => {
-  // Fresh cursor at 0 is far from the block: fences stay hidden.
-  const { host, editor } = createEditor('متن\n\n... هشدار\nمحتوا\n...');
+test('should_paint_github_alert_when_theme_is_loaded', () => {
+  const { host, editor } = createEditor('متن\n\n...هشدار\nمحتوا\n...');
   try {
-    assert.equal(host.querySelectorAll('.parsi-fence-hidden').length, 2);
+    const styleSheets = [...document.styleSheets];
+    const has = (selector, property, expected) => styleSheets.some((sheet) => {
+      try {
+        return [...sheet.cssRules].some((rule) => rule.selectorText?.includes(selector) && rule.style?.getPropertyValue(property).includes(expected));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(has('.parsi-admonition-line-0', 'border-inline-start', '#9a6700'));
+    assert.ok(has('.parsi-admonition-label-0', 'color', '#9a6700'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_paint_dark_accents_when_scheme_is_dark', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن\n\n...هشدار\nمحتوا\n...', colorScheme: 'dark' });
+  try {
+    const styleSheets = [...document.styleSheets];
+    const has = (selector, property, expected) => styleSheets.some((sheet) => {
+      try {
+        return [...sheet.cssRules].some((rule) => rule.selectorText?.includes(selector) && rule.style?.getPropertyValue(property).includes(expected));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(has('.parsi-admonition-line-0', 'border-inline-start', '#d29922'));
+    assert.ok(has('.parsi-admonition-label-0', 'color', '#d29922'));
+    assert.ok(host.querySelector('.parsi-admonition-line'), 'expected the wash in dark mode');
   } finally {
     editor.destroy();
     host.remove();

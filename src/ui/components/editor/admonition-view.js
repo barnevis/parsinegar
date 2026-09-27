@@ -1,55 +1,56 @@
-// Admonition blocks in the parsneshan style (`... kind` ... `...`).
+// Admonition blocks in the parsneshan style (`...kind` ... `...`).
 //
 // Collects fenced regions by scanning lines (no lezer grammar needed):
-// an opener `... <kind>` (0-3 spaces indent, optional `>` quote prefix,
-// exact kind word, nothing after), a closer `...`, unclosed runs to the
-// document end, no nesting. Fence lines hide through zero-size marks and
-// reopen wherever the cursor or a selection touches them, so the fences
-// stay editable. Content lines keep the existing rendering untouched (all
-// inner Markdown works for free) and only carry the kind wash, with a
-// small kind-label chip at the content start.
+// an opener `...` glued to the kind word (`...هشدار`, spaces allowed too),
+// 0-3 spaces indent, optional `>` quote prefix, exact kind word, nothing
+// after; a closer `...`; unclosed runs to the document end; no nesting.
+// Shaped like GitHub alerts: a thick accent border on content lines plus a
+// colored kind label, no background wash. Fence lines hide through
+// zero-size marks and reopen wherever the cursor or a selection touches
+// them (marks hide unless stood upon). Content lines keep the existing
+// rendering untouched (all inner Markdown works for free).
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { FENCE_PATTERN } from './live-preview.js';
 
 /**
- * Admonition kinds: label plus per-scheme accent and wash colors. Accents
- * mirror the code-token palette family so the boxes sit naturally in every
- * theme; washes are translucent fills of the same hue.
+ * Admonition kinds in the GitHub shape: a thick accent border plus a
+ * colored kind label, no background wash (GitHub renders
+ * `.markdown-alert` exactly so: padding, colored left border, accent
+ * title). Light/dark accents follow the primer scale; sepia stays in the
+ * warm family of the sepia theme.
  */
 export const ADMONITION_KINDS = {
   'هشدار': {
     label: 'هشدار',
-    accent: { light: '#b45309', dark: '#fbbf24', sepia: '#b45309' },
-    wash: { light: '#fef3c7', dark: '#453008', sepia: '#fbe8b8' },
+    accent: { light: '#9a6700', dark: '#d29922', sepia: '#9a6700' },
   },
   'احتیاط': {
     label: 'احتیاط',
-    accent: { light: '#c2410c', dark: '#fb923c', sepia: '#c2410c' },
-    wash: { light: '#ffedd5', dark: '#432407', sepia: '#fbe3c8' },
+    accent: { light: '#cf222e', dark: '#f85149', sepia: '#b91c1c' },
   },
   'مهم': {
     label: 'مهم',
-    accent: { light: '#b91c1c', dark: '#f87171', sepia: '#b91c1c' },
-    wash: { light: '#fee2e2', dark: '#450a0a', sepia: '#f9dcdc' },
+    accent: { light: '#8250df', dark: '#ab7df8', sepia: '#7c3aed' },
   },
   'راهنما': {
     label: 'راهنما',
-    accent: { light: '#0e7490', dark: '#5eead4', sepia: '#0e7490' },
-    wash: { light: '#cffafe', dark: '#083f4d', sepia: '#c9eef2' },
+    accent: { light: '#1a7f37', dark: '#3fb950', sepia: '#1a7f37' },
   },
   'نکته': {
     label: 'نکته',
-    accent: { light: '#1d4ed8', dark: '#6ea8ff', sepia: '#1d4ed8' },
-    wash: { light: '#dbeafe', dark: '#16295e', sepia: '#d7e6f9' },
+    accent: { light: '#0969da', dark: '#4493f8', sepia: '#1d4ed8' },
   },
 };
 
-const OPENER_PATTERN = /^[ \t]{0,3}(?:>[ \t]?)?\.\.\.[ \t]+(\S+)[ \t]*$/;
+// Opener takes the kind glued (`...هشدار`) or spaced (`... هشدار`);
+// anything after the kind word voids the block.
+const OPENER_PATTERN = /^[ \t]{0,3}(?:>[ \t]?)?\.\.\.[ \t]*(\S+)[ \t]*$/;
 const CLOSER_PATTERN = /^[ \t]{0,3}(?:>[ \t]?)?\.\.\.[ \t]*$/;
 
 /**
  * Checks whether any selection range touches `from`..`to` (boundaries
- * inclusive). Touched fence lines reopen for editing.
+ * inclusive). Touched fence lines reopen for editing, per the project
+ * rule that marks hide unless the cursor stands on them.
  * @param {object} selection Editor selection state.
  * @param {number} from Range start.
  * @param {number} to Range end.
@@ -150,10 +151,21 @@ function kindClass(kind) {
 }
 
 /**
- * Builds admonition decorations: hidden fence lines (reopened on touch),
- * washed content lines and the kind chip. Ranges sort by position; on ties
- * lines precede the widget (RangeSet side ordering), because the builder
- * rejects out-of-order input.
+ * Builds admonition decorations: every fence-region line carries the kind
+ * wash (fences included, so the box reads whole), fence text additionally
+ * wears the kind accent, and the kind chip sits at the content start.
+ * Nothing hides, so nothing needs touch reveal. Ranges sort by position;
+ * on ties lines precede marks precede the widget (RangeSet side ordering),
+ * because the builder rejects out-of-order input.
+ * @param {object} view Active editor view.
+ * @returns {object} Decoration set.
+ */
+/**
+ * Builds admonition decorations: fence lines hide (reopened on touch, per
+ * the marks-hide rule), content lines carry the accent border, and the
+ * kind label sits at the content start in the accent color. Ranges sort by
+ * position; on ties lines precede marks precede the widget (RangeSet side
+ * ordering), because the builder rejects out-of-order input.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -165,13 +177,13 @@ function buildAdmonitionDecorations(view) {
     const openLine = view.state.doc.lineAt(block.openFrom);
     pending.push({
       from: block.contentFrom,
-      order: 2,
+      order: 3,
       range: Decoration.widget({ widget: new AdmonitionLabelWidget(block.kind), side: -1 }).range(block.contentFrom),
     });
     if (!touched(block.openFrom, block.openTo)) {
       pending.push({
         from: block.openFrom,
-        order: 1,
+        order: 2,
         range: Decoration.mark({ class: 'parsi-fence-hidden' }).range(block.openFrom, block.openTo),
       });
     }
@@ -183,7 +195,7 @@ function buildAdmonitionDecorations(view) {
         if (!touched(line.from, line.to)) {
           pending.push({
             from: line.from,
-            order: 1,
+            order: 2,
             range: Decoration.mark({ class: 'parsi-fence-hidden' }).range(line.from, line.to),
           });
         }
@@ -225,23 +237,19 @@ function admonitionThemeSpec() {
   const spec = {
     '& .parsi-fence-hidden': { fontSize: '0' },
     '& .parsi-admonition-label': {
-      fontSize: '11px',
+      fontSize: '12px',
       fontWeight: '700',
-      borderRadius: '999px',
-      padding: '0 0.5rem',
       marginInlineEnd: '0.4rem',
     },
   };
   for (const [index, kind] of KIND_NAMES.entries()) {
-    const { accent, wash } = ADMONITION_KINDS[kind];
+    const { accent } = ADMONITION_KINDS[kind];
     spec[`& .cm-line.parsi-admonition-line-${index}`] = {
-      backgroundColor: wash.light,
-      borderInlineStart: `3px solid ${accent.light}`,
-      borderRadius: '4px',
+      borderInlineStart: `0.25em solid ${accent.light}`,
+      paddingInlineStart: '0.6rem',
     };
     spec[`& .parsi-admonition-label-${index}`] = {
-      backgroundColor: accent.light,
-      color: '#ffffff',
+      color: accent.light,
     };
   }
   return spec;
@@ -268,21 +276,17 @@ export function admonitionViewExtensions() {
  */
 export function admonitionSchemeRules(dark) {
   const scheme = dark ? 'dark' : 'sepia';
-  return KIND_NAMES.flatMap((kind, index) => [
-    {
-      selector: `& .cm-line.parsi-admonition-line-${index}`,
-      declarations: {
-        backgroundColor: ADMONITION_KINDS[kind].wash[scheme],
-        borderInlineStart: `3px solid ${ADMONITION_KINDS[kind].accent[scheme]}`,
+  return KIND_NAMES.flatMap((kind, index) => {
+    const { accent } = ADMONITION_KINDS[kind];
+    return [
+      {
+        selector: `& .cm-line.parsi-admonition-line-${index}`,
+        declarations: { borderInlineStart: `0.25em solid ${accent[scheme]}` },
       },
-    },
-    {
-      selector: `& .parsi-admonition-label-${index}`,
-      // Dark accents are light, so the chip ink flips to dark there.
-      declarations: {
-        backgroundColor: ADMONITION_KINDS[kind].accent[scheme],
-        color: dark ? '#1a1a1a' : '#ffffff',
+      {
+        selector: `& .parsi-admonition-label-${index}`,
+        declarations: { color: accent[scheme] },
       },
-    },
-  ]);
+    ];
+  });
 }
