@@ -1,64 +1,64 @@
 # `parsi-side-panel`
 
-Regular component: header plus the active side-panel view (files or outline). Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
+کامپوننت عادی: هدر به‌علاوه نمای فعال پنل کناری (سندها، فهرست یا تنظیمات). سوارکننده `parsi-page-home` است؛ صفحه مالک را در `../../pages/home/home.md` ببینید.
 
-## Purpose
+## هدف
 
-Renders view markup through the `../workbench/views.js` registry, which holds only metadata and render references — each view owns its own markup. `configure()` re-renders only when the visible output would change (snapshot identity compare plus the outline signature), so per-keystroke updates from the parent stay cheap and never steal scroll or focus; the scrollable body additionally carries `data-pey-preserve`.
+مارکاپ نما را از مسیر رجیستری `../workbench/views.js` رندر می‌کند که فقط متادیتا و مرجع رندر نگه می‌دارد — هر نما مارکاپ خودش را دارد. `configure()` فقط وقتی ریرندر می‌کند که خروجی دیدنی عوض شود (مقایسه همانی اسنپ‌شات به‌علاوه امضای فهرست)، پس به‌روزرسانی‌های هر ضربه والد ارزان می‌مانند و هرگز اسکرول یا فوکس را نمی‌دزدند؛ بدنه اسکرولی اضافه بر آن `data-pey-preserve` دارد.
 
-## Dependencies
+## وابستگی‌ها
 
-Everything received through `connect(refs)`:
+همه از مسیر `connect(refs)`:
 
-- **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `assetBaseUrl` (icon sprite resolution, optional), `formatNumber` (number formatter for the settings view, optional — falls back to `String`), `activeView` (view id, optional — defaults to `files`), `items` (documents for the files view, optional), `currentId` (open document id, optional), `documentText` (current document text for text views, optional — defaults to `''`), `settings` (preferences snapshot for the settings view, optional).
+- **سرویس‌ها:** هیچ‌کدام.
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید)، `assetBaseUrl` (تفکیک اسپرایت آیکون، اختیاری)، `formatNumber` (قالب‌بند عدد نمای تنظیمات، اختیاری — پیش‌فرض `String`)، `activeView` (شناسه نما، اختیاری — پیش‌فرض `files`)، `items` (سندهای نمای فایل‌ها، اختیاری)، `currentId` (شناسه سند باز، اختیاری)، `documentText` (متن سند جاری برای نماهای متنی، اختیاری — پیش‌فرض `''`)، `settings` (اسنپ‌شات ترجیحات برای نمای تنظیمات، اختیاری).
 
-## Public API
+## API عمومی
 
-- `configure({ activeView, items, currentId, documentText, settings, activeLine, renameError })` — stores the snapshot and re-renders only on visible change; absent fields keep current values. `renameError` is a translation key shown under the open rename editor. Example: `side.configure({ items, currentId, documentText: page.value })`.
-- `cancelRename()` — closes an open inline rename editor without saving (used by the parent after save, cancel or failure).
+- `configure({ activeView, items, currentId, documentText, settings, activeLine, renameError })` — اسنپ‌شات را ذخیره و فقط روی تغییر دیدنی ریرندر می‌کند؛ فیلدهای غایب مقادیر جاری را نگه می‌دارند. `renameError` کلید ترجمه‌ای است که زیر ویرایشگر تغییرنام باز نشان داده می‌شود. مثال: `side.configure({ items, currentId, documentText: page.value })`.
+- `cancelRename()` — ویرایشگر تغییرنام باز درون‌خطی را بدون ذخیره می‌بندد (والد بعد از ذخیره یا انصراف یا شکست صدایش می‌زند).
 
-## Events
+## ایونت‌ها
 
-**Published** (all `bubbles: true`, `composed: true`):
+**منتشرشده** (همه از نوع `bubbles: true` و `composed: true`):
 
-- `side-close` — close-button request, no detail.
-- `outline-jump` with `detail: { line }` — outline navigation target (1-based line number).
-- `document-open` with `detail: { id }` — files-view open request.
-- `document-create` — files-view create request, no detail.
-- `document-delete` — files-view delete request with `detail: { id }` (from the per-file menu).
-- `document-rename` with `detail: { id, title }` — inline rename commit on Enter.
-- `document-download` with `detail: { id }` — download request from the per-file menu.
-- `document-properties` with `detail: { id }` — properties request from the per-file menu.
-- `settings-change` with `detail: { key, value }` — settings radio change (`key` is `theme` or `direction`); syntactic shape only, the parent and service validate.
-- `settings-step` with `detail: { key, delta }` — font-size stepper intent (`key` is `fontSize`, `delta` is `+1`/`-1`); the parent computes and persists, the service clamps.
+- `side-close` — درخواست دکمه بستن، بدون detail.
+- `outline-jump` با `detail: { line }` — مقصد ناوبری فهرست (شماره خط یک‌مبنا).
+- `document-open` با `detail: { id }` — درخواست باز کردن نمای فایل‌ها.
+- `document-create` — درخواست ساخت نمای فایل‌ها، بدون detail.
+- `document-delete` — درخواست حذف نمای فایل‌ها با `detail: { id }` (از منوی هر سند).
+- `document-rename` با `detail: { id, title }` — کامیت تغییرنام درون‌خطی روی Enter.
+- `document-download` با `detail: { id }` — درخواست دانلود از منوی هر سند.
+- `document-properties` با `detail: { id }` — درخواست ویژگی‌ها از منوی هر سند.
+- `settings-change` با `detail: { key, value }` — تغییر رادیوی تنظیمات (`key` برابر `theme` یا `direction`)؛ فقط شکل نحوی، والد و سرویس اعتبارسنجی می‌کنند.
+- `settings-step` با `detail: { key, delta }` — قصد پلکان قلم (`key` برابر `fontSize` و `delta` برابر `+1`/`-1`)؛ والد محاسبه و ذخیره می‌کند، سرویس clamp می‌کند.
 
-**Listened to:** `click`, `change` and `keydown` (declared in `eventTypes()`; `change` carries the radio-group selections, `keydown` the rename Enter/Escape, and document-level listeners close the open file menu on outside click or Escape).
+**گوش‌داده‌شده:** `click` و `change` و `keydown` (اعلام‌شده در `eventTypes()`؛ `change` انتخاب‌های گروه رادیویی را حمل می‌کند، `keydown` Enter/Escape تغییرنام را، و لیسنرهای سطح document منوی باز سند را با کلیک بیرون یا Escape می‌بندند).
 
-## Local State
+## استیت محلی
 
-- `#t` — translation function.
-- `#assetBaseUrl` — icon sprite base URL, or `null`.
-- `#formatNumber` — number formatter for the settings view, or `null`.
-- `#activeView`, `#items`, `#currentId`, `#documentText`, `#settings` — last applied panel data.
-- `#activeLine` — highlighted outline heading line for scrollspy (compared by value in the snapshot).
-- `#openFileMenu`, `#editingId`, `#renameError` — presentational files-view state (open menu, inline rename target, rename failure key), compared by value in the snapshot.
-- `#sortMenuOpen` — sort menu visibility (toggled by its button, closed by option/outside/Escape like the file menu).
-- `#filesSort` — files ordering received through `configure({ sortMode })` (owned by the page, so it survives panel remounts); the sort menu button toggles `#sortMenuOpen` and option clicks report through the `files-sort` event.
-- `#collapsedLines` — collapsed outline headings (local presentational state, cleared when the document signature changes); the toggle is handled inside the panel with no parent event.
-- `#applied` — last rendered snapshot including the outline signature; the imminent first render paints exactly the `connect()` refs.
+- `#t` — تابع ترجمه.
+- `#assetBaseUrl` — URL پایه اسپرایت آیکون، یا `null`.
+- `#formatNumber` — قالب‌بند عدد نمای تنظیمات، یا `null`.
+- `#activeView` و `#items` و `#currentId` و `#documentText` و `#settings` — آخرین داده پنل اعمال‌شده.
+- `#activeLine` — خط عنوان فعال فهرست برای scrollspy (در اسنپ‌شات مقداری مقایسه می‌شود).
+- `#openFileMenu` و `#editingId` و `#renameError` — استیت نمایشی نمای فایل‌ها (منوی باز، هدف تغییرنام درون‌خطی، کلید شکست تغییرنام) که مقداری در اسنپ‌شات مقایسه می‌شوند.
+- `#sortMenuOpen` — دیده‌شدن منوی چینش (با دکمه‌اش تاگل می‌شود و مثل منوی سند با گزینه/بیرون/Escape بسته می‌شود).
+- `#filesSort` — چینش سندها که از مسیر `configure({ sortMode })` می‌رسد (مال والد است تا از ریمونت پنل جان سالم ببرد)؛ دکمه منوی چینش `#sortMenuOpen` را تاگل می‌کند و کلیک گزینه‌ها از مسیر ایونت `files-sort` گزارش می‌شود.
+- `#collapsedLines` — عنوان‌های جمع‌شده فهرست (استیت نمایشی محلی که با عوض شدن امضای سند پاک می‌شود)؛ تاگل داخل پنل هندل می‌شود بدون ایونت والد.
+- `#applied` — آخرین اسنپ‌شات رندرشده شامل امضای فهرست؛ رندر اولِ در راه دقیقاً refs زمان `connect()` را نقاشی می‌کند.
 
-## Config
+## پیکربندی
 
-Covered under Dependencies above (`t`, `assetBaseUrl`, `activeView`, `items`, `currentId`, `documentText` with their fallbacks). No other config is read.
+بالا در وابستگی‌ها آمد (`t` و `assetBaseUrl` و `activeView` و `items` و `currentId` و `documentText` با fallbackهایشان). پیکربندی دیگری خوانده نمی‌شود.
 
-## Constraints
+## قیدها
 
-- Do not author view markup here; files/outline bodies belong to `../workbench/views-files.js` / `views-outline.js` and are reached only through the registry.
-- An unknown `activeView` falls back to the files view rather than rendering nothing.
-- Do not bypass the snapshot compare with unconditional re-renders; per-keystroke `configure()` calls must stay cheap.
+- مارکاپ نما را اینجا ننویس؛ بدنه‌های سندها/فهرست به `../workbench/views-files.js` و `views-outline.js` تعلق دارند و فقط از مسیر رجیستری رسیده می‌شوند.
+- `activeView` ناشناخته به‌جای هیچ، به نمای سندها برمی‌گردد.
+- مقایسه اسنپ‌شات را با ریرندر بی‌قید دور نزن؛ فراخوانی‌های `configure()` هر ضربه باید ارزان بمانند.
 
-## Related Decisions and Flows
+## تصمیم‌ها و جریان‌های مرتبط
 
-- `../../../../docs/decisions.md` §8 (workbench composition), §9 (no business-data caching), §11 (child-composition exception).
-- `../workbench/workbench.md`: `views.js`, `views-files.js`, `views-outline.js`, `outline.js` contracts.
+- `../../../../docs/decisions.md` §۸ (ترکیب میزکار)، §۹ (کش نکردن داده کسب‌وکار)، §۱۱ (استثنای ترکیب فرزند).
+- `../workbench/workbench.md`: قراردادهای `views.js` و `views-files.js` و `views-outline.js` و `outline.js`.

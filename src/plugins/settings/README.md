@@ -1,22 +1,22 @@
 # parsinegar.settings
 
-Application plugin for Parsinegar: validated user preferences (theme, document direction, editor font size) over `pey.storage.service`, with defaults.
+افزونه اپلیکیشن پارسی‌نگار: ترجیحات اعتبارسنجی‌شده کاربر (پوسته، جهت سند، اندازه قلم ادیتور) روی `pey.storage.service` با پیش‌فرض‌ها.
 
-## Structure
+## ساختار
 
-- `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points (wiring only).
-- `lib/settings-service.js` — service implementation with defaults and validation.
-- `tests/settings.test.js` + `tests/settings-service.test.js` — plugin tests.
-- `docs/reference.md` — complete self-contained reference.
-- `CHANGELOG.md` — version history of this plugin.
+- `manifest.json` — قرارداد معتبر افزونه.
+- `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
+- `lib/settings-service.js` — پیاده‌سازی سرویس با پیش‌فرض‌ها و اعتبارسنجی.
+- `tests/settings.test.js` + `tests/settings-service.test.js` — تست‌های افزونه.
+- `docs/reference.md` — مرجع کامل خودکفا.
+- `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.storage.service` — record persistence; all methods fail clearly without it. Runtime loss is reported as a critical error.
-- **Optional:** none.
+- **لازم:** `pey.storage.service` — ماندگاری رکورد؛ همه متدها بدون آن صریح fail می‌شوند. از دست رفتن ران‌تایم به‌صورت خطای critical گزارش می‌شود.
+- **اختیاری:** هیچ‌کدام.
 
-## See Also
+## همچنین ببینید
 
-- `docs/reference.md` for the full service and event contract.
-- `parsinegar.documents` for the sibling storage-backed plugin pattern.
+- `docs/reference.md` برای قرارداد کامل سرویس و ایونت.
+- `parsinegar.documents` برای الگوی افزونه هم‌خانواده storage-backed.

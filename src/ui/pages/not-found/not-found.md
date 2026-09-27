@@ -1,39 +1,38 @@
 # `parsi-page-not-found`
 
-Page-level component: fallback page for unknown routes and the `/not-found` path. Mounted by the kit page host (regular and `notFound` slot).
+کامپوننت سطح صفحه: صفحه جایگزین برای مسیرهای ناشناخته و مسیر `/not-found`. سوارکننده میزبان صفحه کیت است (اسلات عادی و `notFound`).
 
-## Dependencies
+## وابستگی‌ها
 
-Everything received through `connect(refs)`:
+همه از مسیر `connect(refs)`:
 
-- **Services:** the full required-services map; this component uses only `pey.router.service` (`navigate`), declared `required` in
-  `src/ui/manifest.json`.
-- **Config values:** `t` (translation, required — falls back to identity).
-- **Route params:** none expected (ignored if present).
+- **سرویس‌ها:** کل نقشه سرویس‌های لازم؛ این کامپوننت فقط `pey.router.service` را استفاده می‌کند (`navigate`) که در `src/ui/manifest.json` از نوع `required` اعلام شده.
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید).
+- **پارامترهای مسیر:** چیزی انتظار نمی‌رود (اگر آمد نادیده گرفته می‌شود).
 
-## Public API
+## API عمومی
 
-None beyond `connect()`.
+غیر از `connect()` هیچ‌چیز.
 
-## Events
+## ایونت‌ها
 
-**Published (`ui:*`):** None.
+**منتشرشده (`ui:*`):** هیچ‌کدام.
 
-**Listened to (domain events):** None.
+**گوش‌داده‌شده (ایونت دامنه):** هیچ‌کدام.
 
-## Local State
+## استیت محلی
 
-None. The page is fully static after render.
+هیچ‌کدام. صفحه بعد از رندر کاملاً استاتیک است.
 
-## Config
+## پیکربندی
 
-`t` only (see Dependencies).
+فقط `t` (وابستگی‌ها را ببینید).
 
-## Constraints
+## قیدها
 
-- Do not manipulate browser history directly; all navigation goes through `RouterService`.
-- Do not mount this element directly; only the kit page host mounts it.
+- تاریخچه مرورگر را مستقیم دست‌کاری نکن؛ همه ناوبری از مسیر `RouterService` می‌گذرد.
+- این المنت را مستقیم سوار نکن؛ فقط میزبان صفحه کیت سوارش می‌کند.
 
-## Related Decisions and Flows
+## تصمیم‌ها و جریان‌های مرتبط
 
-- `../../../docs/ui/user-flows.md`: unknown route flow.
+- `../../../docs/ui/user-flows.md`: جریان مسیر نامشخص.

@@ -1,51 +1,51 @@
-# parsinegar.app Reference
+# مرجع parsinegar.app
 
-## Purpose
+## هدف
 
-Application plugin for Parsinegar: owns the version-1 route catalog and registers it with the Router service during activation.
+افزونه اپلیکیشن پارسی‌نگار: مالک کاتالوگ مسیرهای نسخه ۱ است و موقع activation در سرویس Router ثبتش می‌کند.
 
-## Structure
+## ساختار
 
-- `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points.
-- `tests/app.test.js` — plugin tests.
-- `docs/reference.md` — this file.
-- `CHANGELOG.md` — version history of this plugin.
+- `manifest.json` — قرارداد معتبر افزونه.
+- `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان.
+- `tests/app.test.js` — تست‌های افزونه.
+- `docs/reference.md` — همین فایل.
+- `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.router.service` — route registration and navigation state; the plugin has no function without it.
-- **Optional:** none.
+- **لازم:** `pey.router.service` — ثبت مسیر و استیت ناوبری؛ افزونه بدون آن کارکردی ندارد.
+- **اختیاری:** هیچ‌کدام.
 
-## Public API
+## API عمومی
 
-This plugin provides no services (`provides` is empty in the manifest). Its only effect is route registration as a side effect of activation:
+این افزونه سرویسی ارائه نمی‌دهد (`provides` در مانیفست خالی است). تنها اثرش ثبت مسیر به‌عنوان side effect فعال‌سازی است:
 
 ```javascript
 await activate({ 'pey.router.service': router });
 // registers '/' and '/not-found' via router.registerRoutes()
 ```
 
-## Events
+## ایونت‌ها
 
-Publishes none. Listens to none.
+چیزی منتشر نمی‌کند. به چیزی گوش نمی‌دهد.
 
-## Errors Reference
+## مرجع خطاها
 
-This plugin defines no structured error codes. Activation throws a plain `Error` naming the missing service if `pey.router.service` is absent from the bound services — a defensive check only; after Core settlement a declared required dependency is always bound, so this path is unreachable in normal startup.
+این افزونه کد خطای ساخت‌یافته تعریف نمی‌کند. فعال‌سازی اگر `pey.router.service` در سرویس‌های bindشده نباشد یک `Error` ساده با نام سرویس گمشده throw می‌کند — فقط چک دفاعی؛ بعد از settlement هسته، وابستگی لازمِ اعلام‌شده همیشه bind است، پس این مسیر در استارت‌آپ عادی دست‌نیافتنی است.
 
-## Config
+## پیکربندی
 
-No config keys. The manifest `config` is `{}` and `prepare` ignores its context config.
+هیچ کلید پیکربندی. `config` مانیفست `{}` است و `prepare` پیکربندی کانتکستش را نادیده می‌گیرد.
 
-## Business Rules
+## قواعد کسب‌وکار
 
-- The version-1 route catalog is exactly `'/'` (editor) and `'/not-found'` (fallback slot). Adding a page means adding its pattern here.
-- Registration happens in `activate`, never in `prepare`: the Router contract allows `registerRoutes` only during the caller's local activation, after binding.
-- Registration is additive and idempotent for these patterns; re-registration of the same patterns changes nothing.
+- کاتالوگ مسیر نسخه ۱ دقیقاً `'/'` (ادیتور) و `'/not-found'` (اسلات جایگزین) است. افزودن صفحه یعنی افزودن الگویش اینجا.
+- ثبت در `activate` اتفاق می‌افتد، هرگز در `prepare`: قرارداد Router اجازه `registerRoutes` را فقط موقع فعال‌سازی محلی صدازننده، بعد از binding، می‌دهد.
+- ثبت برای این الگوها افزایشی و idempotent است؛ ثبت دوباره همان الگوها چیزی عوض نمی‌کند.
 
-## Constraints
+## قیدها
 
-- Do not register routes in `prepare` — no service references exist in that phase and the Router rejects it.
-- Do not add provided services here without updating the manifest first; the manifest is the authoritative contract.
-- The patterns registered here must stay in sync with the page-loader catalog in `src/ui/index.js`: every owned pattern needs a matching `{ pattern, load, element }` entry, otherwise the router resolves a route the UI cannot mount.
+- مسیرها را در `prepare` ثبت نکن — در آن فاز هیچ مرجع سرویسی نیست و Router ردش می‌کند.
+- بدون به‌روزرسانی اول مانیفست، سرویس ارائه‌شده اینجا اضافه نکن؛ مانیفست قرارداد معتبر است.
+- الگوهای ثبت‌شده اینجا باید با کاتالوگ page-loader در `src/ui/index.js` همگام بمانند: هر الگوی مالک به ورودی `{ pattern, load, element }` متناظر نیاز دارد، وگرنه روتر مسیری را resolve می‌کند که UI نمی‌تواند سوار کند.

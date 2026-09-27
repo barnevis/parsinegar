@@ -1,97 +1,93 @@
 # `parsi-page-home`
 
-Page-level component: the single workbench page, mounted by the kit page host on `/`. See `../../../docs/ui/user-flows.md` for the journeys it participates in. It owns the layout plus the CodeMirror editor, and mounts five child elements for the workbench regions and overlays: `parsi-menu-bar` ([doc](../../components/menu-bar/menu-bar.md)), `parsi-activity-rail` ([doc](../../components/activity-rail/activity-rail.md)), `parsi-side-panel` ([doc](../../components/side-panel/side-panel.md)), `parsi-status-bar` ([doc](../../components/status-bar/status-bar.md)) and `parsi-modal-dialog` ([doc](../../components/modal-dialog/modal-dialog.md)). Pure helpers behind them are documented in `../../components/workbench/workbench.md`. Stateful orchestration lives in plain companion modules below (not in the element): `document-controller.js`, `settings-applier.js` and `scroll-spy.js`.
+کامپوننت سطح صفحه: تک‌صفحه میزکار که میزبان صفحه کیت روی `/` سوارش می‌کند. سفرهایی که در آن شرکت می‌کند در `../../../docs/ui/user-flows.md` است. مالک چیدمان به‌علاوه ادیتور CodeMirror است و پنج فرزند برای ناحیه‌های میزکار و اورلی‌ها سوار می‌کند: `parsi-menu-bar` ([سند](../../components/menu-bar/menu-bar.md)) و `parsi-activity-rail` ([سند](../../components/activity-rail/activity-rail.md)) و `parsi-side-panel` ([سند](../../components/side-panel/side-panel.md)) و `parsi-status-bar` ([سند](../../components/status-bar/status-bar.md)) و `parsi-modal-dialog` ([سند](../../components/modal-dialog/modal-dialog.md)). هلپرهای خالص پشت آن‌ها در `../../components/workbench/workbench.md` مستند شده‌اند. ارکستراسیون استیت‌دار در ماژول‌های هم‌نشین ساده پایین زندگی می‌کند (نه در المنت): `document-controller.js` و `settings-applier.js` و `scroll-spy.js`.
 
-## Companion modules
+## ماژول‌های هم‌نشین
 
-- `document-controller.js` — `createDocumentController({ documents, t, format, isLive, readEditorContent })`: the document working set (list snapshot, open id/title/draft, autosave timer, delete-confirmation target, properties record). Answers with plain data (`{ apply, items }`, outcome strings); the page adopts records after unmounting the editor (unmount parks old content into the draft, so adopting earlier would be overwritten) and owns every child handle and DOM effect. No DOM, no elements, no events. `setLock(id, locked)` persists the read-only flag through the service (degrading to null on older contracts) and syncs the snapshot.
-- `builtin-docs.js` — `createBuiltinDocs({ fetchImpl, t, isLive })`: static project docs (help, changelog, about) fetched once per session and cached; answers `{ id, title, content }` or null. No DOM, no services, no events.
-- `settings-applier.js` — `createSettingsApplier({ settingsApi, isLive })`: preferences snapshot plus applied editor traits (direction, font size), serialized writes, and the OS color-scheme watcher. Answers `'applied'`/`'ignored'`/`'failed'`; the page remounts the editor on `applied`.
-- `scroll-spy.js` — `createScrollSpy({ getVisibleLine, getText, onActiveLine, isLive })`: watches the scrolling center column, maps the first visible editor line to its heading and pushes changes (rAF-collapsed, never steals focus).
-- `../utils/format.js` — shared locale-aware `formatNumber`/`formatDate` with plain fallbacks.
+- `document-controller.js` — سازنده `createDocumentController({ documents, t, format, isLive, readEditorContent })`: ست‌کاری سند (اسنپ‌شات فهرست، شناسه/عنوان/پیش‌نویس باز، تایمر autosave، هدف تأیید حذف، رکورد ویژگی‌ها). با داده ساده جواب می‌دهد (`{ apply, items }` و رشته‌های outcome)؛ صفحه بعد از unmount ادیتور رکوردها را adopt می‌کند (unmount محتوای قدیم را در پیش‌نویس پارک می‌کند، پس adopt زودتر بازنویسی می‌شد) و مالک هر هندل فرزند و اثر DOM است. بدون DOM، بدون المنت، بدون ایونت. `setLock(id, locked)` پرچم فقط-خواندنی را از مسیر سرویس پایدار می‌کند (روی قراردادهای قدیمی‌تر به null تنزل می‌کند) و اسنپ‌شات را همگام می‌کند.
+- `builtin-docs.js` — سازنده `createBuiltinDocs({ fetchImpl, t, isLive })`: اسناد استاتیک پروژه (راهنما، تاریخچه، درباره) که جلسه‌ای یک‌بار fetch و کش می‌شوند؛ `{ id, title, content }` یا null جواب می‌دهد. بدون DOM، بدون سرویس، بدون ایونت.
+- `settings-applier.js` — سازنده `createSettingsApplier({ settingsApi, isLive })`: اسنپ‌شات ترجیحات به‌علاوه traitهای اعمالی ادیتور (جهت و قلم)، نوشتن‌های سریال و واچر scheme سیستم‌عامل. `'applied'`/`'ignored'`/`'failed'` جواب می‌دهد؛ صفحه روی `applied` ادیتور را ریمونت می‌کند.
+- `scroll-spy.js` — سازنده `createScrollSpy({ getVisibleLine, getText, onActiveLine, isLive })`: ستون وسط اسکرول‌شونده را می‌پاید، اولین خط دیدنی ادیتور را به عنوانش نگاشت می‌کند و تغییرها را پوش می‌کند (collapse با rAF، هرگز فوکس نمی‌دزدد).
+- `../utils/format.js` — `formatNumber`/`formatDate` مشترک محلی‌آگاه با fallbackهای ساده.
 
-## Composition
+## ترکیب
 
-`render()` outputs only `<div data-slot="…">` placeholders (including `modal`); `#attachChildren()` (scheduled after render lands via `utils/mount.js`) mounts or reconfigures each child through `mountComponent`, passing data snapshots through `onConnect({ infrastructure, refs })` plus `configure(snapshot)` on every update. Children talk back only through bubbled `CustomEvent`s handled declaratively here. The editor itself stays helper-mounted (third-party widget, not an element).
+`render()` فقط placeholderهای `<div data-slot="…">` بیرون می‌دهد (از جمله `modal`)؛ `#attachChildren()` (زمان‌بندی‌شده بعد از نشستن رندر از مسیر `utils/mount.js`) هر فرزند را از مسیر `mountComponent` سوار یا دوباره‌پیکره می‌کند و اسنپ‌شات‌های داده را از مسیر `onConnect({ infrastructure, refs })` به‌علاوه `configure(snapshot)` روی هر به‌روزرسانی می‌گذراند. فرزندان فقط از مسیر `CustomEvent`های حبابی که اینجا اعلانی هندل می‌شود حرف می‌زنند. خود ادیتور helper-mounted می‌ماند (ویجت third-party، نه المنت).
 
-## Dependencies
+## وابستگی‌ها
 
-Everything received through `connect(refs)`:
+همه از مسیر `connect(refs)`:
 
-- **Services:** the full required-services map (`pey.router.service` + `parsinegar.documents.service` + `parsinegar.settings.service`, all `required` in `src/ui/manifest.json`). This component uses documents (list/open/save/create/delete) and settings (`getSettings`/`saveSettings`); the router entry is present but unused. Without the documents service it degrades to in-memory editing of the sample (no save) — an explicit fallback, since the manifest still requires the service for the UI as a whole. Without the settings service, direction and font size stay on built-in fallbacks (`rtl`, `16px`) and settings events are ignored; editing never breaks.
-- **Config values:** `t` (translation, required — falls back to identity), `format` (locale-aware formatting, optional — falls back to `String`), `assetBaseUrl` (icon sprite resolution, optional — rail degrades to text labels). `direction` arrives but is intentionally ignored: the shell owns app-chrome direction while the edited document follows stored settings (see `../../../docs/decisions.md` §12).
-- **Config values:** `t` (translation, required — falls back to identity), `format` (locale-aware formatting, optional — falls back to `String`), `assetBaseUrl` (icon sprite resolution, optional — rail degrades to text labels). `direction` arrives but is intentionally ignored (see above).
-- **Event Bus facade:** `events` (scoped `{ subscribe, publish }`, optional — forwarded to children as `infrastructure.events`; see `../../../docs/decisions.md` §11). Without it only the editor is available; editing never breaks.
-- **Route params:** `routeParams`/`routeQuery` arrive via `defaultConnect` but are ignored; the page has no parameterized routes.
+- **سرویس‌ها:** کل نقشه سرویس‌های لازم (`pey.router.service` + `parsinegar.documents.service` + `parsinegar.settings.service`، هر سه در `src/ui/manifest.json` از نوع `required`). این کامپوننت از اسناد (فهرست/باز/ذخیره/ساخت/حذف) و تنظیمات (`getSettings`/`saveSettings`) استفاده می‌کند؛ ورودی روتر هست ولی استفاده نمی‌شود. بدون سرویس اسناد به ویرایش درون‌حافظه‌ای نمونه تنزل می‌کند (بدون ذخیره) — fallback صریح، چون مانیفست همچنان سرویس را برای کل UI لازم می‌داند. بدون سرویس تنظیمات، جهت و قلم روی fallbackهای داخلی می‌مانند (`rtl` و `16px`) و ایونت‌های تنظیمات نادیده گرفته می‌شوند؛ ویرایش هرگز نمی‌شکند.
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید)، `format` (قالب‌بندی محلی‌آگاه، اختیاری — پیش‌فرض `String`)، `assetBaseUrl` (تفکیک اسپرایت آیکون، اختیاری — ریل به لیبل متنی تنزل می‌کند). `direction` می‌رسد ولی عمداً نادیده گرفته می‌شود: شل مالک جهت کروم اپ است در حالی که سند ویرایش‌شده از تنظیمات ذخیره‌شده پیروی می‌کند (`../../../docs/decisions.md` §۱۲ را ببینید).
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید)، `format` (قالب‌بندی محلی‌آگاه، اختیاری — پیش‌فرض `String`)، `assetBaseUrl` (تفکیک اسپرایت آیکون، اختیاری — ریل به لیبل متنی تنزل می‌کند). `direction` می‌رسد ولی عمداً نادیده گرفته می‌شود (بالا را ببینید).
+- **facade باس ایونت:** `events` (اسکوپ‌شده `{ subscribe, publish }`، اختیاری — به فرزندان به‌عنوان `infrastructure.events` forward می‌شود؛ `../../../docs/decisions.md` §۱۱ را ببینید). بدون آن فقط ادیتور در دسترس است؛ ویرایش هرگز نمی‌شکند.
+- **پارامترهای مسیر:** `routeParams`/`routeQuery` از مسیر `defaultConnect` می‌رسند ولی نادیده گرفته می‌شوند؛ صفحه مسیر پارامتری ندارد.
 
-## Public API
+## API عمومی
 
-- `value` — current Markdown text. Example: `page.value` returns the draft being edited (or the last saved content).
-- `setDocument(text)` — replaces the editor content and schedules a save. Example: `page.setDocument('# سلام')`.
+- `value` — متن Markdown جاری. مثال: `page.value` پیش‌نویس در حال ویرایش را برمی‌گرداند (یا آخرین محتوای ذخیره‌شده).
+- `setDocument(text)` — محتوای ادیتور را عوض می‌کند و ذخیره زمان‌بندی می‌کند. مثال: `page.setDocument('# سلام')`.
 
-## Events
+## ایونت‌ها
 
-**Published (`ui:*`):** None — this component publishes nothing on the Event Bus.
+**منتشرشده (`ui:*`):** هیچ‌کدام — این کامپوننت چیزی روی Event Bus منتشر نمی‌کند.
 
-**Listened to (domain events):** None — `subscriptions()` is not overridden.
+**گوش‌داده‌شده (ایونت دامنه):** هیچ‌کدام — `subscriptions()` بازنویسی نشده.
 
-Child-to-parent notification (plain bubbled DOM `CustomEvent`s, handled in `handleEvent`):
+اعلان فرزند-به-والد (DOM `CustomEvent`های ساده حبابی که در `handleEvent` هندل می‌شوند):
 
-- `menu-action` with `detail: { action }` — string action ids (`new-document`, `import-document`, `delete-document`, `open-help`/`open-changelog`/`about` (open the built-in project docs locked for reading through `builtin-docs.js`), `back-to-documents` (returns from a built-in doc, shown only while one is open), `toggle-lock` (flips the stored `readOnly` flag on the open user document; also emitted by the menubar mode-toggle button; disabled without a document or while a built-in is open), `read-mode`/`write-mode` (explicit lock/unlock from the view menu, where the active mode stays unclickable), `undo`, `redo`, `toggle-side`, `toggle-status`, plus `insert-<kind>` for the nine supported marks, inserted through the editor controller and refocused — refused while locked).
-- `view-select` with `detail: { id }` — rail view switch.
-- `about-open` — rail logotype button; opens the about built-in doc like the `about` menu action.
-- `files-sort` with `detail: { mode }` — files-view ordering (validated against `FILES_SORT_MODES`); owned here so it survives panel remounts.
-- `side-close` — side panel close request.
-- `outline-jump` with `detail: { line }` — outline navigation target.
-- `document-open` with `detail: { id }`, `document-create`, `document-import`, `document-delete` — files-view management (delete carries the file-menu target id and arms the confirmation modal for that document, falling back to the open document when no id travels, e.g. the top menu-bar action; import opens the system file picker and imports the chosen Markdown file as a new document).
-- `modal-confirm` with `detail: { accepted }` — yes/no buttons of the delete confirmation (from `parsi-modal-dialog`).
-- `modal-dismiss` — properties close button or backdrop click (from `parsi-modal-dialog`; Escape stays a page-level keydown).
-- `document-rename` with `detail: { id, title }` — inline rename commit; empty titles cancel, taken titles keep the editor open with an inline error, success refreshes the list.
-- `document-download` with `detail: { id }` — downloads the document as Markdown through a temporary anchor (no-op where object URLs are unavailable).
-- `document-properties` with `detail: { id }` — opens the properties modal (name, creation/last-edit dates, size).
-- `settings-change` with `detail: { key, value }` — persisted through the settings service (whitelisted to `theme`/`direction` with non-empty strings); the saved snapshot replaces `#settings` and remounts the editor. Theme itself reaches the shell through the `settings:changed` domain event handled by the entry point.
-- `settings-step` with `detail: { key, delta }` — persisted as a single font-size step (`fontSize` key, `±1` delta); out-of-range steps reject in the service and change nothing.
-- `search-query` with `detail: { query, replace, caseSensitive, wholeWord, regexp, inSelection }` — live find: applies the query to the editor controller (`setSearch`, driving the `.cm-searchMatch` highlight) and echoes `{ current, total }` back to the menubar counter. Typing in the editor recounts through the same path (`#recountSearch` on every change), so the counter stays truthful while the dropdown is open.
-- `search-next` / `search-previous` — steps the editor selection through the scope matches with wrap (`searchStep(±1)`), counter echoed back.
-- `search-replace-one` / `search-replace-all` — single/all replacement in scope through the editor controller; the run reports `{ current, total, replaced }` and the form shows the «{count} مورد جایگزین شد» confirmation. Replace-all lands in one undoable transaction.
-- `search-close` — explicit close (dropdown toggle or Escape): clears the editor highlight and resets the form. Outside clicks only hide the dropdown (highlight stays); switching documents resets the whole search.
+- `menu-action` با `detail: { action }` — شناسه‌های اکشن رشته‌ای (`new-document` و `import-document` و `delete-document` و `open-help`/`open-changelog`/`about` (باز کردن اسناد داخلی پروژه قفل‌شده برای خواندن از مسیر `builtin-docs.js`) و `back-to-documents` (برگشت از سند داخلی که فقط وقتی باز است نشان داده می‌شود) و `toggle-lock` (برگرداندن پرچم ذخیره‌شده `readOnly` روی سند باز کاربر؛ دکمه تاگل-حالت منوبار هم همین را منتشر می‌کند؛ بدون سند یا وقتی داخلی باز است غیرفعال) و `read-mode`/`write-mode` (قفل/بازکردن صریح از منوی نما که حالت فعال غیرقابل‌کلیک می‌ماند) و `undo` و `redo` و `toggle-side` و `toggle-status`، به‌علاوه `insert-<kind>` برای نُه نشان پشتیبانی‌شده که از مسیر کنترلر ادیتور درج و ریفوکس می‌شوند — در قفل refuse می‌شوند).
+- `view-select` با `detail: { id }` — تعویض نمای ریل.
+- `about-open` — دکمه نشان ریل؛ سند داخلی درباره را مثل اکشن `about` منو باز می‌کند.
+- `files-sort` با `detail: { mode }` — چینش نمای سندها (اعتبارسنجی‌شده در برابر `FILES_SORT_MODES`)؛ اینجا مالکیتش می‌کند تا از ریمونت پنل جان سالم ببرد.
+- `side-close` — درخواست بستن پنل کناری.
+- `outline-jump` با `detail: { line }` — مقصد ناوبری فهرست.
+- `document-open` با `detail: { id }` و `document-create` و `document-import` و `document-delete` — مدیریت نمای سندها (حذف شناسه هدف منوی سند را حمل می‌کند و مودال تأیید را برای همان سند مسلح می‌کند، و وقتی شناسه‌ای نمی‌آید به سند باز برمی‌گردد، مثل اکشن بالای منوبار؛ وارد کردن file picker سیستم را باز می‌کند و فایل Markdown منتخب را به‌عنوان سند تازه وارد می‌کند).
+- `modal-confirm` با `detail: { accepted }` — دکمه‌های بله/خیر تأیید حذف (از `parsi-modal-dialog`).
+- `modal-dismiss` — دکمه بستن ویژگی‌ها یا کلیک پس‌زمینه (از `parsi-modal-dialog`؛ Escape روی keydown سطح صفحه می‌ماند).
+- `document-rename` با `detail: { id, title }` — کامیت تغییرنام درون‌خطی؛ عنوان‌های خالی بی‌صدا انصراف می‌دهند، عنوان‌های تکراری ادیتور را با خطای درون‌خطی باز نگه می‌دارند، موفقیت فهرست را تازه می‌کند.
+- `document-download` با `detail: { id }` — دانلود سند به‌صورت Markdown از مسیر anchor موقت (جایی که object URL نیست no-op است).
+- `document-properties` با `detail: { id }` — مودال ویژگی‌ها را باز می‌کند (نام و تاریخ‌های ساخت/آخرین-ویرایش و حجم).
+- `settings-change` با `detail: { key, value }` — از مسیر سرویس تنظیمات پایدار می‌شود (سفیدفهرست به `theme`/`direction` با رشته‌های غیرخالی)؛ اسنپ‌شات ذخیره‌شده جایگزین `#settings` می‌شود و ادیتور را ریمونت می‌کند. خود پوسته از مسیر ایونت دامنه `settings:changed` که نقطه ورود هندل می‌کند به شل می‌رسد.
+- `settings-step` با `detail: { key, delta }` — به‌صورت تک‌قدم قلم پایدار می‌شود (کلید `fontSize` و دلتای `±1`)؛ قدم‌های بیرون بازه در سرویس reject می‌شوند و چیزی عوض نمی‌شود.
+- `search-query` با `detail: { query, replace, caseSensitive, wholeWord, regexp, inSelection }` — یافتن زنده: پرس‌وجو را روی کنترلر ادیتور اعمال می‌کند (`setSearch` که هایلایت `.cm-searchMatch` را هدایت می‌کند) و `{ current, total }` را به شمارنده منوبار برمی‌گرداند. تایپ در ادیتور از همان مسیر بازشماری می‌کند (`#recountSearch` روی هر تغییر)، پس شمارنده تا دراپ‌دان باز است صادق می‌ماند.
+- `search-next` / `search-previous` — سلکشن ادیتور را در مچ‌های اسکوپ با wrap قدم می‌زند (`searchStep(±1)`) و شمارنده برگردانده می‌شود.
+- `search-replace-one` / `search-replace-all` — جایگزینی تکی/همه در اسکوپ از مسیر کنترلر ادیتور؛ اجرا `{ current, total, replaced }` گزارش می‌دهد و فرم تأیید «{count} مورد جایگزین شد» را نشان می‌دهد. جایگزینی-همه در یک تراکنش undoپذیر می‌نشیند.
+- `search-close` — بستن صریح (تاگل دراپ‌دان یا Escape): هایلایت ادیتور را پاک و فرم را ریست می‌کند. کلیک‌های بیرون فقط دراپ‌دان را پنهان می‌کنند (هایلایت می‌ماند)؛ تعویض سند کل جست‌وجو را ریست می‌کند.
 
-Rapid settings events serialize through a write chain (`#chainSettingWrite`) so back-to-back changes apply in order instead of racing on stale reads.
+ایونت‌های سریع تنظیمات از زنجیره نوشتن (`#chainSettingWrite`) سریال می‌شوند تا پشت‌سرهم‌ها به‌جای race روی خوانش کهنه، مرتب اعمال شوند.
 
-DOM page-level notification (not a bus event, declared nowhere because the manifest only governs `ui:*`): `parsi-page-home:changed` with `detail: { value }`, `bubbles: true`, `composed: true`, dispatched on every edit for future consumers.
+اعلان سطح صفحه DOM (نه ایونت باس که هیچ‌جا اعلام نشده چون مانیفست فقط `ui:*` را حکم می‌کند): `parsi-page-home:changed` با `detail: { value }` و `bubbles: true` و `composed: true` که روی هر ویرایش برای مصرف‌کننده‌های آینده dispatch می‌شود.
 
-## Local State
+## استیت محلی
 
-- `#docs` — document controller (working set, autosave timer, overlay targets; see Companion modules). Snapshots, never edited in place.
-- `#prefs` — settings applier (preferences snapshot, applied direction/font size, OS scheme watcher).
-- `#spy` — outline scrollspy (watched column, pending frame, active heading line).
-- `#editor` — CodeMirror controller handle (released on disconnect).
-- `#editorHost` — host node identity the editor is mounted into; a full
-  re-render detaches the view while the handle stays set, so mounting tracks
-  the node, not the handle.
-- `#renderObserver` — render-completion observer that mounts the editor (the
-  first render may wait behind the stylesheet gate, so microtask order cannot
-  be relied on); disconnected on disconnect.
-- `#activeView`, `#sideOpen`, `#bottomOpen` — purely presentational (rail selection, panel visibility).
-- `#builtIn` — open built-in doc (`{ id, title, content }`) or null; shown through the same mounted editor locked for reading, never touching the draft, the change event, autosave or the documents service. Closed by the back menu item, by opening any user document (which also resets it), or by new/import flows.
-- `#guides` — built-in docs companion (`builtin-docs.js`): static project Markdown fetched once per session and cached.
-- `#filesSort` — files-view ordering (default `updated-desc`); presentational like the view switch, so it lives here rather than in the panel, whose fields reset on every page render.
-- `#searchOpen`, `#searchSpec` — live-search session (whether the menubar dropdown counts as open, plus the last form spec for recounting on edits). Presentation-adjacent like `#filesSort`: they survive editor remounts but reset on document switch and explicit close.
-- `#menuEl`, `#railEl`, `#sideEl`, `#statusEl`, `#modalEl` — mounted child handles, refreshed by `#attachChildren()`; live stats/side content is pushed via `#pushLiveUpdates()` calling `configure()` (never a full re-render, so editor focus and undo history survive).
-- `#events` — scoped Event Bus facade forwarded to children (see Dependencies).
+- `#docs` — کنترلر اسناد (ست‌کاری، تایمر autosave، هدف‌های اورلی؛ ماژول‌های هم‌نشین را ببینید). اسنپ‌شات‌ها، هرگز درجا ویرایش نمی‌شوند.
+- `#prefs` — اعمال‌کننده تنظیمات (اسنپ‌شات ترجیحات، جهت/قلم اعمالی، واچر scheme سیستم‌عامل).
+- `#spy` — scrollspy فهرست (ستون پایش‌شده، فریم معلق، خط عنوان فعال).
+- `#editor` — هندل کنترلر CodeMirror (روی disconnect رها می‌شود).
+- `#editorHost` — هویت نود میزبانی که ادیتور در آن سوار است؛ ریرندر کامل نما را جدا می‌کند در حالی که هندل ست می‌ماند، پس مونت نود را ترک می‌کند نه هندل را.
+- `#renderObserver` — مشاهده‌گر اتمام رندر که ادیتور را سوار می‌کند (رندر اول ممکن است پشت گیت استایل‌شیت بماند، پس ترتیب میکروتسک‌ها قابل اتکا نیست)؛ روی disconnect قطع می‌شود.
+- `#activeView` و `#sideOpen` و `#bottomOpen` — محض نمایشی (انتخاب ریل، دیده‌شدن پنل).
+- `#builtIn` — سند داخلی باز (`{ id, title, content }`) یا null؛ از مسیر همان ادیتور سوارشدهِ قفل‌شده برای خواندن نشان داده می‌شود، هرگز به پیش‌نویس و ایونت تغییر و autosave و سرویس اسناد دست نمی‌زند. با آیتم بازگشت منو، با باز کردن هر سند کاربر (که همان هم ریستش می‌کند) یا با جریان‌های تازه/وارد بسته می‌شود.
+- `#guides` — هم‌نشین اسناد داخلی (`builtin-docs.js`): مارک‌داون استاتیک پروژه که جلسه‌ای یک‌بار fetch و کش می‌شود.
+- `#filesSort` — چینش نمای سندها (پیش‌فرض `updated-desc`)؛ نمایشی مثل تعویض نما، پس به‌جای پنل اینجاست که فیلدهایش روی هر رندر صفحه ریست می‌شوند.
+- `#searchOpen` و `#searchSpec` — جلسه جست‌وجوی زنده (این‌که دراپ‌دان منوبار باز حساب می‌شود یا نه، به‌علاوه آخرین اسپک فرم برای بازشماری روی ویرایش‌ها). مجاور نمایشی مثل `#filesSort`: از ریمونت‌های ادیتور جان سالم می‌برند ولی روی تعویض سند و بستن صریح ریست می‌شوند.
+- `#menuEl` و `#railEl` و `#sideEl` و `#statusEl` و `#modalEl` — هندل‌های فرزند سوارشده که با `#attachChildren()` تازه می‌شوند؛ محتوای زنده آمار/کنار از مسیر `#pushLiveUpdates()` با فراخوانی `configure()` پوش می‌شود (هرگز ریرندر کامل، تا فوکس ادیتور و تاریخچه undo بمانند).
+- `#events` — facade محدود باس ایونت که به فرزندان forward می‌شود (وابستگی‌ها را ببینید).
 
-## Config
+## پیکربندی
 
-Covered under Dependencies above (`t`, `format`, `assetBaseUrl`, `direction` with their fallbacks). No other config is read.
+بالا در وابستگی‌ها آمد (`t` و `format` و `assetBaseUrl` و `direction` با fallbackهایشان). پیکربندی دیگری خوانده نمی‌شود.
 
-## Constraints
+## قیدها
 
-- Do not mount this element directly or nest it; only the kit page host mounts it, after calling `connect()` with the Entry Point refs.
-- Do not call `pey.storage.service` from here (or bypass `parsinegar.documents.service`); store layout and timestamp policy belong to that plugin.
-- Do not re-render on keystrokes: stats and side content sync through child `configure()` outside `render()` (see `../../../docs/decisions.md` §8) so editor focus and undo history survive.
-- Do not query inside children: each child owns its `shadowRoot`; the page only passes snapshots down and receives events up.
+- این المنت را مستقیم سوار یا تودرتو نکن؛ فقط میزبان صفحه کیت بعد از فراخوانی `connect()` با refs نقطه ورود سوارش می‌کند.
+- از اینجا `pey.storage.service` را صدا نزن (یا `parsinegar.documents.service` را دور نزن)؛ چیدمان استور و سیاست timestamp مال آن پلاگین است.
+- روی ضربه‌کلیدها ریرندر نکن: آمار و محتوای کنار از مسیر `configure()` فرزند بیرون `render()` همگام می‌شوند (در `../../../docs/decisions.md` §۸ ببینید) تا فوکس ادیتور و تاریخچه undo بمانند.
+- داخل فرزندان query نکن: هر فرزند مالک `shadowRoot` خودش است؛ صفحه فقط اسنپ‌شات پایین می‌دهد و ایونت بالا می‌گیرد.
 
-## Related Decisions and Flows
+## تصمیم‌ها و جریان‌های مرتبط
 
-- `../../../docs/decisions.md` §5 (single-element workbench origin), §7 (storage split), §8 (workbench composition), §9 (audit hardening), §11 (child-composition exception), §12 (settings), §15 (in-document search), §17 (read-only mode).
-- `../../../docs/ui/user-flows.md`: boot → editor, edit → autosave, switch/create/delete, outline jump, built-in docs, document lock.
+- `../../../docs/decisions.md` §۵ (خاستگاه میزکار تک‌المنتی)، §۷ (جدایی استور)، §۸ (ترکیب میزکار)، §۹ (سخت‌گیری ممیزی)، §۱۱ (استثنای ترکیب فرزند)، §۱۲ (تنظیمات)، §۱۵ (جست‌وجوی درون‌سند)، §۱۷ (حالت فقط-خواندن).
+- `../../../docs/ui/user-flows.md`: بوت ← ادیتور، ویرایش ← autosave، تعویض/ساخت/حذف، پرش فهرست، اسناد داخلی، قفل سند.

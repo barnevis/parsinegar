@@ -1,45 +1,45 @@
 # `parsi-activity-rail`
 
-Regular component: icon buttons switching the side-panel view. Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
+کامپوننت عادی: دکمه‌های آیکونی تعویض نمای پنل کناری. سوارکننده `parsi-page-home` است؛ صفحه مالک را در `../../pages/home/home.md` ببینید.
 
-## Purpose
+## هدف
 
-Stateless display of the available side-panel views, driven entirely by `configure()`. Views with `align: 'end'` in their registry entry render pinned to the far end of the rail (below the document views); all others stack from the start. Selection changes leave as `view-select` `CustomEvent`s; the parent owns the active view and toggles panel visibility, so this element never stores selection authoritatively. A logotype action button renders last (after the end group) and opens the about pane; it is an action, not a view, so it carries no `aria-pressed` and no registry entry.
+نمایش stateless نماهای موجود پنل کناری که کاملاً با `configure()` هدایت می‌شود. نماهایی که در ورودی رجیستری `align: 'end'` دارند ته ریل پین می‌شوند (پایین‌تر از نماهای سند)؛ بقیه از اول چیده می‌شوند. تغییر انتخاب به‌صورت `CustomEvent` از نوع `view-select` خارج می‌شود؛ والد مالک نمای فعال است و دیده‌شدن پنل را تاگل می‌کند، پس این المنت هیچ‌وقت انتخاب را authoritative نگه نمی‌دارد. دکمه اکشن نشان آخر از همه (بعد از گروه انتهایی) رندر می‌شود و سند داخلی درباره را باز می‌کند؛ اکشن است نه نما، پس نه `aria-pressed` دارد نه ورودی رجیستری.
 
-## Dependencies
+## وابستگی‌ها
 
-Everything received through `connect(refs)`:
+همه از مسیر `connect(refs)`:
 
-- **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `assetBaseUrl` (icon sprite resolution, optional — without it buttons degrade to text labels via `rail-fallback`), `views` (array of `{ id, icon, labelKey }` entries with optional `align: 'end'` pinning, optional — defaults to `[]`), `activeView` (active view id, optional).
+- **سرویس‌ها:** هیچ‌کدام.
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید)، `assetBaseUrl` (تفکیک اسپرایت آیکون، اختیاری — بدون آن دکمه‌ها از مسیر `rail-fallback` به لیبل متنی تنزل می‌کنند)، `views` (آرایه ورودی‌های `{ id, icon, labelKey }` با پین اختیاری `align: 'end'`، اختیاری — پیش‌فرض `[]`)، `activeView` (شناسه نمای فعال، اختیاری).
 
-## Public API
+## API عمومی
 
-- `configure({ views, activeView })` — replaces the rail content and re-renders. Example: `rail.configure({ views: listViews(), activeView: 'files' })`.
+- `configure({ views, activeView })` — محتوای ریل را عوض می‌کند و ریرندر می‌کند. مثال: `rail.configure({ views: listViews(), activeView: 'files' })`.
 
-## Events
+## ایونت‌ها
 
-**Published:** `view-select` with `detail: { id }`, `bubbles: true`, `composed: true`, on every view-button click (including clicking the already-active view — the parent decides whether that toggles the panel). `about-open` (no detail) on logotype-button click.
+**منتشرشده:** `view-select` با `detail: { id }`، از نوع `bubbles: true` و `composed: true`، روی هر کلیک دکمه نما (حتی کلیک نمای در حال حاضر فعال — والد تصمیم می‌گیرد که پنل تاگل شود یا نه). `about-open` (بدون detail) روی کلیک دکمه نشان.
 
-**Listened to:** `click` (declared in `eventTypes()`).
+**گوش‌داده‌شده:** `click` (اعلام‌شده در `eventTypes()`).
 
-## Local State
+## استیت محلی
 
-- `#t` — translation function.
-- `#assetBaseUrl` — icon sprite base URL, or `null`.
-- `#views` — last received view entries (only replaced when an array arrives).
-- `#activeView` — last received active view id, reflected as `aria-pressed`.
+- `#t` — تابع ترجمه.
+- `#assetBaseUrl` — URL پایه اسپرایت آیکون، یا `null`.
+- `#views` — آخرین ورودی‌های نمای دریافتی (فقط وقتی آرایه آمد عوض می‌شود).
+- `#activeView` — آخرین شناسه نمای فعال دریافتی که به‌صورت `aria-pressed` بازتاب می‌یابد.
 
-## Config
+## پیکربندی
 
-Covered under Dependencies above (`t`, `assetBaseUrl`, `views`, `activeView` with their fallbacks). No other config is read.
+بالا در وابستگی‌ها آمد (`t` و `assetBaseUrl` و `views` و `activeView` با fallbackهایشان). پیکربندی دیگری خوانده نمی‌شود.
 
-## Constraints
+## قیدها
 
-- Do not toggle selection internally; `aria-pressed` only mirrors what the parent passes down.
-- Do not hardcode the view list; entries (id, icon, label key) arrive from the parent, sourced from the `../workbench/views.js` registry.
+- انتخاب را داخلی تاگل نکن؛ `aria-pressed` فقط همان را آینه می‌کند که والد پایین می‌دهد.
+- فهرست نماها را هاردکد نکن؛ ورودی‌ها (شناسه، آیکون، کلید لیبل) از والد می‌آیند و منبعشان رجیستری `../workbench/views.js` است.
 
-## Related Decisions and Flows
+## تصمیم‌ها و جریان‌های مرتبط
 
-- `../../../../docs/decisions.md` §8 (workbench composition), §11 (child-composition exception).
-- `../workbench/workbench.md`: `views.js` registry contract.
+- `../../../../docs/decisions.md` §۸ (ترکیب میزکار)، §۱۱ (استثنای ترکیب فرزند).
+- `../workbench/workbench.md`: قرارداد رجیستری `views.js`.

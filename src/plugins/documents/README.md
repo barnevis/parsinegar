@@ -1,21 +1,21 @@
 # parsinegar.documents
 
-Application plugin for Parsinegar: multi-document management for Markdown records over `pey.storage.service`, with automatic `updatedAt` timestamps.
+افزونه اپلیکیشن پارسی‌نگار: مدیریت چندسند برای رکوردهای Markdown روی `pey.storage.service` با timestamp خودکار `updatedAt`.
 
-## Structure
+## ساختار
 
-- `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points (wiring only).
-- `lib/documents-service.js` — service implementation.
-- `tests/documents.test.js` + `tests/documents-service.test.js` — plugin tests.
-- `docs/reference.md` — complete self-contained reference.
-- `CHANGELOG.md` — version history of this plugin.
+- `manifest.json` — قرارداد معتبر افزونه.
+- `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
+- `lib/documents-service.js` — پیاده‌سازی سرویس.
+- `tests/documents.test.js` + `tests/documents-service.test.js` — تست‌های افزونه.
+- `docs/reference.md` — مرجع کامل خودکفا.
+- `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.storage.service` — record persistence; all methods fail clearly without it.
-- **Optional:** none.
+- **لازم:** `pey.storage.service` — ماندگاری رکورد؛ همه متدها بدون آن صریح fail می‌شوند.
+- **اختیاری:** هیچ‌کدام.
 
-## See Also
+## همچنین ببینید
 
-See [`docs/reference.md`](docs/reference.md) for the full API/events/errors/config/business-rules/constraints reference.
+مرجع کامل API/ایونت‌ها/خطاها/پیکربندی/قواعد-کسب‌وکار/قیدها در [`docs/reference.md`](docs/reference.md).

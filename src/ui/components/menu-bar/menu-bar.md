@@ -1,56 +1,56 @@
 # `parsi-menu-bar`
 
-Regular component: dropdown menus (file, edit, insert, view, help) plus the find/replace dropdown and the read/write mode toggle for the workbench. Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
+کامپوننت عادی: منوهای دراپ‌دان (سند، ویرایش، افزودن، نمایش، راهنما) به‌علاوه دراپ‌دان یافتن/جایگزینی و دکمه تاگل حالت خواندن/نوشتن برای میزکار. سوارکننده `parsi-page-home` است؛ صفحه مالک را در `../../pages/home/home.md` ببینید.
 
-## Purpose
+## هدف
 
-Renders the menu structure from the pure `menu-model.js` data and owns its open-menu state locally, so menu interaction never re-renders the parent page (which would drop editor focus and undo history). Menu actions leave the element as `menu-action` `CustomEvent`s for the parent to map to behavior. The mode toggle next to the search button mirrors the file-menu lock item (lock/unlock icon for the current state, same `toggle-lock` action road). The search form (pure `../workbench/search-form.js`) lives in a second dropdown pinned to the bar end (visual left in RTL): it owns the transient form values locally, reports every keystroke and action as `search-*` events, and displays the result the parent echoes back through `configure()`. Typing state survives those re-renders through `data-pey-preserve` on the inputs (value, selection, focus) and action buttons (focus).
+ساختار منو را از داده خالص `menu-model.js` رندر می‌کند و استیت منوی باز را محلی نگه می‌دارد تا تعامل منو هرگز صفحه والد را ریرندر نکند (که فوکس ادیتور و تاریخچه undo می‌پرید). اکشن‌های منو به‌صورت `CustomEvent` از نوع `menu-action` خارج می‌شوند تا والد به رفتار نگاشت کند. دکمه تاگل حالت کنار دکمه جست‌وجو آینه آیتم قفل منوی سند است (آیکون قفل/باز برای وضعیت جاری، همان جاده اکشن `toggle-lock`). فرم جست‌وجو (خالص `../workbench/search-form.js`) در دراپ‌دان دومی ته نوار پین شده (چپ دیداری در RTL): مقادیر گذرای فرم را محلی نگه می‌دارد، هر ضربه و اکشن را به‌صورت ایونت‌های `search-*` گزارش می‌دهد و نتیجه‌ای را که والد از مسیر `configure()` برمی‌گرداند نمایش می‌دهد. استیت تایپ از مسیر `data-pey-preserve` روی ورودی‌ها (مقدار و سلکشن و فوکس) و دکمه‌های اکشن (فوکس) از ریرندرها جان سالم می‌برد.
 
-## Dependencies
+## وابستگی‌ها
 
-Everything received through `connect(refs)`:
+همه از مسیر `connect(refs)`:
 
-- **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `hasDocument` (boolean, optional — defaults to `false`; enables document-dependent items such as delete, and the search toggle), `formatNumber` (optional — counter digits, falls back to `String`), `assetBaseUrl` (optional — search-toggle icon, degrades to an empty button without it).
+- **سرویس‌ها:** هیچ‌کدام.
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید)، `hasDocument` (بولین، اختیاری — پیش‌فرض `false`؛ آیتم‌های وابسته به سند مثل حذف و تاگل جست‌وجو را فعال می‌کند)، `formatNumber` (اختیاری — ارقام شمارنده، پیش‌فرض `String`)، `assetBaseUrl` (اختیاری — آیکون دکمه جست‌وجو؛ بدون آن دکمه خالی می‌ماند).
 
-## Public API
+## API عمومی
 
-- `configure({ hasDocument })` — updates menu capabilities (e.g. after a document opens or closes) and re-renders. Example: `menu.configure({ hasDocument: true })`.
-- `configure({ readOnly, builtInOpen })` — drives the file-menu lock state: `readOnly` flips the toggle-lock label (lock/unlock), `builtInOpen` shows the back-to-documents item and disables the toggle (built-ins are always locked). Example: `menu.configure({ readOnly: true, builtInOpen: false })`.
-- `configure({ searchOpen, search, searchFocus })` — drives the search dropdown: `searchOpen` shows/hides it (opening focuses the query input, or the replace input with `searchFocus: 'replace'`), `search` replaces the displayed form state (`{ query, replace, caseSensitive, wholeWord, regexp, inSelection, count, invalidRegexp, replaced }`), and `search: null` resets the form to defaults. Example: `menu.configure({ searchOpen: true, search: { query: 'a', count: { current: 1, total: 2 } } })`.
+- `configure({ hasDocument })` — قابلیت‌های منو را به‌روز می‌کند (مثلاً بعد از باز یا بسته شدن سند) و ریرندر می‌کند. مثال: `menu.configure({ hasDocument: true })`.
+- `configure({ readOnly, builtInOpen })` — استیت قفل را هدایت می‌کند: `readOnly` لیبل تاگل-قفل را برمی‌گرداند (قفل/بازکردن)، `builtInOpen` آیتم بازگشت-به-اسناد را نشان می‌دهد و تاگل را غیرفعال می‌کند (داخلی‌ها همیشه قفل‌اند). مثال: `menu.configure({ readOnly: true, builtInOpen: false })`.
+- `configure({ searchOpen, search, searchFocus })` — دراپ‌دان جست‌وجو را هدایت می‌کند: `searchOpen` نشان/پنهانش می‌کند (باز شدن روی ورودی عبارت فوکس می‌کند، یا با `searchFocus: 'replace'` روی ورودی جایگزینی)، `search` استیت نمایشی فرم را عوض می‌کند (`{ query, replace, caseSensitive, wholeWord, regexp, inSelection, count, invalidRegexp, replaced }`) و `search: null` فرم را به پیش‌فرض ریست می‌کند. مثال: `menu.configure({ searchOpen: true, search: { query: 'a', count: { current: 1, total: 2 } } })`.
 
-## Events
+## ایونت‌ها
 
-**Published:** `menu-action` with `detail: { action }`, `bubbles: true`, `composed: true`. Action ids are plain strings (`new-document`, `delete-document`, `open-help`, `open-changelog`, `about`, `back-to-documents`, `toggle-lock` (also emitted by the mode toggle button), `read-mode`, `write-mode`, `undo`, `redo`, `toggle-side`, `toggle-status`) defined by `../workbench/menu-model.js`.
+**منتشرشده:** `menu-action` با `detail: { action }`، از نوع `bubbles: true` و `composed: true`. شناسه‌های اکشن رشته‌های ساده‌اند (`new-document` و `delete-document` و `open-help` و `open-changelog` و `about` و `back-to-documents` و `toggle-lock` (دکمه تاگل حالت هم همین را منتشر می‌کند) و `read-mode` و `write-mode` و `undo` و `redo` و `toggle-side` و `toggle-status`) که در `../workbench/menu-model.js` تعریف شده‌اند.
 
-Search events (all `bubbles: true`, `composed: true`, with the form spec as detail) for the parent to run against the editor:
+ایونت‌های جست‌وجو (همه از نوع `bubbles: true` و `composed: true` با اسپک فرم به‌عنوان detail) تا والد روی ادیتور اجرایشان کند:
 
-- `search-query` — query/replace/flag changed (per keystroke / per toggle).
-- `search-next`, `search-previous`, `search-replace-one`, `search-replace-all` — action buttons (and Enter in the inputs steps next).
-- `search-close` — explicit close (toggle or Escape inside/outside the form): the parent clears the editor highlight and resets the form. Outside clicks only hide the dropdown visually (no event, highlight stays).
+- `search-query` — عبارت/جایگزینی/پرچم عوض شد (هر ضربه / هر تاگل).
+- `search-next` و `search-previous` و `search-replace-one` و `search-replace-all` — دکمه‌های اکشن (و Enter در ورودی‌ها قدم بعدی است).
+- `search-close` — بستن صریح (تاگل یا Escape داخل/بیرون فرم): والد هایلایت ادیتور را پاک و فرم را ریست می‌کند. کلیک‌های بیرون فقط دراپ‌دان را دیداری پنهان می‌کنند (بدون ایونت، هایلایت می‌ماند).
 
-**Listened to:** `click`, `input`, `change`, `keydown` (declared in `eventTypes()`); plus document-level `click` (outside-hide) and `keydown` (Escape closes) listeners registered in `connectedCallback` and removed in `disconnectedCallback`. The in-form Escape handler stops propagation so the document-level one does not emit `search-close` twice.
+**گوش‌داده‌شده:** `click` و `input` و `change` و `keydown` (اعلام‌شده در `eventTypes()`)؛ به‌علاوه لیسنرهای سطح document برای `click` (پنهان‌سازی بیرونی) و `keydown` (Escape می‌بندد) که در `connectedCallback` ثبت و در `disconnectedCallback` برداشته می‌شوند. هندلر Escape داخل فرم propagation را متوقف می‌کند تا سطح document دو بار `search-close` منتشر نکند.
 
-## Local State
+## استیت محلی
 
-- `#t` — translation function.
-- `#hasDocument` — whether a document is open (drives item `disabled` flags).
-- `#openMenu` — currently open menu id, or `null`.
-- `#searchOpen` — whether the search dropdown is shown.
-- `#readOnly`, `#builtInOpen` — file-menu lock state (toggle-lock label/disabled, back-item visibility).
-- `#search` — displayed form state (values plus the last echoed `count` / `invalidRegexp` / `replaced`).
-- `#formatNumber`, `#assetBaseUrl` — counter digits and toggle icon (see Dependencies).
+- `#t` — تابع ترجمه.
+- `#hasDocument` — سندی باز است یا نه (پرچم‌های `disabled` آیتم‌ها را هدایت می‌کند).
+- `#openMenu` — شناسه منوی باز جاری، یا `null`.
+- `#searchOpen` — دراپ‌دان جست‌وجو نشان داده می‌شود یا نه.
+- `#readOnly` و `#builtInOpen` — استیت قفل (لیبل/غیرفعال بودن تاگل-قفل، دیده‌شدن آیتم بازگشت).
+- `#search` — استیت نمایشی فرم (مقادیر به‌علاوه آخرین `count` / `invalidRegexp` / `replaced` برگشتی).
+- `#formatNumber` و `#assetBaseUrl` — ارقام شمارنده و آیکون تاگل (وابستگی‌ها را ببینید).
 
-## Config
+## پیکربندی
 
-Covered under Dependencies above (`t`, `hasDocument` with their fallbacks). No other config is read.
+بالا در وابستگی‌ها آمد (`t` و `hasDocument` با fallbackهایشان). پیکربندی دیگری خوانده نمی‌شود.
 
-## Constraints
+## قیدها
 
-- Do not map actions to behavior here; the parent owns every behavior behind the string ids.
-- Do not add menu domains here alone: new menus/items start in `../workbench/menu-model.js` (pure data, tested in isolation), this element only renders them.
+- اکشن‌ها را اینجا به رفتار نگاشت نکن؛ والد مالک هر رفتار پشت شناسه‌های رشته‌ای است.
+- دامنه منو را فقط اینجا اضافه نکن: منوها/آیتم‌های تازه از `../workbench/menu-model.js` شروع می‌شوند (داده خالص، ایزوله تست‌شده) و این المنت فقط رندرشان می‌کند.
 
-## Related Decisions and Flows
+## تصمیم‌ها و جریان‌های مرتبط
 
-- `../../../../docs/decisions.md` §8 (workbench composition), §11 (child-composition exception), §15 (in-document search), §17 (read-only mode).
-- `../workbench/workbench.md`: `menu-model.js` contract.
+- `../../../../docs/decisions.md` §۸ (ترکیب میزکار)، §۱۱ (استثنای ترکیب فرزند)، §۱۵ (جست‌وجوی درون‌سند)، §۱۷ (حالت فقط-خواندن).
+- `../workbench/workbench.md`: قرارداد `menu-model.js`.

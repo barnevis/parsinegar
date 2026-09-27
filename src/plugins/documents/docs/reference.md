@@ -1,30 +1,30 @@
-# parsinegar.documents Reference
+# مرجع parsinegar.documents
 
-## Purpose
+## هدف
 
-Application plugin for Parsinegar: multi-document management for Markdown records over `pey.storage.service`, with automatic `updatedAt` timestamps.
+افزونه اپلیکیشن پارسی‌نگار: مدیریت چندسند برای رکوردهای Markdown روی `pey.storage.service` با timestamp خودکار `updatedAt`.
 
-## Structure
+## ساختار
 
-- `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points (wiring only).
-- `lib/documents-service.js` — service implementation.
-- `tests/` — plugin tests mirroring the source files.
-- `docs/reference.md` — this file.
-- `CHANGELOG.md` — version history of this plugin.
+- `manifest.json` — قرارداد معتبر افزونه.
+- `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
+- `lib/documents-service.js` — پیاده‌سازی سرویس.
+- `tests/` — تست‌های افزونه آینه فایل‌های سورس.
+- `docs/reference.md` — همین فایل.
+- `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.storage.service` — record persistence; all methods fail clearly without it.
-- **Optional:** none.
+- **لازم:** `pey.storage.service` — ماندگاری رکورد؛ همه متدها بدون آن صریح fail می‌شوند.
+- **اختیاری:** هیچ‌کدام.
 
-## Public API
+## API عمومی
 
-**Service:** `parsinegar.documents.service`. Records are `{ id, title, content, createdAt, updatedAt, readOnly }` stored in the `documents` collection (`readOnly` defaults to `false` for records stored before it existed).
+**سرویس:** `parsinegar.documents.service`. رکوردها `{ id, title, content, createdAt, updatedAt, readOnly }`‌اند که در کالکشن `documents` ذخیره می‌شوند (`readOnly` برای رکوردهای پیش از خودش پیش‌فرض `false` می‌گیرد).
 
 ### `listDocuments()`
 
-Lists all documents ordered by most recently updated first (storage has no ordering, so the plugin sorts).
+همه سندها را مرتب از تازه‌ترینِ ویرایش‌شده فهرست می‌کند (استور چینش ندارد، پس افزونه خودش مرتب می‌کند).
 
 ```js
 const documents = await service.listDocuments();
@@ -33,7 +33,7 @@ const documents = await service.listDocuments();
 
 ### `openDocument(id)`
 
-Reads one document by id, or `null` when it does not exist.
+یک سند را با شناسه می‌خواند، یا وقتی نیست `null`.
 
 ```js
 const document = await service.openDocument('doc-id');
@@ -42,7 +42,7 @@ const document = await service.openDocument('doc-id');
 
 ### `saveDocument(input)`
 
-Creates or overwrites a document, stamps `updatedAt`, publishes `documents:changed`. Missing `id` generates one; missing/empty `title` becomes `بدون عنوان`; missing `content` becomes `''`. A title already carried by another record rejects with `DOCUMENT_TITLE_DUPLICATE`; the creation timestamp of an existing record is preserved.
+سند را می‌سازد یا بازنویسی می‌کند، `updatedAt` می‌زند و `documents:changed` منتشر می‌کند. `id` گمشده تولید می‌شود؛ `title` گمشده/خالی می‌شود `بدون عنوان`؛ `content` گمشده می‌شود `''`. عنوانی که رکورد دیگری دارد با `DOCUMENT_TITLE_DUPLICATE` رد می‌شود؛ timestamp ساخت رکورد موجود حفظ می‌شود. قفل ذخیره‌شده می‌ماند مگر `input.readOnly` صریح بگوید.
 
 ```js
 const saved = await service.saveDocument({ id: 'doc-id', title: 'یادداشت', content: '# سلام' });
@@ -50,7 +50,7 @@ const saved = await service.saveDocument({ id: 'doc-id', title: 'یادداشت'
 
 ### `createDocument(title)`
 
-Creates a new empty document, suffixing the title (`title ۲`, …) until it is unique.
+سند خالی تازه می‌سازد و عنوان را پسوند می‌زند (`title ۲` و …) تا یکتا شود.
 
 ```js
 const created = await service.createDocument('ایده‌ها');
@@ -58,7 +58,7 @@ const created = await service.createDocument('ایده‌ها');
 
 ### `renameDocument(id, title)`
 
-Renames a document by id, stamps `updatedAt`, publishes `documents:changed`. Returns `null` when the id does not exist. Empty titles reject with `DOCUMENT_INVALID_TITLE`; taken titles with `DOCUMENT_TITLE_DUPLICATE`.
+سند را با شناسه تغییرنام می‌دهد، `updatedAt` می‌زند و `documents:changed` منتشر می‌کند. وقتی شناسه نیست `null` برمی‌گرداند. عنوان‌های خالی با `DOCUMENT_INVALID_TITLE` رد می‌شوند؛ عنوان‌های تکراری با `DOCUMENT_TITLE_DUPLICATE`.
 
 ```js
 const renamed = await service.renameDocument('doc-id', 'تازه');
@@ -66,7 +66,7 @@ const renamed = await service.renameDocument('doc-id', 'تازه');
 
 ### `deleteDocument(id)`
 
-Deletes a document by id (no-op when absent), publishes `documents:changed`.
+سند را با شناسه حذف می‌کند (وقتی نیست no-op) و `documents:changed` منتشر می‌کند.
 
 ```js
 await service.deleteDocument('doc-id');
@@ -74,44 +74,44 @@ await service.deleteDocument('doc-id');
 
 ### `setReadOnly(id, readOnly)`
 
-Locks or unlocks a document for reading by id, stamps `updatedAt`, publishes `documents:changed`. Returns `null` when the id does not exist; anything but `true` unlocks.
+سند را با شناسه برای خواندن قفل یا باز می‌کند، `updatedAt` می‌زند و `documents:changed` منتشر می‌کند. وقتی شناسه نیست `null` برمی‌گرداند؛ هرچه جز `true` باز می‌کند.
 
 ```js
 const locked = await service.setReadOnly('doc-id', true);
 ```
 
-## Events
+## ایونت‌ها
 
-| Event | When | Data |
+| ایونت | کی | داده |
 |---|---|---|
-| `documents:changed` | After a document is saved, renamed, deleted or (un)locked. | `{ id }` |
+| `documents:changed` | بعد از ذخیره یا تغییرنام یا حذف یا (باز)قفل شدن سند. | `{ id }` |
 
-This plugin listens to no events.
+این افزونه به هیچ ایونتی گوش نمی‌دهد.
 
-## Errors Reference
+## مرجع خطاها
 
-Storage failures (e.g. `STORE_NOT_FOUND`, `QUOTA_EXCEEDED`) propagate unchanged from `pey.storage.service`. Calling any method before local activation throws a plain `Error` naming the missing service — unreachable in normal startup after settlement. Validation failures use the standard structure:
+خطاهای استور (مثل `STORE_NOT_FOUND` و `QUOTA_EXCEEDED`) همان‌طور که‌اند از `pey.storage.service` می‌گذرند. فراخوانی هر متدی پیش از فعال‌سازی محلی یک `Error` ساده با نام سرویس گمشده throw می‌کند — در استارت‌آپ عادی بعد از settlement دست‌نیافتنی است. خطاهای اعتبارسنجی از ساختار استاندارد استفاده می‌کنند:
 
-- `DOCUMENT_TITLE_DUPLICATE` (operational, `detail: { field: 'title' }`) — another record already carries the title.
-- `DOCUMENT_INVALID_TITLE` (operational, `detail: { field: 'title' }`) — empty rename title.
+- `DOCUMENT_TITLE_DUPLICATE` (operational با `detail: { field: 'title' }`) — رکورد دیگری همین عنوان را دارد.
+- `DOCUMENT_INVALID_TITLE` (operational با `detail: { field: 'title' }`) — عنوان خالی تغییرنام.
 
-## Config
+## پیکربندی
 
-No config keys. Store layout (`documents` collection with `keyPath: id`) is project configuration in `bootstrap.json`, not plugin config.
+هیچ کلید پیکربندی. چیدمان استور (کالکشن `documents` با `keyPath: id`) پیکربندی پروژه در `bootstrap.json` است، نه پیکربندی افزونه.
 
-## Business Rules
+## قواعد کسب‌وکار
 
-- Every saved record carries `updatedAt` set at save time; callers cannot override it.
-- Every record carries `createdAt`, set once at creation and preserved by later saves; records stored before it existed fall back to `updatedAt`.
-- Titles are unique across records: saving or renaming onto a taken title rejects (the record itself is excluded when updating). `createDocument` suffixes with Persian digits until free.
-- Listing order is always most-recently-updated first.
-- `openDocument` never throws for a missing id — it returns `null`.
-- `deleteDocument` never throws for a missing id — storage delete is a no-op then.
-- Every record carries `readOnly` (default `false`); `saveDocument` preserves the stored lock unless `input.readOnly` states it explicitly, and `setReadOnly` flips it.
-- Every save, delete and lock change publishes exactly one `documents:changed` with the affected `id`.
+- هر رکورد ذخیره‌شده `updatedAt` زمان ذخیره را حمل می‌کند؛ صدازننده نمی‌تواند بازنویسی‌اش کند.
+- هر رکورد `createdAt` حمل می‌کند که یک‌بار موقع ساخت ست می‌شود و ذخیره‌های بعدی حفظش می‌کنند؛ رکوردهای پیش از خودش به `updatedAt` برمی‌گردند.
+- هر رکورد `readOnly` حمل می‌کند (پیش‌فرض `false`)؛ `saveDocument` قفل ذخیره‌شده را نگه می‌دارد مگر `input.readOnly` صریح بگوید و `setReadOnly` برمی‌گرداندش.
+- عنوان‌ها در همه رکوردها یکتایند: ذخیره یا تغییرنام روی عنوان تکراری reject می‌شود (موقع به‌روزرسانی خود رکورد مستثناست). `createDocument` با ارقام فارسی پسوند می‌زند تا آزاد شود.
+- ترتیب فهرست همیشه تازه‌ترینِ ویرایش‌شده اول است.
+- `openDocument` برای شناسه گمشده هرگز throw نمی‌کند — `null` برمی‌گرداند.
+- `deleteDocument` برای شناسه گمشده هرگز throw نمی‌کند — آن‌وقت no-op است.
+- هر ذخیره و حذف و تغییر قفل دقیقاً یک `documents:changed` با شناسه متأثر منتشر می‌کند.
 
-## Constraints
+## قیدها
 
-- Do not bypass this plugin from the UI to call `pey.storage.service` directly; the store layout and timestamp policy belong here.
-- Do not store anything but document records in the `documents` collection.
-- `updatedAt` is set exclusively by `saveDocument`; do not accept caller timestamps.
+- از UI این افزونه را دور نزن و مستقیم `pey.storage.service` را صدا نزن؛ چیدمان استور و سیاست timestamp مال اینجاست.
+- در کالکشن `documents` جز رکورد سند چیز دیگری ذخیره نکن.
+- `updatedAt` فقط و فقط دست `saveDocument` ست می‌شود؛ timestamp صدازننده قبول نکن.

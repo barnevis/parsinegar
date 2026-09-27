@@ -1,8 +1,8 @@
-# UI Shared Infrastructure
+# زیرساخت مشترک UI
 
-- **Base class:** kit `PeyElement` (tested by the kit; not duplicated here).
-- **Refs:** `services` (router + documents), `t`/`format` (fa catalog), `assetBaseUrl` (icon sprite), `direction` (editor direction).
-- **Tokens:** surfaces map to `--pey-*` (`canvas`, `border`, `surface`, `text-muted`, `accent`, `focus-ring`) with fallbacks; see `home-styles.js`.
-- **Icons:** app-owned `src/ui/assets/icons.svg` via kit `icon-sprite` helpers.
-- **Fonts:** local Vazirmatn (`public/fonts/`), Persian digits via `format`.
-- No shared-state store (single owner component), no UI Bus events published (only the `ui:component-error` declaration the base class needs).
+- **کلاس پایه:** `PeyElement` کیت (خود کیت تستش می‌کند؛ اینجا تکرار نمی‌شود).
+- **refs:** برابر `services` (روتر + اسناد)، `t`/`format` (کاتالوگ fa)، `assetBaseUrl` (اسپرایت آیکون)، `direction` (جهت ادیتور).
+- **توکن‌ها:** سطح‌ها روی `--pey-*` نگاشت می‌شوند (`canvas`، `border`، `surface`، `text-muted`، `accent`، `focus-ring`) با fallback؛ `home-styles.js` را ببینید.
+- **آیکون‌ها:** `src/ui/assets/icons.svg` مال اپ از مسیر هلپرهای `icon-sprite` کیت.
+- **قلم‌ها:** وزیرمتن محلی (`public/fonts/`)، ارقام فارسی از مسیر `format`.
+- نه استور حالت مشترک (تک‌مالک کامپوننت)، نه ایونت UI Bus منتشرشده (فقط اعلان `ui:component-error` که کلاس پایه لازم دارد).

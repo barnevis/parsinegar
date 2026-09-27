@@ -1,20 +1,20 @@
 # parsinegar.app
 
-Application plugin for Parsinegar: owns the version-1 route catalog and registers it with the Router service during activation.
+افزونه اپلیکیشن پارسی‌نگار: مالک کاتالوگ مسیرهای نسخه ۱ است و موقع activation در سرویس Router ثبتش می‌کند.
 
-## Structure
+## ساختار
 
-- `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points.
-- `tests/app.test.js` — plugin tests.
-- `docs/reference.md` — complete self-contained reference.
-- `CHANGELOG.md` — version history of this plugin.
+- `manifest.json` — قرارداد معتبر افزونه.
+- `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان.
+- `tests/app.test.js` — تست‌های افزونه.
+- `docs/reference.md` — مرجع کامل خودکفا.
+- `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.router.service` — route registration and navigation state; the plugin has no function without it.
-- **Optional:** none.
+- **لازم:** `pey.router.service` — ثبت مسیر و استیت ناوبری؛ افزونه بدون آن کارکردی ندارد.
+- **اختیاری:** هیچ‌کدام.
 
-## See Also
+## همچنین ببینید
 
-See [`docs/reference.md`](docs/reference.md) for the full API/events/errors/config/business-rules/constraints reference.
+مرجع کامل API/ایونت‌ها/خطاها/پیکربندی/قواعد-کسب‌وکار/قیدها در [`docs/reference.md`](docs/reference.md).

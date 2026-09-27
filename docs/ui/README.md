@@ -1,9 +1,9 @@
-# UI Map — Parsinegar
+# نقشه UI — پارسی‌نگار
 
-Index of the UI-layer map. Product/UX rationale lives in `../decisions.md`.
+فهرست نقشه لایه UI. استدلال محصول/UX در `../decisions.md` است.
 
-- `component-index.md` — components, pages, routes.
-- `entry-point.md` — startup/shutdown behavior of `src/ui/index.js`.
-- `shared-infrastructure.md` — base class, refs, tokens.
-- `user-flows.md` — multi-step user flows.
-- Component docs live next to their code: `../pages/home/home.md`, `../pages/not-found/not-found.md`.
+- `component-index.md` — کامپوننت‌ها، صفحه‌ها، مسیرها.
+- `entry-point.md` — رفتار استارت‌آپ/شات‌داون `src/ui/index.js`.
+- `shared-infrastructure.md` — کلاس پایه، refs، توکن‌ها.
+- `user-flows.md` — جریان‌های چندمرحله‌ای کاربر.
+- سندهای کامپوننت کنار کدشان‌اند: `../pages/home/home.md`، `../pages/not-found/not-found.md`.

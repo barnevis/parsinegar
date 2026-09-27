@@ -1,36 +1,36 @@
-# parsinegar.settings Reference
+# مرجع parsinegar.settings
 
-## Purpose
+## هدف
 
-Application plugin for Parsinegar: validated user preferences over `pey.storage.service`. A single `preferences` record in the `settings` collection holds the whole set; readers always receive a complete object merged over defaults.
+افزونه اپلیکیشن پارسی‌نگار: ترجیحات اعتبارسنجی‌شده کاربر روی `pey.storage.service`. یک رکورد تکی `preferences` در کالکشن `settings` کل ست را نگه می‌دارد؛ خواننده‌ها همیشه آبجکت کامل mergeشده روی پیش‌فرض‌ها می‌گیرند.
 
-## Structure
+## ساختار
 
-- `manifest.json` — authoritative plugin contract.
-- `index.js` — Bonyan `prepare` and `activate` entry points (wiring only).
-- `lib/settings-service.js` — service implementation.
-- `tests/` — plugin tests mirroring the source files.
-- `docs/reference.md` — this file.
-- `CHANGELOG.md` — version history of this plugin.
+- `manifest.json` — قرارداد معتبر افزونه.
+- `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
+- `lib/settings-service.js` — پیاده‌سازی سرویس.
+- `tests/` — تست‌های افزونه آینه فایل‌های سورس.
+- `docs/reference.md` — همین فایل.
+- `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.storage.service` — record persistence; all methods fail clearly without it. If the service disappears at runtime after activation, the plugin reports a critical error.
-- **Optional:** none.
+- **لازم:** `pey.storage.service` — ماندگاری رکورد؛ همه متدها بدون آن صریح fail می‌شوند. اگر سرویس بعد از فعال‌سازی در ران‌تایم ناپدید شود، افزونه خطای critical گزارش می‌کند.
+- **اختیاری:** هیچ‌کدام.
 
-## Public API
+## API عمومی
 
-**Service:** `parsinegar.settings.service`. Settings are `{ theme, direction, fontSize }`:
+**سرویس:** `parsinegar.settings.service`. تنظیمات `{ theme, direction, fontSize }`‌اند:
 
-- `theme`: `'light'`, `'dark'`, `'device'` (follow the operating system) or `'sepia'`.
-- `direction`: `'auto'`, `'rtl'` or `'ltr'` — base direction of the edited document.
-- `fontSize`: integer editor font size in pixels, `12`–`24`.
+- `theme`: برابر `'light'` یا `'dark'` یا `'device'` (پیروی از سیستم‌عامل) یا `'sepia'`.
+- `direction`: برابر `'auto'` یا `'rtl'` یا `'ltr'` — جهت مبنای سند ویرایش‌شده.
+- `fontSize`: اندازه قلم صحیح ادیتور به پیکسل، `12` تا `24`.
 
-Defaults are `{ theme: 'device', direction: 'auto', fontSize: 16 }`.
+پیش‌فرض‌ها `{ theme: 'device', direction: 'auto', fontSize: 16 }`‌اند.
 
 ### `getSettings()`
 
-Reads the stored preferences merged over defaults; a missing record returns defaults, and invalid stored values fall back per field.
+ترجیحات ذخیره‌شده mergeشده روی پیش‌فرض‌ها را می‌خواند؛ رکورد گمشده پیش‌فرض‌ها را برمی‌گرداند و مقادیر ذخیره‌شده نامعتبر هر فیلد fallback می‌گیرند.
 
 ```js
 const settings = await service.getSettings();
@@ -39,21 +39,21 @@ const settings = await service.getSettings();
 
 ### `saveSettings(patch)`
 
-Validates the patch, merges it over current settings, stores the result and publishes `settings:changed`. Unknown fields are ignored; known fields with invalid values reject with `SETTINGS_INVALID_VALUE` naming the field, and nothing is stored or published.
+پچ را اعتبارسنجی می‌کند، روی تنظیمات جاری merge می‌کند، نتیجه را ذخیره می‌کند و `settings:changed` منتشر می‌کند. فیلدهای ناشناخته نادیده گرفته می‌شوند؛ فیلدهای شناخته‌شده با مقادیر نامعتبر با `SETTINGS_INVALID_VALUE` که فیلد را نام می‌برد reject می‌شوند و چیزی ذخیره یا منتشر نمی‌شود.
 
 ```js
 const settings = await service.saveSettings({ theme: 'dark' });
 // => { theme: 'dark', direction: 'auto', fontSize: 16 }
 ```
 
-## Events
+## ایونت‌ها
 
-- `settings:changed` with `{ id: 'preferences' }` — published after preferences are saved. Listeners re-read through `getSettings()`.
+- `settings:changed` با `{ id: 'preferences' }` — بعد از ذخیره ترجیحات منتشر می‌شود. لیسنرها از مسیر `getSettings()` بازخوانی می‌کنند.
 
-## Errors
+## خطاها
 
-Boundary errors use the standard structure (`code`, `message`, `source`, `type`, `timestamp`, `detail`):
+خطاهای مرزی از ساختار استاندارد استفاده می‌کنند (`code` و `message` و `source` و `type` و `timestamp` و `detail`):
 
-- `SETTINGS_INVALID_VALUE` (operational) — a known patch field failed validation; `detail.field` names it.
-- `SETTINGS_STORAGE_UNAVAILABLE` (operational) — called before activation or after deactivation.
-- `REQUIRED_DEPENDENCY_LOST` (critical) — reported to the Core when `pey.storage.service` disappears at runtime.
+- `SETTINGS_INVALID_VALUE` (operational) — فیلد شناخته‌شده پچ اعتبارسنجی را رد کرد؛ `detail.field` نامش می‌برد.
+- `SETTINGS_STORAGE_UNAVAILABLE` (operational) — فراخوانی پیش از فعال‌سازی یا بعد از غیرفعال‌سازی.
+- `REQUIRED_DEPENDENCY_LOST` (critical) — وقتی `pey.storage.service` در ران‌تایم ناپدید شود به Core گزارش می‌شود.
