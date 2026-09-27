@@ -3,9 +3,10 @@ import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EditorSelection } from '@codemirror/state';
+import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { continueList } from '../../../components/editor/list-continue.js';
+import { continueList, indentListItem } from '../../../components/editor/list-continue.js';
 
 function createView(documentText, cursor) {
   const host = document.createElement('div');
@@ -169,6 +170,127 @@ test('should_keep_line_when_alt_arrow_has_nowhere_to_move', () => {
   try {
     press(mounted.host, { key: 'ArrowUp', code: 'ArrowUp', altKey: true });
     assert.equal(mounted.editor.getValue(), 'اول');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+function shifted(documentText, cursor, outdent, extensions = []) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const view = new EditorView({
+    doc: documentText,
+    parent: host,
+    extensions,
+  });
+  view.dispatch({ selection: EditorSelection.cursor(cursor) });
+  try {
+    const handled = indentListItem(view, outdent);
+    return {
+      handled,
+      text: view.state.doc.toString(),
+      line: view.state.doc.lineAt(view.state.selection.main.head).number,
+    };
+  } finally {
+    view.destroy();
+    host.remove();
+  }
+}
+
+function lockedView(documentText, cursor) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const view = new EditorView({
+    doc: documentText,
+    parent: host,
+    extensions: [EditorView.editable.of(false), EditorState.readOnly.of(true)],
+  });
+  view.dispatch({ selection: EditorSelection.cursor(cursor) });
+  return { host, view };
+}
+
+test('should_nest_and_restart_when_tab_on_ordered_item', () => {
+  // The reported scenario: indenting `3.` nests it as `1.` instead of
+  // stranding a `4.` at base level later.
+  const result = shifted('1. یک\n2. دو\n3. سه', 17, false);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '1. یک\n2. دو\n\t1. سه');
+  assert.equal(result.line, 3);
+});
+
+test('should_close_gap_when_outdenting_nested_item', () => {
+  const result = shifted('1. یک\n2. دو\n\t1. سه', 18, true);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '1. یک\n2. دو\n3. سه');
+  assert.equal(result.line, 3);
+});
+
+test('should_resequence_followers_when_indenting_middle_item', () => {
+  const result = shifted('1. a\n2. b\n3. c', 9, false);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '1. a\n\t1. b\n2. c');
+});
+
+test('should_keep_start_number_when_indenting_later_item', () => {
+  const result = shifted('3. a\n4. b', 9, false);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '3. a\n\t1. b');
+});
+
+test('should_keep_digits_and_delimiter_when_resequencing', () => {
+  const persian = shifted('۱. الف\n۲. ب\n۳. پ', 16, false);
+  assert.equal(persian.text, '۱. الف\n۲. ب\n\t۱. پ');
+  const paren = shifted('1) a\n2) b', 9, false);
+  assert.equal(paren.text, '1) a\n\t1) b');
+  const task = shifted('1. [ ] t\n2. [ ] u', 15, false);
+  assert.equal(task.text, '1. [ ] t\n\t1. [ ] u');
+});
+
+test('should_stop_block_at_blank_and_plain_lines_when_resequencing', () => {
+  const blank = shifted('1. a\n\n2. b', 10, false);
+  assert.equal(blank.text, '1. a\n\n\t1. b');
+  const mixed = shifted('1. a\n- b\n2. c', 12, false);
+  assert.equal(mixed.text, '1. a\n- b\n\t1. c');
+});
+
+test('should_fall_through_when_not_applicable', () => {
+  assert.equal(shifted('- item', 6, false).handled, false);
+  assert.equal(shifted('plain', 5, false).handled, false);
+  assert.equal(shifted('1. a', 0, true).handled, false);
+  const host = document.createElement('div');
+  document.body.append(host);
+  const view = new EditorView({ doc: '1. a\n2. b', parent: host });
+  view.dispatch({ selection: EditorSelection.range(0, 4) });
+  try {
+    assert.equal(indentListItem(view, false), false);
+  } finally {
+    view.destroy();
+    host.remove();
+  }
+});
+
+test('should_swallow_tab_when_editor_is_locked', () => {
+  const { host, view } = lockedView('1. a\n2. b', 7);
+  try {
+    assert.equal(indentListItem(view, false), true);
+    assert.equal(view.state.doc.toString(), '1. a\n2. b');
+    assert.equal(indentListItem(view, true), true);
+  } finally {
+    view.destroy();
+    host.remove();
+  }
+});
+
+test('should_renumber_through_real_tab_keypress', () => {
+  const mounted = createWired('1. یک\n2. دو\n3. سه');
+  try {
+    mounted.editor.gotoLine(3);
+    press(mounted.host, { key: 'End', code: 'End' });
+    press(mounted.host, { key: 'Tab', code: 'Tab' });
+    assert.equal(mounted.editor.getValue(), '1. یک\n2. دو\n\t1. سه');
+    mounted.editor.undo();
+    assert.equal(mounted.editor.getValue(), '1. یک\n2. دو\n3. سه');
   } finally {
     mounted.editor.destroy();
     mounted.host.remove();

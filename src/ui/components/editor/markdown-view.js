@@ -17,7 +17,7 @@ import { codeCopyExtensions } from './code-copy.js';
 import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
 import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
-import { continueList } from './list-continue.js';
+import { continueList, indentListItem } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
 import { admonitionViewExtensions } from './admonition-view.js';
 import { poemViewExtensions } from './poem-view.js';
@@ -160,8 +160,14 @@ export function createMarkdownView(host, options = {}) {
       ...codeCopyExtensions({ t: options.t, assetBaseUrl: options.assetBaseUrl ?? null }),
       ...lineDirectionExtensions(baseDirection, forcedDirection),
       // Tab indents (Shift+Tab outdents); Alt+Arrow line moving already
-      // arrives through the default keymap in minimalSetup.
-      keymap.of([indentWithTab]),
+      // arrives through the default keymap in minimalSetup. Ordered list
+      // lines go through our level-aware indent first (it resequences the
+      // block), everything else falls through to the default Tab.
+      keymap.of([
+        { key: 'Tab', run: (target) => indentListItem(target, false) },
+        { key: 'Shift-Tab', run: (target) => indentListItem(target, true) },
+        indentWithTab,
+      ]),
       // Bracket pairing (`()[]{}`) plus pair-aware Backspace from the keymap.
       // Quotes and backticks pair through `quote-pairs.js` below instead:
       // closeBrackets only pairs same-character tokens inside string
