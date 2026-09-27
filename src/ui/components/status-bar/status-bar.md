@@ -1,44 +1,45 @@
 # `parsi-status-bar`
 
-Regular component: live document statistics display (characters, words, lines). Mounted by `parsi-page-home`; see `../../pages/home/home.md` for the owning page.
+المنت عادی: نمایش زنده آمار سند (نویسه، واژه، خط) به‌علاوه چیپ فقط-خواندنی وقتی نمای باز قفل است. سوارکننده `parsi-page-home` است؛ صفحه مالک را در `../../pages/home/home.md` ببینید.
 
-## Purpose
+## هدف
 
-Pure display driven entirely by `configure()`; emits nothing. Number formatting is injected by the parent, so locale digits (e.g. Persian) are the parent's decision, not this element's.
+نمایش محض که کاملاً با `configure()` هدایت می‌شود؛ چیزی منتشر نمی‌کند. قالب‌بندی عدد را والد تزریق می‌کند، پس ارقام محلی (مثلاً فارسی) تصمیم والد است نه این المنت.
 
-## Dependencies
+## وابستگی‌ها
 
-Everything received through `connect(refs)` plus `configure()`:
+همه از مسیر `connect(refs)` به‌علاوه `configure()`:
 
-- **Services:** None.
-- **Config values:** `t` (translation, required — falls back to identity), `stats` (`{ chars, letters, words, lines, bytes }`, via `configure()` — defaults to zeros), `formatNumber` (number formatter, via `configure()` — falls back to `String`). The byte count renders through `formatFileSize` as bytes or kilobytes.
+- **سرویس‌ها:** هیچ‌کدام.
+- **مقادیر پیکربندی:** `t` (ترجمه، لازم — در نبودش همانی کلید)، `stats` (`{ chars, letters, words, lines, bytes }` از مسیر `configure()` — پیش‌فرض صفرها)، `formatNumber` (قالب‌بند عدد از مسیر `configure()` — پیش‌فرض `String`)، `readOnly` (قفل نمای باز، از مسیر `configure()` — پیش‌فرض `false`؛ وقتی روشن است چیپ «فقط خواندنی» اول نوار می‌نشیند). شمارش بایت با `formatFileSize` به‌صورت بایت یا کیلوبایت رندر می‌شود.
 
-## Public API
+## API عمومی
 
-- `configure({ stats, formatNumber })` — replaces the displayed statistics and re-renders. Example: `status.configure({ stats: countStats(text), formatNumber: (n) => format(n) })`.
+- `configure({ stats, formatNumber, readOnly })` — آمار نمایشی را عوض می‌کند و ریرندر می‌کند. مثال: `status.configure({ stats: countStats(text), formatNumber: (n) => format(n), readOnly: true })`.
 
-## Events
+## ایونت‌ها
 
-**Published:** None — this component dispatches nothing.
+**منتشرشده:** هیچ‌کدام — این کامپوننت چیزی dispatch نمی‌کند.
 
-**Listened to:** None — no `eventTypes()` override, no `handleEvent()`.
+**گوش‌داده‌شده:** هیچ‌کدام — نه بازنویسی `eventTypes()`، نه `handleEvent()`.
 
-## Local State
+## استیت محلی
 
-- `#t` — translation function.
-- `#stats` — last received `{ chars, letters, words, lines, bytes }` (never computed here).
-- `#formatNumber` — last received formatter, or `null`.
+- `#t` — تابع ترجمه.
+- `#stats` — آخرین `{ chars, letters, words, lines, bytes }` دریافتی (هرگز اینجا محاسبه نمی‌شود).
+- `#formatNumber` — آخرین قالب‌بند دریافتی، یا `null`.
+- `#readOnly` — آخرین قفل دریافتی؛ نما را عوض نمی‌کند، فقط چیپ را نشان/پنهان می‌کند.
 
-## Config
+## پیکربندی
 
-Covered under Dependencies above (`t`, `stats`, `formatNumber` with their fallbacks). No other config is read.
+بالا در وابستگی‌ها آمد (`t` و `stats` و `formatNumber` و `readOnly` با fallbackهایشان). پیکربندی دیگری خوانده نمی‌شود.
 
-## Constraints
+## قیدها
 
-- Display-only: do not compute statistics here (counting lives in `../workbench/stats.js`) and do not emit events.
-- Do not format numbers locally; every value passes through the injected `formatNumber`.
+- نمایشیِ صرف: آمار را اینجا محاسبه نکن (شمارش در `../workbench/stats.js` است) و ایونت منتشر نکن.
+- عدد را محلی قالب‌بندی نکن؛ هر مقدار از `formatNumber` تزریقی می‌گذرد.
 
-## Related Decisions and Flows
+## تصمیم‌ها و جریان‌های مرتبط
 
-- `../../../../docs/decisions.md` §8 (workbench composition), §9 (no business-data caching), §11 (child-composition exception).
-- `../workbench/workbench.md`: `stats.js` contract.
+- `../../../../docs/decisions.md` §۸ (ترکیب میزکار)، §۹ (کش نکردن داده کسب‌وکار)، §۱۱ (استثنای ترکیب فرزند)، §۱۷ (حالت فقط-خواندن).
+- `../workbench/workbench.md`: قرارداد `stats.js`.

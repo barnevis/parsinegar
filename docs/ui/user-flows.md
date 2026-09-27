@@ -1,11 +1,14 @@
-# UI User Flows
+# جریان‌های کاربر UI
 
-- **Boot → editor:** Core starts plugins → UI mounts shell → home lists documents (creates the welcome document on first launch) → editor shows the most recent document.
-- **Edit → autosave:** typing updates the draft, stats and the change event; after 1s idle the document saves and the list refreshes.
-- **Switch/create/delete:** pending save flushes first, then the target document loads; deleting the last document creates a fresh untitled one.
-- **Outline jump:** rail → outline view → heading click moves the cursor (marks stay hidden except on the active line).
-- **Settings:** rail gear → settings view → theme (light/dark/device), document direction (auto/rtl/ltr) or font-size stepper; each change validates in the settings service, persists, and applies (theme via the entry-point bridge, direction/font size via editor remount); everything survives reload.
-- **Unknown route:** router redirects to `/not-found`; the return button navigates home through `RouterService`.
-- **About:** file menu → about item (or the rail logotype) opens the about file as a read-only document in the editor; the file-menu back item, or opening any document, returns to it.
-- **Built-in docs:** file menu → help/changelog items fetch the project Markdown files once per session (cached) and show them locked for reading; loading never touches the user draft, autosave or the documents service.
-- **Document lock:** file menu → lock item flips the stored `readOnly` flag (persisted by `parsinegar.documents.service` 0.3.0) and applies it to the mounted editor without remounting, so undo history survives; the status bar shows a read-only chip. While locked, typing, marks, task toggles and replacements refuse, while selection, copy, find and stepping keep working.
+- **بوت → ادیتور:** هسته افزونه‌ها را بالا می‌آورد → UI شل را سوار می‌کند → خانه سندها را فهرست می‌کند (در اولین اجرا سند خوش‌آمد می‌سازد) → ادیتور تازه‌ترین سند را نشان می‌دهد.
+- **ویرایش → ذخیره خودکار:** تایپ، پیش‌نویس و آمار و ایونت تغییر را به‌روز می‌کند؛ بعد از یک ثانیه سکون سند ذخیره و فهرست تازه می‌شود.
+- **تعویض/ساخت/حذف:** اول ذخیره معوق flush می‌شود بعد سند هدف لود می‌شود؛ حذف آخرین سند یکی تازه و بی‌عنوان می‌سازد.
+- **پرش فهرست:** ریل ← نمای فهرست ← کلیک عنوان کرسر را می‌برد (نشان‌ها فقط روی خط فعال دیده می‌شوند).
+- **تنظیمات:** چرخ‌دنده ریل ← نمای تنظیمات ← پوسته (روشن/تیره/دستگاه/سپیا)، جهت سند (خودکار/راست‌به‌چپ/چپ‌به‌راست) یا پلکان قلم؛ هر تغییر در سرویس تنظیمات اعتبارسنجی و ذخیره می‌شود و اعمال می‌گردد (پوسته از پل entry-point، جهت/قلم با ریمونت ادیتور)؛ همه بعد از reload می‌مانند.
+- **جست‌وجو:** `Ctrl+F` (یا ذره‌بین ته منوبار) دراپ‌دان را با فوکس عبارت باز می‌کند؛ هر ضربه شمارنده را تازه می‌کند؛ `Enter` مورد بعدی، دکمه‌ها جایگزینی تکی/همه؛ `Ctrl+Shift+F` روی جایگزینی متمرکز می‌شود. فقط همین سند گشته می‌شود؛ بستن صریح هایلایت را پاک می‌کند.
+- **محتوای غنی زنده:** تصویر راه‌دور، جدول واقعی، لینک، اندرز و شعر همان‌جا رندر می‌شوند؛ ایستادن کرسر (یا سلکشن) روی هر کدام سورس را برای ویرایش برمی‌گرداند. لینک با `Ctrl`+کلیک (یا کلیک میانی) در تب تازه باز می‌شود.
+- **بازشماره فهرست:** `Tab`/`Shift+Tab` روی آیتم مرتب سطح را عوض و کل بلوک پیوسته را در یک undo بازشماره می‌کند (سطح عمیق از ۱)؛ `Enter` از عدد همان خط ادامه می‌دهد.
+- **مسیر نامعتبر:** روتر به `/not-found` می‌فرستد؛ دکمه بازگشت از مسیر `RouterService` به خانه برمی‌گردد.
+- **درباره:** منوی راهنما ← آیتم درباره (یا نشان ریل) فایل درباره را به‌صورت سند فقط-خواندن در ادیتور باز می‌کند؛ آیتم بازگشت همان منو یا باز کردن هر سندی برمی‌گرداند.
+- **اسناد داخلی:** منوی راهنما ← آیتم‌های راهنما/تاریخچه، فایل‌های پروژه را جلسه‌ای یک‌بار fetch (کش) می‌کنند و قفل‌شده برای خواندن نشان می‌دهند؛ بارگذاری به پیش‌نویس و autosave و سرویس اسناد دست نمی‌زند.
+- **قفل سند:** آیتم قفل منوی پرونده، دکمه تاگل منوبار یا جفت خواندن/نوشتن منوی نمایش، پرچم ذخیره‌شونده `readOnly` را برمی‌گرداند (پایدار در `parsinegar.documents.service` نسخه ۰.۳.۰) و بدون ریمونت روی ادیتور سوار می‌شود تا undo بماند؛ نوار وضعیت چیپ فقط-خواندنی نشان می‌دهد. در قفل، تایپ و نشان و تسک و جایگزینی refuse می‌کنند ولی انتخاب و رونوشت و یافتن و قدم‌زدن آزادند.

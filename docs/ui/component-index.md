@@ -1,19 +1,19 @@
-# UI Component Index
+# نمایه کامپوننت‌های UI
 
-Single-page application (`fa`, `rtl`).
+اپ تک‌صفحه‌ای (`fa`، راست‌به‌چپ).
 
-| Tag | File | Role |
+| تگ | فایل | نقش |
 |---|---|---|
-| `parsi-page-home` | `src/ui/pages/home/home.js` (+ `home.css`, [doc](../../src/ui/pages/home/home.md)) | Workbench shell: mounts five child elements plus the CodeMirror editor |
-| `parsi-menu-bar` | `src/ui/components/menu-bar/menu-bar.js` ([doc](../../src/ui/components/menu-bar/menu-bar.md)) | Menu bar; emits `menu-action` |
-| `parsi-activity-rail` | `src/ui/components/activity-rail/activity-rail.js` ([doc](../../src/ui/components/activity-rail/activity-rail.md)) | View-switch rail; emits `view-select` |
-| `parsi-side-panel` | `src/ui/components/side-panel/side-panel.js` ([doc](../../src/ui/components/side-panel/side-panel.md)) | Files/outline side panel; emits `document-*`, `outline-jump`, `side-close` |
-| `parsi-status-bar` | `src/ui/components/status-bar/status-bar.js` ([doc](../../src/ui/components/status-bar/status-bar.md)) | Live stats bar (display-only) |
-| `parsi-page-not-found` | `src/ui/pages/not-found/not-found.js` ([doc](../../src/ui/pages/not-found/not-found.md)) | Fallback page |
+| `parsi-page-home` | `src/ui/pages/home/home.js` (به‌علاوه `home.css`، [سند](../../src/ui/pages/home/home.md)) | شل میزکار: پنج فرزند و ادیتور CodeMirror را سوار می‌کند |
+| `parsi-menu-bar` | `src/ui/components/menu-bar/menu-bar.js` ([سند](../../src/ui/components/menu-bar/menu-bar.md)) | نوار منو (پرونده/ویرایش/افزودن/نمایش/راهنما) به‌علاوه دراپ‌دان جست‌وجو و دکمه تاگل حالت؛ `menu-action` و ایونت‌های `search-*` را منتشر می‌کند |
+| `parsi-activity-rail` | `src/ui/components/activity-rail/activity-rail.js` ([سند](../../src/ui/components/activity-rail/activity-rail.md)) | ریل تعویض نما؛ `view-select` منتشر می‌کند |
+| `parsi-side-panel` | `src/ui/components/side-panel/side-panel.js` ([سند](../../src/ui/components/side-panel/side-panel.md)) | پنل کناری سندها/فهرست؛ `document-*` و `outline-jump` و `side-close` منتشر می‌کند |
+| `parsi-status-bar` | `src/ui/components/status-bar/status-bar.js` ([سند](../../src/ui/components/status-bar/status-bar.md)) | نوار آمار زنده به‌علاوه چیپ فقط-خواندنی (نمایشیِ صرف) |
+| `parsi-page-not-found` | `src/ui/pages/not-found/not-found.js` ([سند](../../src/ui/pages/not-found/not-found.md)) | صفحه جایگزین |
 
-Helper modules (not elements): `components/editor/` ([doc](../../src/ui/components/editor/editor.md): CodeMirror view controller, live preview, task list, text highlight), `components/workbench/` ([doc](../../src/ui/components/workbench/workbench.md): view registry, view-body renderers, menu model, stats, outline, html, modal), `utils/mount.js` (child-composition mount helper).
+ماژول‌های هلپر (المنت نیستند): `components/editor/` ([سند](../../src/ui/components/editor/editor.md): کنترلر نمای CodeMirror، نمای زنده، ادامه/تورفتگی فهرست، تسک، هایلایت متن، جست‌وجو، تصویر، جدول، دنبال‌کردن پیوند، اندرز، شعر)، `components/workbench/` ([سند](../../src/ui/components/workbench/workbench.md): رجیستری نماها، رندررهای بدنه نماها، مدل منو، فرم جست‌وجو، آمار، فهرست، html، مودال)، `utils/mount.js` (هلپر ترکیب فرزند).
 
-| Route | Page | Owner |
+| مسیر | صفحه | مالک |
 |---|---|---|
-| `/` | `parsi-page-home` | `parsinegar.app` registers it |
-| `/not-found` | `parsi-page-not-found` | `parsinegar.app` registers it |
+| `/` | `parsi-page-home` | `parsinegar.app` ثبتش می‌کند |
+| `/not-found` | `parsi-page-not-found` | `parsinegar.app` ثبتش می‌کند |
