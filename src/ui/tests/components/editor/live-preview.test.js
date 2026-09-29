@@ -190,11 +190,16 @@ test('should_wash_fence_lines_and_round_block_when_fenced', () => {
     for (const line of [opener, first, last, closer]) {
       assert.ok(line && line.classList.contains('parsi-code-line'), 'expected the whole block washed');
     }
-    assert.ok(opener.classList.contains('parsi-code-first'), 'expected the rounded top');
-    assert.ok(closer.classList.contains('parsi-code-last'), 'expected the rounded bottom');
-    for (const line of [first, last]) {
-      assert.ok(!line.classList.contains('parsi-code-first') && !line.classList.contains('parsi-code-last'));
-    }
+    // Corners sit on the visible content lines; hidden fences carry none.
+    assert.ok(first.classList.contains('parsi-code-first'), 'expected the rounded top');
+    assert.ok(!first.classList.contains('parsi-code-last'));
+    assert.ok(last.classList.contains('parsi-code-last'), 'expected the rounded bottom');
+    assert.ok(!last.classList.contains('parsi-code-first'));
+    assert.ok(!opener.classList.contains('parsi-code-first'));
+    assert.ok(!closer.classList.contains('parsi-code-last'));
+    // The copy button lives on the first content line (its relative box).
+    const button = mounted.host.querySelector('.parsi-code-copy');
+    assert.ok(button && button.closest('.cm-line') === first, 'expected the button on the first line');
   } finally {
     destroy(mounted);
   }

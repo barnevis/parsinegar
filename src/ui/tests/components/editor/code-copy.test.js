@@ -68,6 +68,25 @@ test('should_seat_button_inside_wash_when_fenced', () => {
   }
 });
 
+test('should_pin_button_to_corner_when_themed', () => {
+  const mounted = createEditor('متن\n\n```js\nconst x = 1;\n```\n');
+  try {
+    const styleSheets = [...document.styleSheets];
+    const has = (selector, property, expected) => styleSheets.some((sheet) => {
+      try {
+        return [...sheet.cssRules].some((rule) => rule.selectorText?.includes(selector) && rule.style?.getPropertyValue(property).includes(expected));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(has('.parsi-code-copy', 'position', 'absolute'));
+    assert.ok(has('.parsi-code-copy', 'inset-inline-end', '0.5rem'));
+    assert.ok(has('.cm-line.parsi-code-first', 'padding-inline-end', '2.6rem'));
+  } finally {
+    destroy(mounted);
+  }
+});
+
 test('should_copy_block_content_when_clicked', async () => {
   const written = [];
   const previous = globalThis.navigator?.clipboard;

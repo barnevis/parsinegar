@@ -182,20 +182,24 @@ function buildLineDecorations(view) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
       if (FENCE_PATTERN.test(line.text)) {
-        const opener = !inFence;
-        inFence = !inFence;
         const touched = selectionTouches(selection, line.from, line.to);
-        const edge = opener ? ' parsi-code-first' : ' parsi-code-last';
         builder.push(Decoration.line({
-          class: touched ? `parsi-code-line parsi-selected${edge}` : `parsi-code-line${edge}`,
+          class: touched ? 'parsi-code-line parsi-selected' : 'parsi-code-line',
         }).range(line.from));
+        inFence = !inFence;
       } else if (inFence) {
         const touched = selectionTouches(selection, line.from, line.to);
-        // Corners belong to the fences; only an unclosed tail (no closer
-        // ahead, i.e. running to the document end) rounds its last line.
-        const tail = line.number === view.state.doc.lines ? ' parsi-code-last' : '';
+        // Corners sit on the visible content lines (fences hide): the
+        // first content line follows its opener, the last precedes its
+        // closer — or ends the document for unclosed tails. Neighbors read
+        // straight from the document, so viewport clipping cannot misplace
+        // them; the button's positioning context is the first line.
+        const prevFence = line.number > 1 && FENCE_PATTERN.test(view.state.doc.line(line.number - 1).text);
+        const lastLine = line.number === view.state.doc.lines
+          || FENCE_PATTERN.test(view.state.doc.line(line.number + 1).text);
+        const edges = `${prevFence ? ' parsi-code-first' : ''}${lastLine ? ' parsi-code-last' : ''}`;
         builder.push(Decoration.line({
-          class: touched ? `parsi-code-line parsi-selected${tail}` : `parsi-code-line${tail}`,
+          class: touched ? `parsi-code-line parsi-selected${edges}` : `parsi-code-line${edges}`,
         }).range(line.from));
       } else if (QUOTE_PATTERN.test(line.text)) {
         builder.push(Decoration.line({ class: 'parsi-quote-line' }).range(line.from));

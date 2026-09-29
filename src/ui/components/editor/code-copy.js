@@ -142,8 +142,15 @@ class CopyButtonWidget extends WidgetType {
 
 const copyTheme = EditorView.theme({
   '& .parsi-code-copy-row': { textAlign: 'end' },
+  '& .cm-line.parsi-code-first': {
+    position: 'relative',
+    paddingInlineEnd: '2.6rem',
+  },
   '& .parsi-code-copy': {
     font: 'inherit',
+    position: 'absolute',
+    insetBlockStart: '0.25rem',
+    insetInlineEnd: '0.5rem',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
