@@ -17,7 +17,8 @@
 // and returning to base can never strand a `4.` where a `3.` belongs.
 // Unordered lines, selections and the locked (read-only) state fall through
 // or swallow respectively (see below).
-import { EditorSelection } from '@codemirror/state';
+import { EditorSelection, EditorState, Transaction } from '@codemirror/state';
+import { FENCE_PATTERN } from './live-preview.js';
 
 const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 const UNORDERED_EMPTY_PATTERN = /^(\s*)([*+-])(\s+)$/;
@@ -53,7 +54,7 @@ function parseDigits(text) {
  * @param {boolean} fa Persian digits when true.
  * @returns {string} Digit run.
  */
-function formatDigits(value, fa) {
+export function formatDigits(value, fa) {
   const text = String(value);
   if (!fa) {
     return text;
@@ -161,7 +162,7 @@ const ORDERED_LINE_PATTERN = /^(\s*)([0-9\u06F0-\u06F9]+)([.)])(?:\s|$)/;
  * @returns {object|null} `{ indent, value, fa, delimiter, digitsLength }`,
  *   or null for non-ordered lines.
  */
-function parseOrderedLine(text) {
+export function parseOrderedLine(text) {
   const match = ORDERED_LINE_PATTERN.exec(text);
   if (!match) {
     return null;
@@ -182,7 +183,7 @@ function parseOrderedLine(text) {
  * @param {Array} lines `{ from, indent, value, fa, delimiter, moved }` records.
  * @returns {Array} Same records with computed `value`.
  */
-function computeNumbers(lines) {
+export function computeNumbers(lines) {
   const stack = [];
   return lines.map((entry, index) => {
     const level = entry.indent.length;
@@ -222,7 +223,7 @@ export function indentListItem(view, outdent) {
   }
   const line = state.doc.lineAt(selection.from);
   const parsed = parseOrderedLine(line.text);
-  if (!parsed) {
+  if (!parsed || inFencedCode(state, line.number)) {
     return false;
   }
   let newIndent;
@@ -237,30 +238,78 @@ export function indentListItem(view, outdent) {
     }
     newIndent = parsed.indent.slice(spaces[0].length);
   }
-  const numbers = [];
-  for (let n = line.number - 1; n >= 1; n -= 1) {
-    if (!parseOrderedLine(state.doc.line(n).text)) {
-      break;
-    }
-    numbers.unshift(n);
-  }
-  numbers.push(line.number);
-  for (let n = line.number + 1; n <= state.doc.lines; n += 1) {
-    if (!parseOrderedLine(state.doc.line(n).text)) {
-      break;
-    }
-    numbers.push(n);
-  }
-  const records = numbers.map((n) => {
+  const records = collectOrderedBlock(state, line.number).map((n) => {
     const current = state.doc.line(n);
     const effective = n === line.number
       ? newIndent + current.text.slice(parsed.indent.length)
       : current.text;
     const entry = parseOrderedLine(effective);
-    return { from: current.from, indent: entry.indent, value: entry.value, fa: entry.fa, delimiter: entry.delimiter, moved: n === line.number };
+    return { from: current.from, indent: entry.indent, value: entry.value, fa: entry.fa, delimiter: entry.delimiter, digitsLength: entry.digitsLength, moved: n === line.number };
   });
+  const changes = buildPrefixChanges(state, computeNumbers(records));
+  if (changes.length === 0) {
+    return true;
+  }
+  // No explicit selection: the cursor rides its anchor through the edits.
+  view.dispatch({ changes, scrollIntoView: true });
+  return true;
+}
+
+/**
+ * Checks whether a line sits inside fenced code (fence parity from the
+ * document start, mirroring `live-preview.js`). Ordered-looking lines
+ * there are code text, never list items.
+ * @param {object} state Editor state.
+ * @param {number} lineNumber 1-based line number.
+ * @returns {boolean} True inside fenced code.
+ */
+function inFencedCode(state, lineNumber) {
+  let inFence = false;
+  for (let n = 1; n < lineNumber; n += 1) {
+    if (FENCE_PATTERN.test(state.doc.line(n).text)) {
+      inFence = !inFence;
+    }
+  }
+  return inFence;
+}
+
+/**
+ * Collects the contiguous ordered run around a line (blank, non-ordered
+ * and fence lines bound it, like rendered output). The anchor line itself
+ * is unchecked and included.
+ * @param {object} state Editor state.
+ * @param {number} lineNumber 1-based anchor line number.
+ * @returns {Array<number>} Line numbers of the run, ascending.
+ */
+function collectOrderedBlock(state, lineNumber) {
+  const numbers = [];
+  for (let n = lineNumber - 1; n >= 1; n -= 1) {
+    if (!parseOrderedLine(state.doc.line(n).text)) {
+      break;
+    }
+    numbers.unshift(n);
+  }
+  numbers.push(lineNumber);
+  for (let n = lineNumber + 1; n <= state.doc.lines; n += 1) {
+    if (!parseOrderedLine(state.doc.line(n).text)) {
+      break;
+    }
+    numbers.push(n);
+  }
+  return numbers;
+}
+
+/**
+ * Builds single-line prefix replacements for computed records, emitting
+ * only lines whose prefix actually changes.
+ * @param {object} state Editor state (pre-change coordinates).
+ * @param {Array} computed Records with computed `value` (must carry
+ *   `from`, `indent`, `fa`, `delimiter`, `digitsLength`).
+ * @returns {Array} `{ from, to, insert }` changes.
+ */
+function buildPrefixChanges(state, computed) {
   const changes = [];
-  for (const entry of computeNumbers(records)) {
+  for (const entry of computed) {
     const current = state.doc.lineAt(entry.from);
     const original = parseOrderedLine(current.text);
     const prefixLength = original.indent.length + original.digitsLength + original.delimiter.length;
@@ -269,10 +318,99 @@ export function indentListItem(view, outdent) {
       changes.push({ from: entry.from, to: entry.from + prefixLength, insert: next });
     }
   }
-  if (changes.length === 0) {
-    return true;
-  }
-  // No explicit selection: the cursor rides its anchor through the edits.
-  view.dispatch({ changes, scrollIntoView: true });
-  return true;
+  return changes;
+}
+
+/**
+ * Matches user typing transactions that may restructure lists (typed
+ * input, deletions, pastes and drops). Programmatic dispatches carry no
+ * `userEvent` (Tab handling, toggles, `setDocument`, undo/redo), so they
+ * never trigger.
+ * @param {string|null} event `userEvent` annotation value.
+ * @returns {boolean} True for user content edits.
+ */
+function isUserContentEdit(event) {
+  return typeof event === 'string' && /^(input|delete|paste|drop)/.test(event);
+}
+
+/**
+ * Resequences ordered blocks touched by user typing: adding or removing
+ * lines compacts the numbering (deleting the first line restarts at 1),
+ * while text edits keep every number — including an intentional `start`.
+ * Runs inside the same transaction (one undo step, cursor mapped along)
+ * and never refires on its own output. Locked editors and fenced code
+ * stay untouched.
+ * @returns {Array} Transaction filter extension.
+ */
+export function listResequenceExtension() {
+  return EditorState.transactionFilter.of((transaction) => {
+    const { state } = transaction;
+    if (!transaction.docChanged || state.readOnly) {
+      return transaction;
+    }
+    if (!isUserContentEdit(transaction.annotation(Transaction.userEvent))) {
+      return transaction;
+    }
+    // The filter runs mid-dispatch: the new document does not exist yet,
+    // so it is derived by applying the pending changes to the old one.
+    const before = transaction.startState.doc;
+    const after = transaction.changes.apply(before);
+    if (after.lines === before.lines) {
+      return transaction;
+    }
+    const seen = new Set();
+    const changes = [];
+    transaction.changes.iterChangedRanges((fromB, toB) => {
+      const anchor = after.lineAt(Math.min(toB, after.length)).number;
+      // Expand to the contiguous ordered run around the change.
+      let first = anchor;
+      while (first > 1 && parseOrderedLine(after.line(first - 1).text)) {
+        first -= 1;
+      }
+      if (!parseOrderedLine(after.line(first).text) || inFencedCode({ doc: after }, first)) {
+        return;
+      }
+      let last = first;
+      while (last < after.lines && parseOrderedLine(after.line(last + 1).text)) {
+        last += 1;
+      }
+      const key = after.line(first).from;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      // Restart at 1 when the edit touched the opening prefix itself
+      // (e.g. the first line was deleted); otherwise its start survives.
+      const opening = after.line(first);
+      const parsed = parseOrderedLine(opening.text);
+      const prefixEnd = opening.from + parsed.indent.length + parsed.digitsLength + parsed.delimiter.length;
+      let restart = false;
+      transaction.changes.iterChangedRanges((changedFrom, changedTo) => {
+        if (changedFrom <= prefixEnd && changedTo >= opening.from) {
+          restart = true;
+        }
+      });
+      const records = [];
+      for (let n = first; n <= last; n += 1) {
+        const current = after.line(n);
+        const entry = parseOrderedLine(current.text);
+        records.push({
+          from: current.from,
+          indent: entry.indent,
+          value: entry.value,
+          fa: entry.fa,
+          delimiter: entry.delimiter,
+          digitsLength: entry.digitsLength,
+          moved: restart || n !== first,
+        });
+      }
+      changes.push(...buildPrefixChanges({ doc: after, lineAt: (pos) => after.lineAt(pos) }, computeNumbers(records)));
+    });
+    if (changes.length === 0) {
+      return transaction;
+    }
+    // Sequential: these addresses the document as modified by the
+    // transaction above (not the start state), so they compose cleanly.
+    return [transaction, { changes, sequential: true }];
+  });
 }

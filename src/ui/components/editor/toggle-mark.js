@@ -6,6 +6,7 @@
 // `shortcutCommand`, which matches physical key positions (`event.code`) so
 // shortcuts work on any keyboard layout, including Persian.
 import { EditorSelection } from '@codemirror/state';
+import { computeNumbers, formatDigits, parseOrderedLine } from './list-continue.js';
 
 /**
  * Toggles an inline mark (`**`, `*`, `~~`, `` ` ``) around the selection.
@@ -136,13 +137,68 @@ export function toggleUnorderedList(view) {
 }
 
 /**
- * Toggles an ordered `1. ` prefix on every overlapped line. Markdown
- * auto-numbers consecutive `1.` items, so no renumbering is needed.
+ * Toggles an ordered list over every overlapped line. When all lines are
+ * already ordered their prefixes come off; otherwise the selection becomes
+ * one sequential list per indent level (new lines start ASCII `N. `, every
+ * line keeps its own digit style and delimiter). Blank lines join like the
+ * existing per-line toggle always did.
  * @param {object} view Active editor view.
  * @returns {boolean} Always true.
  */
 export function toggleOrderedList(view) {
-  return toggleLinePrefix(view, /^(\s*)\d+[.)]\s+/, '1. ');
+  const { state } = view;
+  const selection = state.selection.main;
+  const firstLine = state.doc.lineAt(selection.from).number;
+  let lastLine = state.doc.lineAt(selection.to).number;
+  if (selection.to > selection.from && state.doc.line(lastLine).from === selection.to) {
+    lastLine -= 1;
+  }
+  const lines = [];
+  for (let number = firstLine; number <= lastLine; number += 1) {
+    lines.push(state.doc.line(number));
+  }
+  if (lines.every((line) => parseOrderedLine(line.text))) {
+    const changes = lines.map((line) => {
+      const parsed = parseOrderedLine(line.text);
+      const to = line.from + parsed.indent.length + parsed.digitsLength + parsed.delimiter.length;
+      const spaces = /^[ \t]*/.exec(line.text.slice(to - line.from))?.[0] ?? '';
+      return { from: line.from, to: to + spaces.length, insert: parsed.indent };
+    });
+    view.dispatch({ changes, scrollIntoView: true });
+    return true;
+  }
+  const records = lines.map((line, index) => {
+    const parsed = parseOrderedLine(line.text);
+    if (parsed) {
+      return {
+        from: line.from,
+        indent: parsed.indent,
+        value: parsed.value,
+        fa: parsed.fa,
+        delimiter: parsed.delimiter,
+        digitsLength: parsed.digitsLength,
+        moved: index > 0,
+      };
+    }
+    const indent = /^(\s*)/.exec(line.text)?.[1] ?? '';
+    return { from: line.from, indent, value: 0, fa: false, delimiter: '.', digitsLength: 0, moved: true };
+  });
+  const changes = [];
+  for (const entry of computeNumbers(records)) {
+    const line = state.doc.lineAt(entry.from);
+    const original = parseOrderedLine(line.text);
+    const core = `${entry.indent}${formatDigits(entry.value, entry.fa)}${entry.delimiter}`;
+    if (original) {
+      const prefixLength = original.indent.length + original.digitsLength + original.delimiter.length;
+      if (core !== line.text.slice(0, prefixLength)) {
+        changes.push({ from: entry.from, to: entry.from + prefixLength, insert: core });
+      }
+    } else {
+      changes.push({ from: entry.from, to: entry.from + entry.indent.length, insert: `${core} ` });
+    }
+  }
+  view.dispatch({ changes, scrollIntoView: true });
+  return true;
 }
 
 /**

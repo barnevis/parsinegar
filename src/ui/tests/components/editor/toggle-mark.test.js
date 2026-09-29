@@ -182,7 +182,7 @@ test('should_toggle_ordered_list_when_called', () => {
   const first = createView('a\nb', 0, 3);
   try {
     toggleOrderedList(first.view);
-    assert.equal(docOf(first.view), '1. a\n1. b');
+    assert.equal(docOf(first.view), '1. a\n2. b');
   } finally {
     first.destroy();
   }
@@ -192,6 +192,36 @@ test('should_toggle_ordered_list_when_called', () => {
     assert.equal(docOf(second.view), 'a\nb');
   } finally {
     second.destroy();
+  }
+});
+
+test('should_number_sequentially_when_converting_mixed_lines', () => {
+  const mixed = createView('1. a\nb\nc', 0, 8);
+  try {
+    toggleOrderedList(mixed.view);
+    assert.equal(docOf(mixed.view), '1. a\n2. b\n3. c');
+  } finally {
+    mixed.destroy();
+  }
+});
+
+test('should_number_per_level_when_converting_nested_lines', () => {
+  const nested = createView('a\n\tb\nc', 0, 6);
+  try {
+    toggleOrderedList(nested.view);
+    assert.equal(docOf(nested.view), '1. a\n\t1. b\n2. c');
+  } finally {
+    nested.destroy();
+  }
+});
+
+test('should_remove_persian_prefixes_when_toggling_off', () => {
+  const persian = createView('۱. الف\n۲. ب', 0, 11);
+  try {
+    toggleOrderedList(persian.view);
+    assert.equal(docOf(persian.view), 'الف\nب');
+  } finally {
+    persian.destroy();
   }
 });
 

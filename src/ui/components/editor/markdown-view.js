@@ -18,7 +18,7 @@ import { codeFenceExtensions } from './code-fence.js';
 import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
 import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
-import { continueList, indentListItem } from './list-continue.js';
+import { continueList, indentListItem, listResequenceExtension } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
 import { admonitionViewExtensions } from './admonition-view.js';
 import { poemViewExtensions } from './poem-view.js';
@@ -150,6 +150,10 @@ export function createMarkdownView(host, options = {}) {
       // our own match colors below always win over the base theme.
       search(),
       ...livePreviewExtensions(),
+      // Resequences ordered blocks touched by user typing (adding or
+      // removing lines); programmatic and undo transactions carry no
+      // matching userEvent, so they never refire it.
+      listResequenceExtension(),
       ...admonitionViewExtensions(),
       ...poemViewExtensions(),
       ...imageViewExtensions(),

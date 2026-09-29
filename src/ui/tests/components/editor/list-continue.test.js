@@ -6,7 +6,7 @@ import { EditorSelection } from '@codemirror/state';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { continueList, indentListItem } from '../../../components/editor/list-continue.js';
+import { continueList, indentListItem, listResequenceExtension } from '../../../components/editor/list-continue.js';
 
 function createView(documentText, cursor) {
   const host = document.createElement('div');
@@ -294,5 +294,106 @@ test('should_renumber_through_real_tab_keypress', () => {
   } finally {
     mounted.editor.destroy();
     mounted.host.remove();
+  }
+});
+
+function filteredView(documentText, extensions = []) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const view = new EditorView({ doc: documentText, parent: host, extensions });
+  return { host, view };
+}
+
+function typeText(mounted, from, to, insert, userEvent) {
+  mounted.view.dispatch({ changes: { from, to, insert }, userEvent });
+  return mounted.view.state.doc.toString();
+}
+
+test('should_compact_when_middle_line_is_deleted', () => {
+  // Delete `2. b\n` (positions 5..10) as a user deletion.
+  const mounted = filteredView('1. a\n2. b\n3. c', [listResequenceExtension()]);
+  try {
+    assert.equal(typeText(mounted, 5, 10, '', 'delete.backward'), '1. a\n2. c');
+  } finally {
+    mounted.view.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_restart_when_first_line_is_deleted', () => {
+  const mounted = filteredView('1. a\n2. b\n3. c', [listResequenceExtension()]);
+  try {
+    assert.equal(typeText(mounted, 0, 5, '', 'delete.backward'), '1. b\n2. c');
+  } finally {
+    mounted.view.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_keep_numbers_when_only_text_is_typed', () => {
+  const mounted = filteredView('1. a\n2. b', [listResequenceExtension()]);
+  try {
+    // Typing text never restructures: start numbers survive, even odd ones.
+    assert.equal(typeText(mounted, 4, 4, 'x', 'input.type'), '1. ax\n2. b');
+    assert.equal(typeText(mounted, 6, 10, '3. b', 'input.type'), '1. ax\n3. b');
+  } finally {
+    mounted.view.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_ignore_digit_edits_when_typing', () => {
+  const mounted = filteredView('1. a\n2. b', [listResequenceExtension()]);
+  try {
+    // Replacing the digit itself changes no line count: user intent wins.
+    assert.equal(typeText(mounted, 5, 6, '9', 'input.type'), '1. a\n9. b');
+  } finally {
+    mounted.view.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_skip_programmatic_and_undo_transactions', () => {
+  const plain = filteredView('1. a\n9. b', []);
+  try {
+    plain.view.dispatch({ changes: { from: 9, to: 9, insert: '\n' } });
+    assert.equal(plain.view.state.doc.toString(), '1. a\n9. b\n');
+  } finally {
+    plain.view.destroy();
+    plain.host.remove();
+  }
+  const undone = filteredView('1. a\n2. b', [listResequenceExtension()]);
+  try {
+    undone.view.dispatch({ changes: { from: 9, to: 9, insert: '\n9. c' }, userEvent: 'undo' });
+    assert.equal(undone.view.state.doc.toString(), '1. a\n2. b\n9. c');
+  } finally {
+    undone.view.destroy();
+    undone.host.remove();
+  }
+});
+
+test('should_skip_locked_and_fenced_edits_when_filtering', () => {
+  const locked = filteredView('1. a\n9. b', [
+    listResequenceExtension(),
+    EditorView.editable.of(false),
+    EditorState.readOnly.of(true),
+  ]);
+  try {
+    // The raw deletion applies (readOnly never blocks dispatch itself),
+    // but the filter must not resequence: `9.` stays, no restart to 1.
+    locked.view.dispatch({ changes: { from: 0, to: 5, insert: '' }, userEvent: 'delete.backward' });
+    assert.equal(locked.view.state.doc.toString(), '9. b');
+  } finally {
+    locked.view.destroy();
+    locked.host.remove();
+  }
+  const fenced = filteredView('```\n1. x\n```\n1. a', [listResequenceExtension()]);
+  try {
+    // Delete the fenced `1. x` line: the code text is not a list.
+    fenced.view.dispatch({ changes: { from: 4, to: 9, insert: '' }, userEvent: 'delete.backward' });
+    assert.equal(fenced.view.state.doc.toString(), '```\n```\n1. a');
+  } finally {
+    fenced.view.destroy();
+    fenced.host.remove();
   }
 });
