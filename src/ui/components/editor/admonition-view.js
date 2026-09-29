@@ -174,11 +174,15 @@ function buildAdmonitionDecorations(view) {
     const openLine = view.state.doc.lineAt(block.openFrom);
     const lastNumber = view.state.doc.lineAt(block.to).number;
     const single = openLine.number === lastNumber;
-    pending.push({
-      from: block.openFrom,
-      order: 3,
-      range: Decoration.widget({ widget: new AdmonitionLabelWidget(block.kind), side: -1 }).range(block.openFrom),
-    });
+    // The label shows only while the opener fence stays hidden: standing
+    // on the opener line reveals the `...kind` source instead.
+    if (!touched(block.openFrom, block.openTo)) {
+      pending.push({
+        from: block.openFrom,
+        order: 2,
+        range: Decoration.widget({ widget: new AdmonitionLabelWidget(block.kind), side: -1 }).range(block.openFrom),
+      });
+    }
     pending.push({
       from: block.openFrom,
       order: 1,
@@ -239,7 +243,8 @@ const admonitionDecorationPlugin = ViewPlugin.fromClass(
 const KIND_NAMES = Object.keys(ADMONITION_KINDS);
 
 /**
- * Builds per-kind, per-scheme theme rules from the kind table.
+ * Builds the structural theme rules (no colors: every wash, border and
+ * label ink lives in the scheme theme, so no selector ever collides).
  * @returns {object} EditorView theme spec.
  */
 function admonitionThemeSpec() {
@@ -251,34 +256,28 @@ function admonitionThemeSpec() {
       marginInlineEnd: '0.4rem',
     },
   };
-  for (const [index, kind] of KIND_NAMES.entries()) {
-    const { accent, wash } = ADMONITION_KINDS[kind];
+  for (const [index] of KIND_NAMES.entries()) {
     spec[`& .cm-line.parsi-admonition-line-${index}`] = {
-      backgroundColor: wash.light,
-      borderInlineStart: `0.25em solid ${accent.light}`,
       paddingInlineStart: '0.6rem',
     };
-    spec[`& .cm-line.parsi-admonition-first`] = {
-      borderTopLeftRadius: '8px',
-      borderTopRightRadius: '8px',
-    };
-    spec[`& .cm-line.parsi-admonition-last`] = {
-      borderBottomLeftRadius: '8px',
-      borderBottomRightRadius: '8px',
-    };
-    spec[`& .parsi-admonition-label-${index}`] = {
-      color: accent.light,
-    };
   }
+  spec['& .cm-line.parsi-admonition-first'] = {
+    borderTopLeftRadius: '8px',
+    borderTopRightRadius: '8px',
+  };
+  spec['& .cm-line.parsi-admonition-last'] = {
+    borderBottomLeftRadius: '8px',
+    borderBottomRightRadius: '8px',
+  };
   return spec;
 }
 
 const admonitionTheme = EditorView.theme(admonitionThemeSpec());
 
 /**
- * Returns the admonition extensions for the editor. Dark/sepia washes ride
- * the color-scheme overrides (see `editor-theme.js`); the base theme above
- * carries the light values.
+ * Returns the admonition extensions for the editor. Colors ride the
+ * color-scheme theme exclusively (see `editor-theme.js`); the base theme
+ * above carries structure only.
  * @returns {Array} View plugin plus theme.
  */
 export function admonitionViewExtensions() {
@@ -286,14 +285,16 @@ export function admonitionViewExtensions() {
 }
 
 /**
- * Returns the dark/sepia scheme overrides for admonition washes. Loads
- * after the base theme (see `markdown-view.js` ordering), so it wins there.
- * @param {boolean} dark True for the dark scheme, false for sepia.
+ * Returns the scheme colors for admonition washes, borders and labels.
+ * Every color lives here (never in the base theme), so no selector
+ * collides across schemes.
+ * @param {string} colorScheme 'light', 'dark' or 'sepia' (anything else
+ *   falls back to light).
  * @returns {object} Plain `{ selector, declarations }` rules for the
  *   scheme theme builder.
  */
-export function admonitionSchemeRules(dark) {
-  const scheme = dark ? 'dark' : 'sepia';
+export function admonitionSchemeRules(colorScheme) {
+  const scheme = colorScheme === 'dark' ? 'dark' : colorScheme === 'sepia' ? 'sepia' : 'light';
   return KIND_NAMES.flatMap((kind, index) => {
     const { accent, wash } = ADMONITION_KINDS[kind];
     return [

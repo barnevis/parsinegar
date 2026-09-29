@@ -176,11 +176,6 @@ export function createMarkdownView(host, options = {}) {
       // contexts, which Markdown does not declare.
       closeBrackets(),
       keymap.of(closeBracketsKeymap),
-      // Color-scheme colors used to sit here, but they must load after the
-      // base theme below: both define `.cm-searchMatch`, and the scheme
-      // overrides (dark/sepia) only win when they come later. The scheme
-      // rules touch no property the base theme sets, so the move changes
-      // nothing else.
       // High precedence so our layout-independent shortcuts win over
       // defaultKeymap bindings for the same gesture (e.g. Mod-i, which the
       // default keymap claims for selectParentSyntax). Returning true stops
@@ -250,16 +245,6 @@ export function createMarkdownView(host, options = {}) {
         },
         '& .cm-content': {
           lineHeight: '1.5',
-        },
-        // Light-scheme search washes (amber family, distinct from the blue
-        // selection). Dark/sepia equivalents live in `editor-theme.js`,
-        // which loads right after this block and wins there.
-        '& .cm-searchMatch': {
-          backgroundColor: '#fef08a',
-          borderRadius: '2px',
-        },
-        '& .cm-searchMatch-selected': {
-          backgroundColor: '#fbbf24',
         },
       }),
       ...editorColorScheme(options.colorScheme),

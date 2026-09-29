@@ -86,6 +86,23 @@ test('should_wash_and_label_when_block_is_present', () => {
   }
 });
 
+test('should_swap_label_for_fence_when_cursor_is_on_opener', () => {
+  // Lines: 1 متن, 2 blank, 3 opener, 4 content, 5 closer.
+  const { host, editor } = createEditor('متن\n\n...هشدار\nمحتوا\n...');
+  try {
+    assert.ok(host.querySelector('.parsi-admonition-label'), 'expected the label first');
+    editor.gotoLine(3);
+    assert.equal(host.querySelector('.parsi-admonition-label'), null, 'expected the label gone on the opener');
+    assert.equal(host.querySelectorAll('.parsi-fence-hidden').length, 1, 'expected only the closer hidden');
+    editor.gotoLine(4);
+    assert.ok(host.querySelector('.parsi-admonition-label'), 'expected the label back off the opener');
+    assert.equal(host.querySelectorAll('.parsi-fence-hidden').length, 2);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 test('should_paint_github_alert_when_theme_is_loaded', () => {
   const { host, editor } = createEditor('متن\n\n...هشدار\nمحتوا\n...');
   try {

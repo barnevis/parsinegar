@@ -11,9 +11,9 @@ import { Decoration, ViewPlugin } from '@codemirror/view';
 const HIGHLIGHT_PATTERN = /==([^=\n]+?)==/g;
 
 const highlightTheme = EditorView.theme({
-  // Fixed ink: the yellow wash is identical in both color schemes, so the
-  // text color is pinned to dark instead of inheriting the editor color.
-  '& .parsi-highlight': { backgroundColor: '#fff3b0', color: '#1c2026', borderRadius: '4px', paddingInline: '0.2em' },
+  // Structure only: the wash and ink live in the color-scheme theme, so no
+  // selector collides across tags.
+  '& .parsi-highlight': { borderRadius: '4px', paddingInline: '0.2em' },
   '& .parsi-delim': { fontSize: '0' },
 });
 
