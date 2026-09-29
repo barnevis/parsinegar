@@ -15,7 +15,7 @@ test('should_know_five_kinds_when_listed', () => {
   assert.deepEqual(Object.keys(ADMONITION_KINDS), ['هشدار', 'احتیاط', 'مهم', 'راهنما', 'نکته']);
   for (const kind of Object.values(ADMONITION_KINDS)) {
     for (const scheme of ['light', 'dark', 'sepia']) {
-      assert.ok(kind.accent[scheme], `expected ${scheme} accent`);
+      assert.ok(kind.accent[scheme] && kind.wash[scheme], `expected ${scheme} colors`);
     }
   }
 });
@@ -65,13 +65,20 @@ function createEditor(documentText) {
 test('should_wash_and_label_when_block_is_present', () => {
   const { host, editor } = createEditor('متن\n\n...هشدار\nمحتوا\n...\n\nبعد');
   try {
-    // Only the content line carries the border; fences hide per the rule.
-    const washed = [...host.querySelectorAll('.parsi-admonition-line')];
-    assert.equal(washed.length, 1);
-    assert.ok(washed[0].textContent.includes('محتوا'));
+    const lines = [...host.querySelectorAll('.cm-line')];
+    const byText = (start) => lines.find((line) => line.textContent.startsWith(start));
+    const opener = lines.find((line) => line.textContent.includes('...هشدار'));
+    assert.ok(opener, 'expected the opener line');
+    // Whole region washed: opener, content and closer.
+    for (const line of [opener, byText('محتوا'), lines.find((line) => line.textContent === '...')]) {
+      assert.ok(line && line.classList.contains('parsi-admonition-line'), 'expected the unified wash');
+    }
+    // Corners on the fences; the label lives on the opener line.
+    assert.ok(opener.classList.contains('parsi-admonition-first'), 'expected the rounded top');
     const label = host.querySelector('.parsi-admonition-label');
     assert.ok(label, 'expected the kind label');
     assert.equal(label.textContent, 'هشدار');
+    assert.equal(label.closest('.cm-line'), opener);
     assert.equal(host.querySelectorAll('.parsi-fence-hidden').length, 2);
   } finally {
     editor.destroy();

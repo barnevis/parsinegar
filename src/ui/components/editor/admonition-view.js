@@ -4,41 +4,46 @@
 // an opener `...` glued to the kind word (`...هشدار`, spaces allowed too),
 // 0-3 spaces indent, optional `>` quote prefix, exact kind word, nothing
 // after; a closer `...`; unclosed runs to the document end; no nesting.
-// Shaped like GitHub alerts: a thick accent border on content lines plus a
-// colored kind label, no background wash. Fence lines hide through
-// zero-size marks and reopen wherever the cursor or a selection touches
-// them (marks hide unless stood upon). Content lines keep the existing
-// rendering untouched (all inner Markdown works for free).
+// Shaped like a unified block: every fence-region line — fences included —
+// carries the kind wash, the opener rounds the top and the closer the
+// bottom, and the kind label sits on the opener line. Fence lines hide
+// through zero-size marks and reopen wherever the cursor or a selection
+// touches them (marks hide unless stood upon); the label persists either
+// way. Content lines keep the existing rendering untouched (all inner
+// Markdown works for free).
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { FENCE_PATTERN } from './live-preview.js';
 
 /**
- * Admonition kinds in the GitHub shape: a thick accent border plus a
- * colored kind label, no background wash (GitHub renders
- * `.markdown-alert` exactly so: padding, colored left border, accent
- * title). Light/dark accents follow the primer scale; sepia stays in the
- * warm family of the sepia theme.
+ * Admonition kinds: GitHub accents plus a subtle wash per scheme for the
+ * unified block background. Text inherits the editor ink, so contrast
+ * holds in every theme.
  */
 export const ADMONITION_KINDS = {
   'هشدار': {
     label: 'هشدار',
     accent: { light: '#9a6700', dark: '#d29922', sepia: '#9a6700' },
+    wash: { light: '#fff8c5', dark: 'rgba(210, 153, 34, 0.15)', sepia: '#faf0c8' },
   },
   'احتیاط': {
     label: 'احتیاط',
     accent: { light: '#cf222e', dark: '#f85149', sepia: '#b91c1c' },
+    wash: { light: '#ffebe9', dark: 'rgba(248, 81, 73, 0.15)', sepia: '#f9dcdc' },
   },
   'مهم': {
     label: 'مهم',
     accent: { light: '#8250df', dark: '#ab7df8', sepia: '#7c3aed' },
+    wash: { light: '#fbefff', dark: 'rgba(171, 125, 248, 0.15)', sepia: '#ece4fa' },
   },
   'راهنما': {
     label: 'راهنما',
     accent: { light: '#1a7f37', dark: '#3fb950', sepia: '#1a7f37' },
+    wash: { light: '#dafbe1', dark: 'rgba(63, 185, 80, 0.15)', sepia: '#ddebd9' },
   },
   'نکته': {
     label: 'نکته',
     accent: { light: '#0969da', dark: '#4493f8', sepia: '#1d4ed8' },
+    wash: { light: '#ddf4ff', dark: 'rgba(31, 111, 235, 0.15)', sepia: '#d7e6f9' },
   },
 };
 
@@ -152,20 +157,12 @@ function kindClass(kind) {
 
 /**
  * Builds admonition decorations: every fence-region line carries the kind
- * wash (fences included, so the box reads whole), fence text additionally
- * wears the kind accent, and the kind chip sits at the content start.
- * Nothing hides, so nothing needs touch reveal. Ranges sort by position;
- * on ties lines precede marks precede the widget (RangeSet side ordering),
- * because the builder rejects out-of-order input.
- * @param {object} view Active editor view.
- * @returns {object} Decoration set.
- */
-/**
- * Builds admonition decorations: fence lines hide (reopened on touch, per
- * the marks-hide rule), content lines carry the accent border, and the
- * kind label sits at the content start in the accent color. Ranges sort by
- * position; on ties lines precede marks precede the widget (RangeSet side
- * ordering), because the builder rejects out-of-order input.
+ * wash (fences included, so the box reads whole); the opener rounds the
+ * top and the closer the bottom (unclosed tails round their last document
+ * line instead). Fence lines hide but reopen on touch, per the marks-hide
+ * rule, while the kind label on the opener line persists either way.
+ * Ranges sort by position; on ties lines precede marks precede the widget
+ * (RangeSet side ordering), because the builder rejects out-of-order input.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -175,36 +172,48 @@ function buildAdmonitionDecorations(view) {
   for (const block of collectAdmonitions(view.state)) {
     const touched = (from, to) => selectionTouches(selection, from, to);
     const openLine = view.state.doc.lineAt(block.openFrom);
+    const lastNumber = view.state.doc.lineAt(block.to).number;
+    const single = openLine.number === lastNumber;
     pending.push({
-      from: block.contentFrom,
+      from: block.openFrom,
       order: 3,
-      range: Decoration.widget({ widget: new AdmonitionLabelWidget(block.kind), side: -1 }).range(block.contentFrom),
+      range: Decoration.widget({ widget: new AdmonitionLabelWidget(block.kind), side: -1 }).range(block.openFrom),
+    });
+    pending.push({
+      from: block.openFrom,
+      order: 1,
+      range: Decoration.line({ class: `parsi-admonition-line parsi-admonition-line-${kindClass(block.kind)} parsi-admonition-first${single ? ' parsi-admonition-last' : ''}` }).range(block.openFrom),
     });
     if (!touched(block.openFrom, block.openTo)) {
       pending.push({
         from: block.openFrom,
-        order: 2,
+        order: 3,
         range: Decoration.mark({ class: 'parsi-fence-hidden' }).range(block.openFrom, block.openTo),
       });
     }
-    const lastNumber = view.state.doc.lineAt(block.to).number;
     for (let number = openLine.number + 1; number <= lastNumber; number += 1) {
       const line = view.state.doc.line(number);
       const fence = number === lastNumber && block.to === line.to && CLOSER_PATTERN.test(line.text);
       if (fence) {
+        pending.push({
+          from: line.from,
+          order: 1,
+          range: Decoration.line({ class: `parsi-admonition-line parsi-admonition-line-${kindClass(block.kind)} parsi-admonition-last` }).range(line.from),
+        });
         if (!touched(line.from, line.to)) {
           pending.push({
             from: line.from,
-            order: 2,
+            order: 3,
             range: Decoration.mark({ class: 'parsi-fence-hidden' }).range(line.from, line.to),
           });
         }
         continue;
       }
+      const tail = number === view.state.doc.lines ? ' parsi-admonition-last' : '';
       pending.push({
         from: line.from,
         order: 1,
-        range: Decoration.line({ class: `parsi-admonition-line parsi-admonition-line-${kindClass(block.kind)}` }).range(line.from),
+        range: Decoration.line({ class: `parsi-admonition-line parsi-admonition-line-${kindClass(block.kind)}${tail}` }).range(line.from),
       });
     }
   }
@@ -243,10 +252,19 @@ function admonitionThemeSpec() {
     },
   };
   for (const [index, kind] of KIND_NAMES.entries()) {
-    const { accent } = ADMONITION_KINDS[kind];
+    const { accent, wash } = ADMONITION_KINDS[kind];
     spec[`& .cm-line.parsi-admonition-line-${index}`] = {
+      backgroundColor: wash.light,
       borderInlineStart: `0.25em solid ${accent.light}`,
       paddingInlineStart: '0.6rem',
+    };
+    spec[`& .cm-line.parsi-admonition-first`] = {
+      borderTopLeftRadius: '8px',
+      borderTopRightRadius: '8px',
+    };
+    spec[`& .cm-line.parsi-admonition-last`] = {
+      borderBottomLeftRadius: '8px',
+      borderBottomRightRadius: '8px',
     };
     spec[`& .parsi-admonition-label-${index}`] = {
       color: accent.light,
@@ -277,11 +295,14 @@ export function admonitionViewExtensions() {
 export function admonitionSchemeRules(dark) {
   const scheme = dark ? 'dark' : 'sepia';
   return KIND_NAMES.flatMap((kind, index) => {
-    const { accent } = ADMONITION_KINDS[kind];
+    const { accent, wash } = ADMONITION_KINDS[kind];
     return [
       {
         selector: `& .cm-line.parsi-admonition-line-${index}`,
-        declarations: { borderInlineStart: `0.25em solid ${accent[scheme]}` },
+        declarations: {
+          backgroundColor: wash[scheme],
+          borderInlineStart: `0.25em solid ${accent[scheme]}`,
+        },
       },
       {
         selector: `& .parsi-admonition-label-${index}`,
