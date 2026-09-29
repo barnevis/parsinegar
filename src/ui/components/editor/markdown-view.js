@@ -14,6 +14,7 @@ import { keymap } from '@codemirror/view';
 import { Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
 import { editorColorScheme } from './editor-theme.js';
 import { codeCopyExtensions } from './code-copy.js';
+import { codeFenceExtensions } from './code-fence.js';
 import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
 import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
@@ -158,6 +159,7 @@ export function createMarkdownView(host, options = {}) {
       ...textHighlightExtensions(),
       ...codeHighlightExtensions(),
       ...codeCopyExtensions({ t: options.t, assetBaseUrl: options.assetBaseUrl ?? null }),
+      ...codeFenceExtensions(),
       ...lineDirectionExtensions(baseDirection, forcedDirection),
       // Tab indents (Shift+Tab outdents); Alt+Arrow line moving already
       // arrives through the default keymap in minimalSetup. Ordered list

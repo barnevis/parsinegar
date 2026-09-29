@@ -55,6 +55,19 @@ test('should_render_copy_button_when_fenced', () => {
   }
 });
 
+test('should_seat_button_inside_wash_when_fenced', () => {
+  const mounted = createEditor('متن\n\n```js\nconst x = 1;\n```\n');
+  try {
+    const button = mounted.host.querySelector('.parsi-code-copy');
+    assert.ok(button, 'expected a copy button');
+    const line = button.closest('.cm-line');
+    assert.ok(line && line.classList.contains('parsi-code-line'), 'expected the button inside the block wash');
+    assert.ok(line.textContent.includes('const x = 1;'), 'expected the first content line');
+  } finally {
+    destroy(mounted);
+  }
+});
+
 test('should_copy_block_content_when_clicked', async () => {
   const written = [];
   const previous = globalThis.navigator?.clipboard;

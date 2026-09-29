@@ -1,8 +1,8 @@
 // Copy buttons for fenced code blocks in the Persian Markdown editor.
 //
-// Every fenced block (any info string, or none) gets a block widget above
-// its opening fence with an icon button copying the block content without
-// the delimiters. Clicking reports success briefly (check icon); failures
+// Every fenced block (any info string, or none) gets an icon button at the
+// end of its first content line — inside the block wash — copying the block
+// content without the delimiters. Clicking reports success briefly (check icon); failures
 // stay silent in the UI and loud in the console, like the other editor
 // handlers. No services, no events — view-local decorations only.
 import { EditorView } from 'codemirror';
@@ -101,8 +101,9 @@ export function collectCodeBlocks(view) {
 }
 
 /**
- * Copy button rendered above a fenced block. Carries the content range so
- * the click handler needs no DOM measurement.
+ * Copy button rendered at the end of the first content line, inside the
+ * block wash. Carries the content range so the click handler needs no DOM
+ * measurement.
  */
 class CopyButtonWidget extends WidgetType {
   constructor({ copied, from, to, copyIcon, checkIcon, copyLabel, copiedLabel }) {
@@ -164,7 +165,9 @@ const copyTheme = EditorView.theme({
 });
 
 /**
- * Builds copy-button widgets for visible fenced blocks.
+ * Builds copy-button widgets for visible fenced blocks, each parked at
+ * the end of its first content line (widgets need a position; the range
+ * still addresses the whole content for copying).
  * @param {object} view Active editor view.
  * @param {object} options Widget options.
  * @returns {object} Decoration set.
@@ -182,8 +185,8 @@ function buildCopyDecorations(view, options) {
         copyLabel: options.copyLabel,
         copiedLabel: options.copiedLabel,
       }),
-      side: -1,
-    }).range(block.openFrom));
+      side: 1,
+    }).range(view.state.doc.lineAt(block.from).to));
   }
   return Decoration.set(builder);
 }

@@ -177,6 +177,29 @@ test('should_decorate_code_block_when_fenced', () => {
   }
 });
 
+test('should_wash_fence_lines_and_round_block_when_fenced', () => {
+  const mounted = createEditor('متن\n\n```js\na\nb\n```\n\nبعد');
+  try {
+    const lines = [...mounted.host.querySelectorAll('.cm-line')];
+    const byText = (start) => lines.find((line) => line.textContent.startsWith(start));
+    const opener = byText('```js');
+    const first = byText('a');
+    const last = byText('b');
+    const closer = lines.find((line) => line.textContent === '```');
+    assert.ok(closer, 'expected the closer line');
+    for (const line of [opener, first, last, closer]) {
+      assert.ok(line && line.classList.contains('parsi-code-line'), 'expected the whole block washed');
+    }
+    assert.ok(opener.classList.contains('parsi-code-first'), 'expected the rounded top');
+    assert.ok(closer.classList.contains('parsi-code-last'), 'expected the rounded bottom');
+    for (const line of [first, last]) {
+      assert.ok(!line.classList.contains('parsi-code-first') && !line.classList.contains('parsi-code-last'));
+    }
+  } finally {
+    destroy(mounted);
+  }
+});
+
 test('should_collect_reveal_spans_when_tree_has_them', () => {
   const doc = '# تیتر\n\n> نقل\n\n- مورد\n\n**پررنگ** و `کد`';
   const tree = markdownLanguage.parser.parse(doc);

@@ -83,6 +83,8 @@ const livePreviewTheme = EditorView.theme({
   '& .parsi-list-line': { paddingInlineStart: '1em' },
   '& .parsi-list-marker': { color: 'var(--pey-color-text-muted, #6b6b78)', fontWeight: '700' },
   '& .parsi-code-line': { backgroundColor: 'var(--pey-color-surface, #f1f1f4)', fontFamily: MONO_FONT },
+  '& .cm-line.parsi-code-first': { borderTopLeftRadius: '8px', borderTopRightRadius: '8px' },
+  '& .cm-line.parsi-code-last': { borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' },
   '& .parsi-em': { fontStyle: 'italic' },
   '& .parsi-strong': { fontWeight: '700' },
   '& .parsi-strike': { textDecoration: 'line-through' },
@@ -180,11 +182,20 @@ function buildLineDecorations(view) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
       if (FENCE_PATTERN.test(line.text)) {
+        const opener = !inFence;
         inFence = !inFence;
+        const touched = selectionTouches(selection, line.from, line.to);
+        const edge = opener ? ' parsi-code-first' : ' parsi-code-last';
+        builder.push(Decoration.line({
+          class: touched ? `parsi-code-line parsi-selected${edge}` : `parsi-code-line${edge}`,
+        }).range(line.from));
       } else if (inFence) {
         const touched = selectionTouches(selection, line.from, line.to);
+        // Corners belong to the fences; only an unclosed tail (no closer
+        // ahead, i.e. running to the document end) rounds its last line.
+        const tail = line.number === view.state.doc.lines ? ' parsi-code-last' : '';
         builder.push(Decoration.line({
-          class: touched ? 'parsi-code-line parsi-selected' : 'parsi-code-line',
+          class: touched ? `parsi-code-line parsi-selected${tail}` : `parsi-code-line${tail}`,
         }).range(line.from));
       } else if (QUOTE_PATTERN.test(line.text)) {
         builder.push(Decoration.line({ class: 'parsi-quote-line' }).range(line.from));
