@@ -1,8 +1,8 @@
 // Copy buttons for fenced code blocks in the Persian Markdown editor.
 //
 // Every fenced block (any info string, or none) gets an icon button at the
-// end of its first content line — inside the block wash — copying the block
-// content without the delimiters. Clicking reports success briefly (check icon); failures
+// end of its opening fence line — the top of the unified block — copying
+// the block content without the delimiters. Clicking reports success briefly (check icon); failures
 // stay silent in the UI and loud in the console, like the other editor
 // handlers. No services, no events — view-local decorations only.
 import { EditorView } from 'codemirror';
@@ -101,9 +101,9 @@ export function collectCodeBlocks(view) {
 }
 
 /**
- * Copy button rendered at the end of the first content line, inside the
- * block wash. Carries the content range so the click handler needs no DOM
- * measurement.
+ * Copy button rendered at the end of the opening fence line — the top of
+ * the unified block. Carries the content range so the click handler needs
+ * no DOM measurement.
  */
 class CopyButtonWidget extends WidgetType {
   constructor({ copied, from, to, copyIcon, checkIcon, copyLabel, copiedLabel }) {
@@ -142,15 +142,8 @@ class CopyButtonWidget extends WidgetType {
 
 const copyTheme = EditorView.theme({
   '& .parsi-code-copy-row': { textAlign: 'end' },
-  '& .cm-line.parsi-code-first': {
-    position: 'relative',
-    paddingInlineEnd: '2.6rem',
-  },
   '& .parsi-code-copy': {
     font: 'inherit',
-    position: 'absolute',
-    insetBlockStart: '0.25rem',
-    insetInlineEnd: '0.5rem',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -173,7 +166,7 @@ const copyTheme = EditorView.theme({
 
 /**
  * Builds copy-button widgets for visible fenced blocks, each parked at
- * the end of its first content line (widgets need a position; the range
+ * the end of its opening fence line (widgets need a position; the range
  * still addresses the whole content for copying).
  * @param {object} view Active editor view.
  * @param {object} options Widget options.
@@ -193,7 +186,7 @@ function buildCopyDecorations(view, options) {
         copiedLabel: options.copiedLabel,
       }),
       side: 1,
-    }).range(view.state.doc.lineAt(block.from).to));
+    }).range(view.state.doc.lineAt(block.openFrom).to));
   }
   return Decoration.set(builder);
 }

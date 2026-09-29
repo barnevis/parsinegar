@@ -62,13 +62,13 @@ test('should_seat_button_inside_wash_when_fenced', () => {
     assert.ok(button, 'expected a copy button');
     const line = button.closest('.cm-line');
     assert.ok(line && line.classList.contains('parsi-code-line'), 'expected the button inside the block wash');
-    assert.ok(line.textContent.includes('const x = 1;'), 'expected the first content line');
+    assert.ok(line.textContent.startsWith('```js'), 'expected the opening fence line');
   } finally {
     destroy(mounted);
   }
 });
 
-test('should_pin_button_to_corner_when_themed', () => {
+test('should_align_opener_end_when_themed', () => {
   const mounted = createEditor('متن\n\n```js\nconst x = 1;\n```\n');
   try {
     const styleSheets = [...document.styleSheets];
@@ -79,9 +79,7 @@ test('should_pin_button_to_corner_when_themed', () => {
         return false;
       }
     });
-    assert.ok(has('.parsi-code-copy', 'position', 'absolute'));
-    assert.ok(has('.parsi-code-copy', 'inset-inline-end', '0.5rem'));
-    assert.ok(has('.cm-line.parsi-code-first', 'padding-inline-end', '2.6rem'));
+    assert.ok(has('.cm-line.parsi-code-line.parsi-code-first', 'text-align', 'right'));
   } finally {
     destroy(mounted);
   }

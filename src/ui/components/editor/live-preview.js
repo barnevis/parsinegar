@@ -83,8 +83,8 @@ const livePreviewTheme = EditorView.theme({
   '& .parsi-list-line': { paddingInlineStart: '1em' },
   '& .parsi-list-marker': { color: 'var(--pey-color-text-muted, #6b6b78)', fontWeight: '700' },
   '& .parsi-code-line': { backgroundColor: 'var(--pey-color-surface, #f1f1f4)', fontFamily: MONO_FONT },
-  '& .cm-line.parsi-code-first': { borderTopLeftRadius: '8px', borderTopRightRadius: '8px' },
-  '& .cm-line.parsi-code-last': { borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' },
+  '& .cm-line.parsi-code-line.parsi-code-first': { borderTopLeftRadius: '8px', borderTopRightRadius: '8px', textAlign: 'right' },
+  '& .cm-line.parsi-code-line.parsi-code-last': { borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' },
   '& .parsi-em': { fontStyle: 'italic' },
   '& .parsi-strong': { fontWeight: '700' },
   '& .parsi-strike': { textDecoration: 'line-through' },
@@ -182,24 +182,23 @@ function buildLineDecorations(view) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
       if (FENCE_PATTERN.test(line.text)) {
+        // Fence lines open/close the unified block wash: the opener rounds
+        // the top, the closer the bottom. Content lines stay square so the
+        // strip reads continuous.
+        const opener = !inFence;
         const touched = selectionTouches(selection, line.from, line.to);
+        const edge = opener ? ' parsi-code-first' : ' parsi-code-last';
         builder.push(Decoration.line({
-          class: touched ? 'parsi-code-line parsi-selected' : 'parsi-code-line',
+          class: touched ? `parsi-code-line parsi-selected${edge}` : `parsi-code-line${edge}`,
         }).range(line.from));
         inFence = !inFence;
       } else if (inFence) {
         const touched = selectionTouches(selection, line.from, line.to);
-        // Corners sit on the visible content lines (fences hide): the
-        // first content line follows its opener, the last precedes its
-        // closer — or ends the document for unclosed tails. Neighbors read
-        // straight from the document, so viewport clipping cannot misplace
-        // them; the button's positioning context is the first line.
-        const prevFence = line.number > 1 && FENCE_PATTERN.test(view.state.doc.line(line.number - 1).text);
-        const lastLine = line.number === view.state.doc.lines
-          || FENCE_PATTERN.test(view.state.doc.line(line.number + 1).text);
-        const edges = `${prevFence ? ' parsi-code-first' : ''}${lastLine ? ' parsi-code-last' : ''}`;
+        // Unclosed tails have no closer: the last document line rounds the
+        // bottom instead.
+        const tail = line.number === view.state.doc.lines ? ' parsi-code-last' : '';
         builder.push(Decoration.line({
-          class: touched ? `parsi-code-line parsi-selected${edges}` : `parsi-code-line${edges}`,
+          class: touched ? `parsi-code-line parsi-selected${tail}` : `parsi-code-line${tail}`,
         }).range(line.from));
       } else if (QUOTE_PATTERN.test(line.text)) {
         builder.push(Decoration.line({ class: 'parsi-quote-line' }).range(line.from));
