@@ -183,8 +183,9 @@ export function toggleOrderedList(view) {
     const indent = /^(\s*)/.exec(line.text)?.[1] ?? '';
     return { from: line.from, indent, value: 0, fa: false, delimiter: '.', digitsLength: 0, moved: true };
   });
+  const computed = computeNumbers(records);
   const changes = [];
-  for (const entry of computeNumbers(records)) {
+  for (const entry of computed) {
     const line = state.doc.lineAt(entry.from);
     const original = parseOrderedLine(line.text);
     const core = `${entry.indent}${formatDigits(entry.value, entry.fa)}${entry.delimiter}`;
@@ -197,7 +198,21 @@ export function toggleOrderedList(view) {
       changes.push({ from: entry.from, to: entry.from + entry.indent.length, insert: `${core} ` });
     }
   }
-  view.dispatch({ changes, scrollIntoView: true });
+  // Park the cursor after the whole marker run (prefix plus its trailing
+  // gap): the marker widget covers exactly that range, and a cursor inside
+  // it paints on the wrong side of the number.
+  const [head] = computed;
+  const headLine = state.doc.lineAt(head.from);
+  const headParsed = parseOrderedLine(headLine.text);
+  const headGap = headParsed
+    ? (/^(\s*)/.exec(headLine.text.slice(headParsed.indent.length + headParsed.digitsLength + headParsed.delimiter.length))?.[1] ?? '')
+    : ' ';
+  const headPrefix = `${head.indent}${formatDigits(head.value, head.fa)}${head.delimiter}`;
+  view.dispatch({
+    changes,
+    selection: EditorSelection.cursor(head.from + headPrefix.length + headGap.length),
+    scrollIntoView: true,
+  });
   return true;
 }
 

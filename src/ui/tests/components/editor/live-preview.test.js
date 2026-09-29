@@ -5,7 +5,7 @@ import test from 'node:test';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { buildMarkRevealDecorations, collectExtendedMarkRanges, collectInlineContainers, selectionTouches } from '../../../components/editor/live-preview.js';
+import { buildMarkRevealDecorations, collectExtendedMarkRanges, collectInlineContainers, isParkedOnEmptyMarker, selectionTouches } from '../../../components/editor/live-preview.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');
@@ -129,6 +129,16 @@ test('should_keep_number_in_marker_when_ordered', () => {
   } finally {
     destroy(mounted);
   }
+});
+
+test('should_detect_cursor_parked_on_empty_marker', () => {
+  assert.equal(isParkedOnEmptyMarker('۱. ', 0, 3, { empty: true, from: 3 }), true);
+  assert.equal(isParkedOnEmptyMarker('- ', 0, 2, { empty: true, from: 2 }), true);
+  assert.equal(isParkedOnEmptyMarker('  ۲.  ', 10, 16, { empty: true, from: 16 }), true);
+  assert.equal(isParkedOnEmptyMarker('۱. س', 0, 3, { empty: true, from: 3 }), false);
+  assert.equal(isParkedOnEmptyMarker('۱. ', 0, 3, { empty: true, from: 0 }), false);
+  assert.equal(isParkedOnEmptyMarker('۱. ', 0, 3, { empty: false, from: 0, to: 3 }), false);
+  assert.equal(isParkedOnEmptyMarker('۱. ', 0, 3, null), false);
 });
 
 test('should_reveal_span_marks_when_cursor_is_on_its_edge', () => {

@@ -183,6 +183,7 @@ test('should_toggle_ordered_list_when_called', () => {
   try {
     toggleOrderedList(first.view);
     assert.equal(docOf(first.view), '1. a\n2. b');
+    assert.equal(first.view.state.selection.main.head, 3);
   } finally {
     first.destroy();
   }

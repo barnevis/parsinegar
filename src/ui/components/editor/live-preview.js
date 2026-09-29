@@ -7,6 +7,7 @@
 // CodeMirror's generated hashed classes, which renumber with the extension
 // set. No services, no events, no business logic — pure presentation.
 import { EditorView } from 'codemirror';
+import { EditorSelection, EditorState } from '@codemirror/state';
 import { HighlightStyle, ensureSyntaxTree, syntaxHighlighting, syntaxTree } from '@codemirror/language';
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 import { highlightTree } from '@lezer/highlight';
@@ -212,10 +213,32 @@ function buildLineDecorations(view) {
 }
 
 /**
+ * Checks whether the cursor sits exactly at the end of an empty list item
+ * (`- ` or `1. ` with nothing after it). The marker widget would hide the
+ * cursor behind the number there (no text after it to attach to), so the
+ * raw marker stays instead.
+ * @param {string} lineText Full line text.
+ * @param {number} lineFrom Document offset of the line start.
+ * @param {number} markerEnd Document offset just past the marker and its gap.
+ * @param {object} selection Main selection (`empty` and `from`).
+ * @returns {boolean} True when the raw marker must stay visible.
+ */
+export function isParkedOnEmptyMarker(lineText, lineFrom, markerEnd, selection) {
+  if (!selection || selection.empty !== true || selection.from !== markerEnd) {
+    return false;
+  }
+  return lineText.slice(markerEnd - lineFrom).trim().length === 0;
+}
+
+/**
  * Builds marker widgets for list lines, leaving the raw marker where the
  * cursor (or selection) is on the mark glyphs themselves. The skip range
  * ends before the trailing space on purpose: a cursor just past the mark
- * still gets the rendered bullet instead of an invisible gap.
+ * still gets the rendered bullet instead of an invisible gap. One exception:
+ * a cursor parked exactly at the end of an *empty* item keeps the raw marker —
+ * with no text after it the cursor would paint inside the widget (behind the
+ * number) instead of after it. The hidden mark underneath is forced open so
+ * `- ` keeps its bullet; the widget pops back with the first character.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -230,10 +253,15 @@ function buildMarkerDecorations(view) {
         if (match) {
           const markerStart = line.from + match[0].indexOf(match[1] ?? match[2]);
           const markerEnd = line.from + match[0].length;
-          if (selection.from >= markerEnd || selection.to < markerStart) {
+          const parkedOnEmpty = isParkedOnEmptyMarker(line.text, line.from, markerEnd, selection);
+          if ((selection.from >= markerEnd || selection.to < markerStart) && !parkedOnEmpty) {
             const label = match[1] ? '• ' : `${match[2]}. `;
             builder.push(
               Decoration.replace({ widget: new ListMarkerWidget(label) }).range(markerStart, markerEnd),
+            );
+          } else if (parkedOnEmpty) {
+            builder.push(
+              Decoration.mark({ class: 'parsi-mark parsi-mark-open' }).range(markerStart, markerEnd),
             );
           }
         }
@@ -514,6 +542,36 @@ const markRevealPlugin = ViewPlugin.fromClass(
 );
 
 /**
+ * Pins forward affinity for a cursor parked at the end of an empty list
+ * item. With backward affinity (End key, arrows, clicks) the cursor paints
+ * inside the marker — behind the number — instead of after it, because no
+ * text follows for it to attach to. Only pure selection moves are rewritten;
+ * document changes ride through untouched, so typing, undo history and IME
+ * composition are unaffected.
+ */
+const emptyMarkerAssocFilter = EditorState.transactionFilter.of((tr) => {
+  if (tr.docChanged) {
+    return tr;
+  }
+  const selection = tr.newSelection.main;
+  if (!selection.empty || selection.assoc === 1) {
+    return tr;
+  }
+  const line = tr.newDoc.lineAt(selection.head);
+  if (TASK_LINE_PATTERN.test(line.text)) {
+    return tr;
+  }
+  const match = LIST_PATTERN.exec(line.text);
+  if (!match || selection.head !== line.from + match[0].length) {
+    return tr;
+  }
+  if (!isParkedOnEmptyMarker(line.text, line.from, selection.head, selection)) {
+    return tr;
+  }
+  return [tr, { selection: EditorSelection.cursor(selection.head, 1) }];
+});
+
+/**
  * Returns the live-preview extensions for the Markdown view.
  * @returns {Array} CodeMirror extensions (highlight, theme, decorations).
  */
@@ -525,5 +583,6 @@ export function livePreviewExtensions() {
     markerDecorationPlugin,
     markRevealPlugin,
     selectionPaintPlugin,
+    emptyMarkerAssocFilter,
   ];
 }
