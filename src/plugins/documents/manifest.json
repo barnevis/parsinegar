@@ -18,7 +18,7 @@
           "description": "Lists all documents ordered by most recently updated first.",
           "params": [],
           "returns": "Promise<object[]>",
-          "errors": []
+          "errors": ["DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "openDocument",
@@ -27,7 +27,7 @@
             { "name": "id", "type": "string" }
           ],
           "returns": "Promise<object | null>",
-          "errors": []
+          "errors": ["DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "saveDocument",
@@ -36,7 +36,7 @@
             { "name": "input", "type": "{ id?: string, title?: string, content?: string }" }
           ],
           "returns": "Promise<object>",
-          "errors": []
+          "errors": ["DOCUMENT_TITLE_DUPLICATE", "DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "createDocument",
@@ -45,7 +45,7 @@
             { "name": "title", "type": "string" }
           ],
           "returns": "Promise<object>",
-          "errors": []
+          "errors": ["DOCUMENT_TITLE_DUPLICATE", "DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "renameDocument",
@@ -55,7 +55,7 @@
             { "name": "title", "type": "string" }
           ],
           "returns": "Promise<object | null>",
-          "errors": []
+          "errors": ["DOCUMENT_INVALID_TITLE", "DOCUMENT_TITLE_DUPLICATE", "DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "deleteDocument",
@@ -64,7 +64,7 @@
             { "name": "id", "type": "string" }
           ],
           "returns": "Promise<void>",
-          "errors": []
+          "errors": ["DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "setReadOnly",
@@ -74,7 +74,7 @@
             { "name": "readOnly", "type": "boolean" }
           ],
           "returns": "Promise<object | null>",
-          "errors": []
+          "errors": ["DOCUMENTS_STORAGE_UNAVAILABLE"]
         }
       ]
     }
@@ -82,8 +82,10 @@
   "events": [
     {
       "name": "documents:changed",
-      "description": "Published after a document is saved or deleted.",
-      "data": ["id"]
+      "description": "Published after a document is created, saved, renamed, deleted or lock-changed.",
+      "data": [
+        { "name": "id", "type": "string" }
+      ]
     }
   ],
   "config": {}

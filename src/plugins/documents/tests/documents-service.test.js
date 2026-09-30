@@ -161,6 +161,15 @@ test('should_reject_empty_title_when_renaming', async () => {
   assert.equal(error?.code, 'DOCUMENT_INVALID_TITLE');
 });
 
+test('should_fail_with_structured_error_when_storage_is_missing', async () => {
+  const service = createService({ storage: null, events: null });
+  const error = await service.listDocuments().catch((caught) => caught);
+  assert.equal(error?.code, 'DOCUMENTS_STORAGE_UNAVAILABLE');
+  assert.equal(error?.source, 'parsinegar.documents.service');
+  assert.equal(error?.type, 'operational');
+  assert.equal(typeof error?.timestamp, 'string');
+});
+
 test('should_return_null_when_renaming_missing_document', async () => {
   const { service } = setup();
   assert.equal(await service.renameDocument('absent', 'x'), null);

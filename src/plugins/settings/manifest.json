@@ -18,7 +18,7 @@
           "description": "Reads the stored preferences merged over defaults; missing record returns defaults.",
           "params": [],
           "returns": "Promise<object>",
-          "errors": []
+          "errors": ["SETTINGS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "saveSettings",
@@ -27,7 +27,7 @@
             { "name": "patch", "type": "object" }
           ],
           "returns": "Promise<object>",
-          "errors": []
+          "errors": ["SETTINGS_INVALID_VALUE", "SETTINGS_STORAGE_UNAVAILABLE"]
         }
       ]
     }
@@ -36,7 +36,9 @@
     {
       "name": "settings:changed",
       "description": "Published after preferences are saved.",
-      "data": ["id"]
+      "data": [
+        { "name": "id", "type": "string" }
+      ]
     }
   ],
   "config": {}

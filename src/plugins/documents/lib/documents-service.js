@@ -26,7 +26,11 @@ function generateId() {
  */
 function requireStorage(state) {
   if (!state.storage) {
-    throw new Error(`Required service is unavailable: ${STORAGE_SERVICE}`);
+    throw documentsError(
+      'DOCUMENTS_STORAGE_UNAVAILABLE',
+      `Required service is unavailable: ${STORAGE_SERVICE}`,
+      { service: STORAGE_SERVICE },
+    );
   }
   return state.storage;
 }

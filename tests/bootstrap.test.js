@@ -56,3 +56,16 @@ test('should_carry_persian_ui_config_when_loaded', async () => {
   assert.equal(bootstrap.config.ui.language, 'fa');
   assert.equal(bootstrap.config.ui.direction, 'rtl');
 });
+
+test('should_match_declared_plugin_versions_when_loaded', async () => {
+  // Bonyan binds by manifest: a drifted bootstrap version would load a
+  // different contract than declared, so each entry must mirror its manifest.
+  const bootstrap = await loadBootstrap();
+  for (const plugin of bootstrap.plugins) {
+    const manifestUrl = new URL(`${plugin.path}/manifest.json`, BOOTSTRAP_URL);
+    const manifest = JSON.parse(await readFile(manifestUrl, 'utf8'));
+    assert.equal(manifest.name, plugin.name, `name drift for ${plugin.path}`);
+    assert.equal(manifest.version, plugin.version, `version drift for ${plugin.name}`);
+    assert.equal(manifest.architecture, bootstrap.architecture, `arch drift for ${plugin.name}`);
+  }
+});
