@@ -20,6 +20,7 @@ import { lineDirectionExtensions } from './line-direction.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList, indentListItem, listResequenceExtension } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
+import { hrViewExtensions } from './hr-view.js';
 import { admonitionViewExtensions } from './admonition-view.js';
 import { poemViewExtensions } from './poem-view.js';
 import { imageViewExtensions } from './image-view.js';
@@ -164,6 +165,7 @@ export function createMarkdownView(host, options = {}) {
       ...codeHighlightExtensions(),
       ...codeCopyExtensions({ t: options.t, assetBaseUrl: options.assetBaseUrl ?? null }),
       ...codeFenceExtensions(),
+      ...hrViewExtensions(),
       ...lineDirectionExtensions(baseDirection, forcedDirection),
       // Tab indents (Shift+Tab outdents); Alt+Arrow line moving already
       // arrives through the default keymap in minimalSetup. Ordered list
