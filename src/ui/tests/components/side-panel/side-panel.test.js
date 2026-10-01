@@ -508,3 +508,17 @@ test('should_shrink_sort_menu_when_rendered', async () => {
     element.remove();
   }
 });
+
+test('should_match_menubar_type_size_when_file_menu_is_rendered', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    const text = style.textContent;
+    const rule = text.slice(text.indexOf('[part="file-menu"]'));
+    assert.ok(rule.includes('font-size: 12px'), 'expected the menubar dropdown type size');
+  } finally {
+    element.remove();
+  }
+});

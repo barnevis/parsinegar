@@ -141,6 +141,9 @@
   border-radius: 10px;
   background-color: var(--pey-color-canvas, #ffffff);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+  /* Same type size as the menubar dropdowns ([part="menubar"] sets 12px
+    and its items inherit); the panel body itself is larger. */
+  font-size: 12px;
 }
 [part="file-menu-item"] {
   font: inherit;
