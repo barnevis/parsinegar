@@ -65,6 +65,7 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.documents.duplicate',
     'parsinegar.documents.download',
     'parsinegar.documents.downloadHtml',
+    'parsinegar.documents.downloadMenu',
     'parsinegar.documents.properties',
     'parsinegar.documents.property-name',
     'parsinegar.documents.property-created',

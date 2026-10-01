@@ -30,6 +30,7 @@ const catalog = {
     'parsinegar.documents.duplicate': 'این نام تکراری است',
     'parsinegar.documents.download': 'دانلود مارک‌داون',
     'parsinegar.documents.downloadHtml': 'دانلود HTML',
+    'parsinegar.documents.downloadMenu': 'دانلود',
     'parsinegar.documents.properties': 'ویژگی‌های سند',
     'parsinegar.documents.property-name': 'نام',
     'parsinegar.documents.property-created': 'ایجاد',

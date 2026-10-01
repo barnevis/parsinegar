@@ -1510,3 +1510,56 @@ test('should_reset_search_when_document_is_switched', async () => {
     element.remove();
   }
 });
+
+test('should_download_current_markdown_when_menu_action_requests_it', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'یادداشت', content: '# سلام', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  const blobs = [];
+  const realCreateObjectURL = URL.createObjectURL;
+  const realRevokeObjectURL = URL.revokeObjectURL;
+  URL.createObjectURL = (blob) => {
+    blobs.push(blob);
+    return 'blob:md';
+  };
+  URL.revokeObjectURL = () => {};
+  try {
+    child(element, 'parsi-menu-bar').dispatchEvent(new CustomEvent('menu-action', { bubbles: true, detail: { action: 'download-markdown' } }));
+    await settled();
+    await settled();
+    assert.equal(blobs.length, 1);
+    assert.equal(await blobs[0].text(), '# سلام');
+  } finally {
+    URL.createObjectURL = realCreateObjectURL;
+    URL.revokeObjectURL = realRevokeObjectURL;
+    element.remove();
+  }
+});
+
+test('should_download_current_html_when_menu_action_requests_it', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'یادداشت', content: '# سلام', updatedAt: 1 }]);
+  const calls = [];
+  const element = await mountWithDocuments(documents, {
+    'parsinegar.export.service': {
+      async exportHtml(input) {
+        calls.push(input);
+        return { html: '<!DOCTYPE html>', filename: 'یادداشت.html', mime: 'text/html' };
+      },
+    },
+  });
+  const realCreateObjectURL = URL.createObjectURL;
+  const realRevokeObjectURL = URL.revokeObjectURL;
+  URL.createObjectURL = () => 'blob:html';
+  URL.revokeObjectURL = () => {};
+  try {
+    child(element, 'parsi-menu-bar').dispatchEvent(new CustomEvent('menu-action', { bubbles: true, detail: { action: 'download-html' } }));
+    await settled();
+    await settled();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].markdown, '# سلام');
+    assert.equal(calls[0].title, 'یادداشت');
+  } finally {
+    URL.createObjectURL = realCreateObjectURL;
+    URL.revokeObjectURL = realRevokeObjectURL;
+    element.remove();
+  }
+});

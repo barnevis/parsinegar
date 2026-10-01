@@ -430,6 +430,24 @@ class ParsiPageHome extends PeyElement {
         case 'toggle-lock':
           await this.#toggleLock();
           return;
+        case 'download-markdown': {
+          if (!this.#builtIn) {
+            const { currentId = null } = this.#docs?.getState() ?? {};
+            if (currentId) {
+              await this.#downloadDocument(currentId);
+            }
+          }
+          return;
+        }
+        case 'download-html': {
+          if (!this.#builtIn) {
+            const { currentId = null } = this.#docs?.getState() ?? {};
+            if (currentId) {
+              await this.#downloadHtmlDocument(currentId);
+            }
+          }
+          return;
+        }
         case 'read-mode':
           await this.#setLockState(true);
           return;

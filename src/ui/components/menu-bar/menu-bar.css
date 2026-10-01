@@ -132,8 +132,69 @@
   opacity: 0.45;
   cursor: default;
 }
+[part="download"] {
+  position: relative;
+}
+[part="download-toggle"] {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: transparent;
+  padding: 0.2rem;
+  cursor: pointer;
+  color: inherit;
+}
+[part="download-toggle"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+[part="download-toggle"] svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+}
+[part="download-toggle"][disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+[part="download-dropdown"] {
+  position: absolute;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-end: 0;
+  z-index: 10;
+  min-inline-size: 10rem;
+  padding: 0.35rem;
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 10px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+}
+[part="download-dropdown"][hidden] {
+  display: none;
+}
+[part="download-option"] {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  color: inherit;
+  text-align: start;
+}
+[part="download-option"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
 [part="mode-toggle"]:focus-visible,
 [part="search-toggle"]:focus-visible,
+[part="download-toggle"]:focus-visible,
+[part="download-option"]:focus-visible,
 [part="search-button"]:focus-visible,
 [part="search-input"]:focus-visible {
   outline: 2px solid var(--pey-color-focus-ring, #5eead4);

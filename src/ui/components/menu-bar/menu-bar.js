@@ -32,11 +32,12 @@ class ParsiMenuBar extends PeyElement {
   #builtInOpen = false;
   #openMenu = null;
   #searchOpen = false;
+  #downloadOpen = false;
   #search = { ...SEARCH_DEFAULTS };
   #formatNumber = String;
   #assetBaseUrl = null;
   #onDocumentClick = (event) => {
-    if (this.#openMenu === null && !this.#searchOpen) {
+    if (this.#openMenu === null && !this.#searchOpen && !this.#downloadOpen) {
       return;
     }
     if (event.composedPath().includes(this)) {
@@ -46,11 +47,16 @@ class ParsiMenuBar extends PeyElement {
     // until an explicit close (toggle or Escape) emits `search-close`.
     this.#openMenu = null;
     this.#searchOpen = false;
+    this.#downloadOpen = false;
     this.requestRender();
   };
   #onDocumentKeydown = (event) => {
     if (event.key === 'Escape' && this.#openMenu !== null) {
       this.#openMenu = null;
+      this.requestRender();
+    }
+    if (event.key === 'Escape' && this.#downloadOpen) {
+      this.#downloadOpen = false;
       this.requestRender();
     }
     if (event.key === 'Escape' && this.#searchOpen) {
@@ -260,6 +266,26 @@ class ParsiMenuBar extends PeyElement {
       }
       return;
     }
+    const downloadToggle = event.target?.closest?.('[data-download-toggle]');
+    if (downloadToggle && !downloadToggle.disabled) {
+      this.#downloadOpen = !this.#downloadOpen;
+      this.requestRender();
+      return;
+    }
+    const downloadOption = event.target?.closest?.('[data-download-option]');
+    if (downloadOption && !downloadOption.disabled) {
+      // Same road as the file-menu download items: the parent maps the
+      // action to the open document and runs the matching download.
+      const format = downloadOption.getAttribute('data-download-option');
+      if (format === 'markdown' || format === 'html') {
+        this.#downloadOpen = false;
+        this.requestRender();
+        this.dispatchEvent(
+          new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action: format === 'html' ? 'download-html' : 'download-markdown' } }),
+        );
+      }
+      return;
+    }
     const button = event.target?.closest?.('[data-menu]');
     if (button) {
       const id = button.getAttribute('data-menu');
@@ -303,6 +329,13 @@ class ParsiMenuBar extends PeyElement {
       <div part="menubar" role="menubar">${markup}
         <div part="mode">
           <button type="button" part="mode-toggle" data-mode-toggle data-pey-preserve="mode-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(lockedLabel))}" title="${escapeHtml(this.#t(lockedLabel))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#readOnly ? 'lock' : 'lock-open')}</button>
+        </div>
+        <div part="download">
+          <button type="button" part="download-toggle" data-download-toggle data-pey-preserve="download-toggle" data-pey-preserve-state="focus" aria-haspopup="true" aria-expanded="${this.#downloadOpen}" aria-label="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" title="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, 'download')}</button>
+          <div part="download-dropdown" role="menu" ${this.#downloadOpen ? '' : 'hidden'}>
+            <button type="button" part="download-option" role="menuitem" data-download-option="markdown"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.download'))}</span></button>
+            <button type="button" part="download-option" role="menuitem" data-download-option="html"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.downloadHtml'))}</span></button>
+          </div>
         </div>
         <div part="search">
           <button type="button" part="search-toggle" data-search-toggle data-pey-preserve="search-toggle" data-pey-preserve-state="focus" aria-expanded="${this.#searchOpen}" aria-label="${escapeHtml(this.#t('parsinegar.search.button'))}" title="${escapeHtml(this.#t('parsinegar.search.button'))}" ${this.#hasDocument ? '' : 'disabled'}>${iconMarkup(this.#assetBaseUrl, 'search')}</button>
