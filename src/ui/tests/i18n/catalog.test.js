@@ -32,8 +32,6 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.builtin.changelog',
     'parsinegar.builtin.about',
     'parsinegar.builtin.back',
-    'parsinegar.documents.lock',
-    'parsinegar.documents.unlock',
     'parsinegar.status.locked',
     'parsinegar.menu.insert',
     'parsinegar.insert.bold',

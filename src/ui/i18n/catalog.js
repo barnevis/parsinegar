@@ -19,8 +19,6 @@ const catalog = {
     'parsinegar.documents.new-title': 'سند تازه',
     'parsinegar.documents.welcome-title': 'خوش آمدید',
     'parsinegar.documents.delete': 'حذف سند',
-    'parsinegar.documents.lock': 'قفل سند',
-    'parsinegar.documents.unlock': 'بازکردن قفل سند',
     'parsinegar.status.locked': 'فقط خواندنی',
     'parsinegar.documents.delete-confirm': 'آیا سند «{title}» حذف شود؟',
     'parsinegar.documents.delete-yes': 'حذف',

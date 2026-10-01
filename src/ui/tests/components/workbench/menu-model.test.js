@@ -101,15 +101,15 @@ test('should_offer_builtin_docs_in_help_menu_when_read', () => {
   assert.equal(file.items.find(({ id }) => id === 'about'), undefined);
 });
 
-test('should_switch_lock_label_when_read_only_changes', () => {
+test('should_switch_mode_label_when_read_only_changes', () => {
   const open = buildMenuModel({ t: translate, hasDocument: true });
   const locked = buildMenuModel({ t: translate, hasDocument: true, readOnly: true });
-  assert.equal(open.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').label, 'parsinegar.documents.lock');
-  assert.equal(locked.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').label, 'parsinegar.documents.unlock');
+  assert.equal(open.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').label, 'parsinegar.view.read');
+  assert.equal(locked.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').label, 'parsinegar.view.write');
   assert.equal(locked.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').disabled, false);
 });
 
-test('should_disable_lock_without_document_or_for_builtin', () => {
+test('should_disable_mode_toggle_without_document_or_for_builtin', () => {
   const none = buildMenuModel({ t: translate, hasDocument: false });
   assert.equal(none.find(({ id }) => id === 'file').items.find(({ id }) => id === 'toggle-lock').disabled, true);
   const builtIn = buildMenuModel({ t: translate, hasDocument: true, readOnly: true, builtInOpen: true });

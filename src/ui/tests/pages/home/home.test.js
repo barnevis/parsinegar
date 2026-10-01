@@ -611,12 +611,12 @@ test('should_lock_and_unlock_when_toggle_is_clicked', async () => {
   try {
     assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
     await openFileMenu(element);
-    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').textContent.includes('قفل سند'));
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').textContent.includes('حالت خواندن'));
     inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').click();
     await settled();
     assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the chip while locked');
     await openFileMenu(element);
-    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').textContent.includes('بازکردن قفل سند'));
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').textContent.includes('حالت نوشتن'));
     inChild(element, 'parsi-menu-bar', '[data-action="toggle-lock"]').click();
     await settled();
     assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);
@@ -681,11 +681,11 @@ test('should_toggle_lock_when_mode_toggle_is_clicked', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const toggle = () => inChild(element, 'parsi-menu-bar', '[data-mode-toggle]');
-    assert.ok(toggle().innerHTML.includes('#lock-open'));
+    assert.ok(toggle().innerHTML.includes('#edit'));
     toggle().click();
     await settled();
     assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the toggle to lock');
-    assert.ok(toggle().innerHTML.includes('#lock'));
+    assert.ok(toggle().innerHTML.includes('#visibility'));
     toggle().click();
     await settled();
     assert.equal(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), null);

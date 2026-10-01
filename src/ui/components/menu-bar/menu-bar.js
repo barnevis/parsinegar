@@ -238,7 +238,7 @@ class ParsiMenuBar extends PeyElement {
     }
     const modeToggle = event.target?.closest?.('[data-mode-toggle]');
     if (modeToggle && !modeToggle.disabled) {
-      // Same road as the file-menu lock item and the view-mode items: the
+      // Same road as the file-menu mode item and the view-mode items: the
       // parent maps the action to behavior and echoes the state back.
       this.dispatchEvent(
         new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action: 'toggle-lock' } }),
@@ -311,9 +311,9 @@ class ParsiMenuBar extends PeyElement {
       readOnly: this.#readOnly,
       builtInOpen: this.#builtInOpen,
     });
-    // The mode toggle mirrors the file-menu lock item: it shows the current
-    // state (locked/unlocked) and its label names the switch it performs.
-    const lockedLabel = this.#readOnly ? 'parsinegar.documents.unlock' : 'parsinegar.documents.lock';
+    // The mode toggle mirrors the file-menu mode item: it shows the current
+    // state (reading/writing) and its label names the switch it performs.
+    const modeLabel = this.#readOnly ? 'parsinegar.view.write' : 'parsinegar.view.read';
     const modeDisabled = !this.#hasDocument || this.#builtInOpen;
     const markup = menus.map((menu) => {
       const open = this.#openMenu === menu.id;
@@ -328,7 +328,7 @@ class ParsiMenuBar extends PeyElement {
     return `
       <div part="menubar" role="menubar">${markup}
         <div part="mode">
-          <button type="button" part="mode-toggle" data-mode-toggle data-pey-preserve="mode-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(lockedLabel))}" title="${escapeHtml(this.#t(lockedLabel))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#readOnly ? 'lock' : 'lock-open')}</button>
+          <button type="button" part="mode-toggle" data-mode-toggle data-pey-preserve="mode-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(modeLabel))}" title="${escapeHtml(this.#t(modeLabel))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#readOnly ? 'visibility' : 'edit')}</button>
         </div>
         <div part="download">
           <button type="button" part="download-toggle" data-download-toggle data-pey-preserve="download-toggle" data-pey-preserve-state="focus" aria-haspopup="true" aria-expanded="${this.#downloadOpen}" aria-label="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" title="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, 'download')}</button>

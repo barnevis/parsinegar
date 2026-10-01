@@ -400,13 +400,13 @@ test('should_emit_toggle_lock_when_mode_toggle_is_clicked', async () => {
     element.addEventListener('menu-action', (event) => seen.push(event.detail));
     const toggle = element.shadowRoot.querySelector('[data-mode-toggle]');
     assert.ok(toggle, 'expected the mode toggle');
-    assert.ok(toggle.innerHTML.includes('#lock-open'));
+    assert.ok(toggle.innerHTML.includes('#edit'));
     toggle.click();
     await flush();
     assert.deepEqual(seen, [{ action: 'toggle-lock' }]);
     element.configure({ readOnly: true });
     await flush();
-    assert.ok(element.shadowRoot.querySelector('[data-mode-toggle]').innerHTML.includes('#lock'));
+    assert.ok(element.shadowRoot.querySelector('[data-mode-toggle]').innerHTML.includes('#visibility'));
   } finally {
     element.remove();
   }

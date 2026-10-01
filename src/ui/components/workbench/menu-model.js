@@ -28,7 +28,7 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
   }
   fileItems.push({
     id: 'toggle-lock',
-    label: translate(locked ? 'parsinegar.documents.unlock' : 'parsinegar.documents.lock'),
+    label: translate(locked ? 'parsinegar.view.write' : 'parsinegar.view.read'),
     action: 'toggle-lock',
     disabled: !hasDocument || builtIn,
   });
