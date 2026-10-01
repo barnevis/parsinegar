@@ -116,6 +116,7 @@ test('should_toggle_file_menu_when_menu_button_is_clicked', async () => {
 test('should_emit_file_actions_when_menu_items_are_clicked', async () => {
   const cases = [
     ['[data-file-download="a"]', 'document-download'],
+    ['[data-file-download-html="a"]', 'document-download-html'],
     ['[data-file-properties="a"]', 'document-properties'],
     ['[data-file-delete="a"]', 'document-delete'],
   ];

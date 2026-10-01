@@ -41,6 +41,8 @@
     "@pey/core": "github:peyjs/pey-core#v0.2.2",
     "codemirror": "^6.0.2",
     "crelt": "^1.0.7",
+    "parsneshan": "github:barnevis/parsneshan#v0.2.0",
+    "pey.markdown": "github:peyjs/pey-markdown#v1.0.0",
     "pey.router": "github:peyjs/pey-router#v1.0.0",
     "pey.storage": "github:peyjs/pey-storage#v0.4.0",
     "pey.webui": "github:peyjs/pey-webui#v1.0.0",

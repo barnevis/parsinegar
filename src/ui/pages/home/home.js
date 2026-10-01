@@ -25,6 +25,7 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
+const EXPORT_SERVICE = 'parsinegar.export.service';
 const INSERT_ACTION_PREFIX = 'insert-';
 const INSERT_MARK_KINDS = [
   'heading',
@@ -38,6 +39,23 @@ const INSERT_MARK_KINDS = [
   'ordered-list',
 ];
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
+
+/**
+ * Resolves a stored theme preference to an export theme. `device` follows
+ * the OS preference; anything unknown falls back to light (the export
+ * service accepts only light, dark and sepia).
+ * @param {unknown} value Stored theme value.
+ * @returns {string} Export theme name.
+ */
+function resolveExportTheme(value) {
+  if (value === 'dark' || value === 'sepia' || value === 'light') {
+    return value;
+  }
+  if (value === 'device' && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches === true ? 'dark' : 'light';
+  }
+  return 'light';
+}
 
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
@@ -60,6 +78,7 @@ class ParsiPageHome extends PeyElement {
   #editorHost = null;
   #menuEl = null;
   #searchOpen = false;
+  #exporter = null;
   #searchSpec = null;
   #builtIn = null;
   #guides = null;
@@ -113,6 +132,8 @@ class ParsiPageHome extends PeyElement {
     } else {
       this.#prefs.reconnect({ settingsApi });
     }
+    const exporter = refs.services?.[EXPORT_SERVICE] ?? null;
+    this.#exporter = exporter && typeof exporter.exportHtml === 'function' ? exporter : null;
     if (!this.#guides) {
       this.#guides = createBuiltinDocs({ t: this.#t, isLive: () => this.isConnected });
     }
@@ -133,6 +154,7 @@ class ParsiPageHome extends PeyElement {
       'document-delete',
       'document-rename',
       'document-download',
+      'document-download-html',
       'document-properties',
       'modal-confirm',
       'modal-dismiss',
@@ -243,6 +265,10 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'document-download') {
         void this.#downloadDocument(event.detail?.id);
+        return;
+      }
+      if (event.type === 'document-download-html') {
+        void this.#downloadHtmlDocument(event.detail?.id);
         return;
       }
       if (event.type === 'document-properties' && typeof event.detail?.id === 'string') {
@@ -889,6 +915,49 @@ class ParsiPageHome extends PeyElement {
       }
     } catch (error) {
       console.error('[parsi-page-home] document download failed');
+    }
+  }
+
+  /**
+   * Downloads a document as a standalone HTML file: the export service
+   * renders the content with the effective theme, the page only delivers
+   * the resulting bytes through a temporary anchor (released after click).
+   * @param {unknown} id Document id from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #downloadHtmlDocument(id) {
+    if (typeof URL.createObjectURL !== 'function') {
+      console.error('[parsi-page-home] download is unsupported here');
+      return;
+    }
+    try {
+      const record = await this.#docs?.prepareDownload(id);
+      const exporter = this.#exporter;
+      if (!this.isConnected || !record || !exporter) {
+        return;
+      }
+      const stored = this.#prefs?.getState().settings ?? null;
+      const result = await exporter.exportHtml({
+        markdown: record.content ?? '',
+        title: record.title ?? '',
+        theme: resolveExportTheme(stored?.theme),
+      });
+      if (!this.isConnected || !result) {
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([result.html ?? ''], { type: 'text/html' }));
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = result.filename ?? 'document.html';
+        this.shadowRoot.append(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] html download failed');
     }
   }
 

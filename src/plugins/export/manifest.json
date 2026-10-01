@@ -1,0 +1,32 @@
+{
+  "name": "parsinegar.export",
+  "version": "0.1.0",
+  "architecture": "0.11",
+  "description": "Parsinegar HTML export: Persian Markdown (Parsneshan) over pey.markdown.service, assembled as a standalone themed document",
+  "type": "feature",
+  "dependencies": {
+    "required": ["pey.markdown.service"],
+    "optional": []
+  },
+  "provides": [
+    {
+      "name": "parsinegar.export.service",
+      "description": "Exports one Markdown document as a standalone themed RTL HTML file.",
+      "methods": [
+        {
+          "name": "exportHtml",
+          "description": "Renders Markdown with Persian extensions and assembles a full standalone document.",
+          "params": [
+            { "name": "markdown", "type": "string" },
+            { "name": "title", "type": "string (optional, defaults to بدون عنوان)" },
+            { "name": "theme", "type": "'light' | 'dark' | 'sepia' (optional, defaults to 'light')" }
+          ],
+          "returns": "{ html: string, filename: string, mime: 'text/html' }",
+          "errors": ["EXPORT_INVALID_THEME", "EXPORT_MARKDOWN_UNAVAILABLE", "EXPORT_RENDER_FAILED"]
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "config": {}
+}

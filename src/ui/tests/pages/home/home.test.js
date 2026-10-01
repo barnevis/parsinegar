@@ -1354,6 +1354,38 @@ test('should_ignore_download_gracefully_when_unsupported', async () => {
   }
 });
 
+test('should_download_html_through_export_service_when_requested', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'یادداشت', content: '# سلام', updatedAt: 1 }]);
+  const calls = [];
+  const element = await mountWithDocuments(documents, {
+    'parsinegar.export.service': {
+      async exportHtml(input) {
+        calls.push(input);
+        return { html: '<!DOCTYPE html>', filename: 'یادداشت.html', mime: 'text/html' };
+      },
+    },
+  });
+  const realCreateObjectURL = URL.createObjectURL;
+  const realRevokeObjectURL = URL.revokeObjectURL;
+  URL.createObjectURL = () => 'blob:html';
+  URL.revokeObjectURL = () => {};
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-download-html', { bubbles: true, detail: { id: 'd1' } }),
+    );
+    await settled();
+    await settled();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].markdown, '# سلام');
+    assert.equal(calls[0].title, 'یادداشت');
+    assert.equal(calls[0].theme, 'light');
+  } finally {
+    URL.createObjectURL = realCreateObjectURL;
+    URL.revokeObjectURL = realRevokeObjectURL;
+    element.remove();
+  }
+});
+
 function searchDropdown(element) {
   return inChild(element, 'parsi-menu-bar', '[part="search-dropdown"]');
 }

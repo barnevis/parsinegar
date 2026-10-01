@@ -142,6 +142,7 @@ class ParsiSidePanel extends PeyElement {
    */
   #emitFileAction(type, menuAction) {
     const id = menuAction.getAttribute('data-file-download')
+      ?? menuAction.getAttribute('data-file-download-html')
       ?? menuAction.getAttribute('data-file-properties')
       ?? menuAction.getAttribute('data-file-delete')
       ?? '';
@@ -336,7 +337,7 @@ class ParsiSidePanel extends PeyElement {
       }
       return;
     }
-    const menuAction = event.target?.closest?.('[data-file-rename],[data-file-download],[data-file-properties],[data-file-delete]');
+    const menuAction = event.target?.closest?.('[data-file-rename],[data-file-download],[data-file-download-html],[data-file-properties],[data-file-delete]');
     if (menuAction) {
       const renameId = menuAction.getAttribute('data-file-rename');
       if (renameId !== null) {
@@ -348,6 +349,10 @@ class ParsiSidePanel extends PeyElement {
       }
       if (menuAction.hasAttribute('data-file-download')) {
         this.#emitFileAction('document-download', menuAction);
+        return;
+      }
+      if (menuAction.hasAttribute('data-file-download-html')) {
+        this.#emitFileAction('document-download-html', menuAction);
         return;
       }
       if (menuAction.hasAttribute('data-file-properties')) {

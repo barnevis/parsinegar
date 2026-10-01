@@ -36,6 +36,16 @@
       "name": "parsinegar.settings",
       "version": "0.2.0",
       "path": "./src/plugins/settings"
+    },
+    {
+      "name": "pey.markdown",
+      "version": "1.0.0",
+      "path": "./node_modules/pey.markdown"
+    },
+    {
+      "name": "parsinegar.export",
+      "version": "0.1.0",
+      "path": "./src/plugins/export"
     }
   ],
   "config": {

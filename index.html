@@ -11,7 +11,9 @@
   <!-- importmap: every entry is a direct dependency in package.json. The
     CodeMirror entries beyond 'codemirror' and '@codemirror/lang-markdown'
     are its static import closure (verified, not speculative): browsers have
-    no node_modules lookup, so each must be mapped explicitly. -->
+    no node_modules lookup, so each must be mapped explicitly. The same holds
+    for the micromark closure below (runtime imports of pey.markdown and the
+    export plugin's mark extension, enumerated by script). -->
   <script type="importmap">
     {
       "imports": {
@@ -67,7 +69,37 @@
         "@marijn/find-cluster-break": "./node_modules/@marijn/find-cluster-break/src/index.js",
         "crelt": "./node_modules/crelt/index.js",
         "style-mod": "./node_modules/style-mod/src/style-mod.js",
-        "w3c-keyname": "./node_modules/w3c-keyname/index.js"
+        "w3c-keyname": "./node_modules/w3c-keyname/index.js",
+        "micromark": "./node_modules/micromark/index.js",
+        "micromark-extension-gfm": "./node_modules/micromark-extension-gfm/index.js",
+        "micromark-extension-gfm-autolink-literal": "./node_modules/micromark-extension-gfm-autolink-literal/index.js",
+        "micromark-extension-gfm-footnote": "./node_modules/micromark-extension-gfm-footnote/index.js",
+        "micromark-extension-gfm-strikethrough": "./node_modules/micromark-extension-gfm-strikethrough/index.js",
+        "micromark-extension-gfm-table": "./node_modules/micromark-extension-gfm-table/index.js",
+        "micromark-extension-gfm-tagfilter": "./node_modules/micromark-extension-gfm-tagfilter/index.js",
+        "micromark-extension-gfm-task-list-item": "./node_modules/micromark-extension-gfm-task-list-item/index.js",
+        "micromark-core-commonmark": "./node_modules/micromark-core-commonmark/index.js",
+        "micromark-factory-destination": "./node_modules/micromark-factory-destination/index.js",
+        "micromark-factory-label": "./node_modules/micromark-factory-label/index.js",
+        "micromark-factory-space": "./node_modules/micromark-factory-space/index.js",
+        "micromark-factory-title": "./node_modules/micromark-factory-title/index.js",
+        "micromark-factory-whitespace": "./node_modules/micromark-factory-whitespace/index.js",
+        "micromark-util-character": "./node_modules/micromark-util-character/index.js",
+        "micromark-util-chunked": "./node_modules/micromark-util-chunked/index.js",
+        "micromark-util-classify-character": "./node_modules/micromark-util-classify-character/index.js",
+        "micromark-util-combine-extensions": "./node_modules/micromark-util-combine-extensions/index.js",
+        "micromark-util-decode-numeric-character-reference": "./node_modules/micromark-util-decode-numeric-character-reference/index.js",
+        "micromark-util-edit-map": "./node_modules/micromark-util-edit-map/index.js",
+        "micromark-util-encode": "./node_modules/micromark-util-encode/index.js",
+        "micromark-util-html-tag-name": "./node_modules/micromark-util-html-tag-name/index.js",
+        "micromark-util-normalize-identifier": "./node_modules/micromark-util-normalize-identifier/index.js",
+        "micromark-util-resolve-all": "./node_modules/micromark-util-resolve-all/index.js",
+        "micromark-util-sanitize-uri": "./node_modules/micromark-util-sanitize-uri/index.js",
+        "micromark-util-subtokenize": "./node_modules/micromark-util-subtokenize/index.js",
+        "micromark-util-symbol": "./node_modules/micromark-util-symbol/lib/default.js",
+        "character-entities": "./node_modules/character-entities/index.js",
+        "decode-named-character-reference": "./node_modules/decode-named-character-reference/index.js",
+        "parsneshan": "./node_modules/parsneshan/index.js"
       }
     }
   </script>

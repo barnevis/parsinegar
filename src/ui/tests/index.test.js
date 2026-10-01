@@ -46,12 +46,13 @@ function createDocuments(initial = []) {
   };
 }
 
-function createContext({ router, documents, settings } = {}) {
+function createContext({ router, documents, settings, exporter } = {}) {
   return {
     services: {
       [PEY_ROUTER_SERVICE]: router ?? createRouter(),
       'parsinegar.documents.service': documents ?? createDocuments(),
       'parsinegar.settings.service': settings ?? createSettings(),
+      'parsinegar.export.service': exporter ?? createExporter(),
     },
     events: createEvents(),
     config: { theme: 'system', language: 'fa', direction: 'rtl', fallbackPath: '/', assetBaseUrl: './assets' },
@@ -68,6 +69,14 @@ function createSettings(initial = { theme: 'device', direction: 'auto', fontSize
     async saveSettings(patch = {}) {
       current = { ...current, ...patch };
       return { ...current };
+    },
+  };
+}
+
+function createExporter() {
+  return {
+    async exportHtml() {
+      return { html: '<!DOCTYPE html>', filename: 'x.html', mime: 'text/html' };
     },
   };
 }

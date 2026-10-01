@@ -162,7 +162,8 @@ function renderSortMenu(translate, activeSort) {
 }
 
 /**
- * Renders the per-document action menu (rename, download, properties, delete).
+ * Renders the per-document action menu (rename, download, download-html,
+ * properties, delete).
  * @param {Function} translate Translation function.
  * @param {string} id Escaped document id.
  * @returns {string} Menu markup.
@@ -171,6 +172,6 @@ function renderFileMenu(translate, id) {
   const entry = (key, labelKey) => `
         <button type="button" part="file-menu-item" data-file-${key}="${id}">${escapeHtml(translate(labelKey))}</button>`;
   return `
-      <div part="file-menu" role="menu">${entry('rename', 'parsinegar.documents.rename')}${entry('download', 'parsinegar.documents.download')}${entry('properties', 'parsinegar.documents.properties')}${entry('delete', 'parsinegar.documents.delete')}
+      <div part="file-menu" role="menu">${entry('rename', 'parsinegar.documents.rename')}${entry('download', 'parsinegar.documents.download')}${entry('download-html', 'parsinegar.documents.downloadHtml')}${entry('properties', 'parsinegar.documents.properties')}${entry('delete', 'parsinegar.documents.delete')}
       </div>`;
 }

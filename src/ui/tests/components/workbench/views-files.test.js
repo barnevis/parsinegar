@@ -55,6 +55,7 @@ test('should_render_menu_when_open_menu_matches', () => {
   assert.ok(html.includes('part="file-menu"'));
   assert.ok(html.includes('data-file-rename="a"'));
   assert.ok(html.includes('data-file-download="a"'));
+  assert.ok(html.includes('data-file-download-html="a"'));
   assert.ok(html.includes('data-file-properties="a"'));
   assert.ok(html.includes('data-file-delete="a"'));
   assert.ok(html.includes('aria-expanded="true"'));
