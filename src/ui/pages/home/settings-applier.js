@@ -132,6 +132,30 @@ export function createSettingsApplier({
       }
     },
     /**
+     * Persists the files sort order without touching editor traits (no
+     * remount follows; the page only re-renders the list).
+     * @param {unknown} mode Sort mode from the files view.
+     * @returns {Promise<string>} 'applied', 'ignored' or 'failed'.
+     */
+    async saveFilesSort(mode) {
+      if (!api || typeof mode !== 'string' || mode.length === 0) {
+        return 'ignored';
+      }
+      try {
+        return await chainWrite(async () => {
+          const saved = await api.saveSettings({ filesSort: mode });
+          if (!isLive()) {
+            return 'failed';
+          }
+          settings = saved;
+          return 'applied';
+        });
+      } catch (error) {
+        console.error('[parsi-settings-applier] files sort save failed');
+        return 'failed';
+      }
+    },
+    /**
      * Starts watching the operating-system color scheme so a `device` theme
      * flips the editor when the system changes between light and dark.
      * @param {Function} onFlip Called on system flips while the theme is `device`.

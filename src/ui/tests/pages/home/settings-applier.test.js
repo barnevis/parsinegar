@@ -168,3 +168,23 @@ test('should_flip_only_while_theme_is_device', async () => {
     globalThis.matchMedia = previous;
   }
 });
+
+test('should_save_files_sort_without_touching_traits_when_requested', async () => {
+  const service = createService();
+  const applier = createSettingsApplier({ settingsApi: service });
+  await applier.load();
+  assert.equal(await applier.saveFilesSort('name'), 'applied');
+  assert.equal(applier.getState().settings.filesSort, 'name');
+  assert.deepEqual(service.calls, [{ filesSort: 'name' }]);
+  assert.equal(applier.getState().direction, 'auto');
+  assert.equal(applier.getState().fontSize, 16);
+});
+
+test('should_ignore_files_sort_without_api_or_mode_when_requested', async () => {
+  const missing = createSettingsApplier({});
+  assert.equal(await missing.saveFilesSort('name'), 'ignored');
+  const applier = createSettingsApplier({ settingsApi: createService() });
+  await applier.load();
+  assert.equal(await applier.saveFilesSort(''), 'ignored');
+  assert.equal(await applier.saveFilesSort(null), 'ignored');
+});

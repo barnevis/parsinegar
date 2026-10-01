@@ -1563,3 +1563,31 @@ test('should_download_current_html_when_menu_action_requests_it', async () => {
     element.remove();
   }
 });
+
+test('should_restore_sort_order_after_reload_when_persisted', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 300 },
+    { id: 'd2', title: 'اول', content: 'c2', updatedAt: 100 },
+  ]);
+  const settings = createSettings();
+  const orderOf = (element) => inChildAll(element, 'parsi-side-panel', '[data-doc-id]')
+    .map((button) => button.getAttribute('data-doc-id'));
+  const first = await mountWithSettings(documents, settings);
+  try {
+    assert.deepEqual(orderOf(first), ['d1', 'd2']);
+    inChild(first, 'parsi-side-panel', '[data-doc-sort]').click();
+    await settled();
+    inChild(first, 'parsi-side-panel', '[data-files-sort="name"]').click();
+    await settled();
+    assert.deepEqual(orderOf(first), ['d2', 'd1']);
+    assert.ok(settings.calls.some((patch) => patch.filesSort === 'name'), 'expected the sort persisted');
+  } finally {
+    first.remove();
+  }
+  const second = await mountWithSettings(documents, settings);
+  try {
+    assert.deepEqual(orderOf(second), ['d2', 'd1'], 'expected the persisted sort after reload');
+  } finally {
+    second.remove();
+  }
+});

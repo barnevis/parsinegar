@@ -1,5 +1,12 @@
 # Changelog — parsinegar.settings
 
+## [0.3.0]
+
+### Added
+
+- Accepted `filesSort` preference (one of the six files-view sort orders,
+  defaulting to `updated-desc`); unknown values reject, old records backfill.
+
 ## [0.2.0]
 
 ### Added

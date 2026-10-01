@@ -229,6 +229,7 @@ class ParsiPageHome extends PeyElement {
         if (event.detail.mode !== this.#filesSort) {
           this.#filesSort = event.detail.mode;
           this.#requestEditor();
+          void this.#prefs?.saveFilesSort(event.detail.mode);
         }
         return;
       }
@@ -833,6 +834,10 @@ class ParsiPageHome extends PeyElement {
     await this.#prefs?.load();
     if (!this.isConnected) {
       return;
+    }
+    const storedSort = this.#prefs?.getState().settings?.filesSort;
+    if (typeof storedSort === 'string' && FILES_SORT_MODES.includes(storedSort)) {
+      this.#filesSort = storedSort;
     }
     const result = await this.#docs?.ensureInitial() ?? { none: true };
     if (!this.isConnected) {

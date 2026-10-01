@@ -13,8 +13,12 @@ const THEMES = ['light', 'dark', 'device', 'sepia'];
 const DIRECTIONS = ['auto', 'rtl', 'ltr'];
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 24;
+// Document sort orders. Mirrored (not imported) from the files view
+// (`FILES_SORT_MODES`): plugins must not import UI code, and a contract
+// test pins both lists together.
+const FILES_SORTS = ['name', 'name-desc', 'updated-desc', 'updated-asc', 'created-desc', 'created-asc'];
 
-const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16 };
+const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc' };
 
 /**
  * Builds a standard Bonyan boundary error.
@@ -64,6 +68,7 @@ function sanitizeSettings(input = {}) {
     fontSize: Number.isInteger(fontSize) && fontSize >= FONT_SIZE_MIN && fontSize <= FONT_SIZE_MAX
       ? fontSize
       : DEFAULT_SETTINGS.fontSize,
+    filesSort: FILES_SORTS.includes(source.filesSort) ? source.filesSort : DEFAULT_SETTINGS.filesSort,
   };
 }
 
@@ -86,6 +91,9 @@ function validatePatch(patch) {
     if (!Number.isInteger(fontSize) || fontSize < FONT_SIZE_MIN || fontSize > FONT_SIZE_MAX) {
       throw settingsError('SETTINGS_INVALID_VALUE', `Invalid fontSize value: ${String(source.fontSize)}`, { field: 'fontSize' });
     }
+  }
+  if ('filesSort' in source && !FILES_SORTS.includes(source.filesSort)) {
+    throw settingsError('SETTINGS_INVALID_VALUE', `Invalid filesSort value: ${String(source.filesSort)}`, { field: 'filesSort' });
   }
 }
 
@@ -117,6 +125,7 @@ export {
   COLLECTION,
   DEFAULT_SETTINGS,
   DIRECTIONS,
+  FILES_SORTS,
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
   RECORD_ID,
