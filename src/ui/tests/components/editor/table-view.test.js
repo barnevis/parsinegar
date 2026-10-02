@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EditorState } from '@codemirror/state';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { EditorView } from 'codemirror';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { collectTablesFrom } from '../../../components/editor/table-view.js';
+import { cellContentStart, collectTablesFrom, findTableCell } from '../../../components/editor/table-view.js';
 
 function stateWith(text, selection) {
   return EditorState.create({
@@ -160,6 +161,111 @@ test('should_paint_tables_when_theme_is_loaded', () => {
     assert.ok(has('.parsi-table', 'border-collapse', 'collapse'));
     assert.ok(has('.parsi-table-wrapper', 'overflow-x', 'auto'));
     assert.ok(has('.parsi-table thead th', 'font-weight', '700'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_locate_cells_by_row_and_column_when_searched', () => {
+  const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
+  const state = stateWith(text);
+  const tableFrom = collect(text)[0].from;
+  const at = (row, col) => findTableCell(state, tableFrom, row, col);
+  assert.ok(at(-1, 0).from < at(-1, 0).to, 'header cell exists');
+  assert.equal(text.slice(at(-1, 1).from, at(-1, 1).to).includes('سن'), true);
+  assert.ok(at(0, 0), 'body cell exists');
+  assert.equal(findTableCell(state, tableFrom, 0, 5), null);
+  assert.equal(findTableCell(state, tableFrom, 3, 0), null);
+  assert.equal(findTableCell(state, 0, -1, 0), null);
+});
+
+test('should_find_content_start_inside_cell_ranges', () => {
+  assert.equal(cellContentStart('| نام |', 0, 7), 2);
+  assert.equal(cellContentStart('نام', 0, 3), 0);
+  assert.equal(cellContentStart('  ', 0, 2), 2);
+});
+
+function headOf(host) {
+  const content = host.querySelector('.cm-content');
+  return EditorView.findFromDOM(content).state.selection.main.head;
+}
+
+function pressKey(host, key, code, shift = false) {
+  host.querySelector('.cm-content').dispatchEvent(
+    new KeyboardEvent('keydown', { key, code, bubbles: true, cancelable: true, shiftKey: shift }),
+  );
+}
+
+test('should_move_cursor_to_clicked_cell_when_table_is_clicked', () => {
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  try {
+    const cells = [...host.querySelectorAll('tbody td')];
+    assert.equal(cells.length, 2);
+    cells[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    const head = headOf(host);
+    const doc = editor.getValue();
+    assert.equal(doc.slice(head, head + 2), '۳۰');
+    assert.equal(host.querySelector('.parsi-table'), null);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_step_cells_when_tab_moves_inside_table', () => {
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  try {
+    const cells = [...host.querySelectorAll('tbody td')];
+    cells[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    const doc = editor.getValue();
+    assert.equal(doc.slice(headOf(host), headOf(host) + 3), 'علی');
+    pressKey(host, 'Tab', 'Tab');
+    assert.equal(doc.slice(headOf(host), headOf(host) + 2), '۳۰');
+    pressKey(host, 'Tab', 'Tab', true);
+    assert.equal(doc.slice(headOf(host), headOf(host) + 3), 'علی');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_park_past_the_table_when_tab_leaves_the_last_cell', () => {
+  const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
+  const { host, editor } = createEditor(text);
+  try {
+    const cells = [...host.querySelectorAll('tbody td')];
+    cells[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    pressKey(host, 'Tab', 'Tab');
+    assert.equal(headOf(host), text.length);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_park_on_table_start_when_shift_tab_leaves_the_first_cell', () => {
+  const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
+  const { host, editor } = createEditor(text);
+  try {
+    const first = [...host.querySelectorAll('thead th')][0];
+    first.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    pressKey(host, 'Tab', 'Tab', true);
+    assert.equal(headOf(host), text.indexOf('| نام'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_tab_indent_when_cursor_is_outside_table', () => {
+  const { host, editor } = createEditor('متن\n\n| a |\n|---|\n| 1 |');
+  try {
+    pressKey(host, 'Tab', 'Tab');
+    const content = host.querySelector('.cm-content');
+    const view = EditorView.findFromDOM(content);
+    assert.equal(view.state.doc.lineAt(headOf(host)).number, 1);
+    assert.ok(host.querySelector('.parsi-table'), 'expected the widget undisturbed');
   } finally {
     editor.destroy();
     host.remove();

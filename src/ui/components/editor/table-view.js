@@ -14,8 +14,8 @@
 // which is why this module is a StateField and not a ViewPlugin like the
 // other live-preview extensions.
 import { syntaxTree } from '@codemirror/language';
-import { Decoration, EditorView, WidgetType } from '@codemirror/view';
-import { StateField } from '@codemirror/state';
+import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
+import { EditorSelection, Prec, StateField } from '@codemirror/state';
 
 const REMOTE_PATTERN = /^https?:\/\//i;
 // Marks own no content: gaps between children carry the plain text, and
@@ -292,17 +292,92 @@ function renderInline(document, parent, segments) {
 }
 
 /**
+ * Finds one table cell by position: header is row -1, body rows count from
+ * zero, columns count from zero. Pure over the syntax tree (no DOM), so a
+ * click on a rendered cell maps back to exact source offsets.
+ * @param {object} state Editor state.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @param {number} row Row index (-1 for the header).
+ * @param {number} col Column index.
+ * @returns {object|null} `{ from, to }` source range, or null when absent.
+ */
+export function findTableCell(state, tableFrom, row, col) {
+  const tree = syntaxTree(state);
+  if (!tree) {
+    return null;
+  }
+  // The iterator reuses one cursor: resolve `.node` inside `enter`, never
+  // store the cursor itself (it keeps walking after the callback returns).
+  let table = null;
+  tree.iterate({
+    enter(cursor) {
+      if (cursor.name === 'Table' && cursor.from === tableFrom) {
+        table = cursor.node;
+      }
+    },
+  });
+  if (!table) {
+    return null;
+  }
+  let bodyIndex = -1;
+  let child = table.firstChild;
+  while (child) {
+    if (child.name === 'TableHeader' || child.name === 'TableRow') {
+      bodyIndex += child.name === 'TableRow' ? 1 : 0;
+      if ((child.name === 'TableHeader' && row === -1) || bodyIndex === row) {
+        let cellIndex = -1;
+        let cell = child.firstChild;
+        while (cell) {
+          if (cell.name === 'TableCell') {
+            cellIndex += 1;
+            if (cellIndex === col) {
+              return { from: cell.from, to: cell.to };
+            }
+          }
+          cell = cell.nextSibling;
+        }
+        return null;
+      }
+    }
+    child = child.nextSibling;
+  }
+  return null;
+}
+
+/**
+ * Finds the editable start of a cell: first character that is not a space,
+ * tab or pipe. Works whether the cell range includes its pipes or not.
+ * @param {string} text Document text slice covering at least the range.
+ * @param {number} from Range start (offset into text).
+ * @param {number} to Range end (offset into text).
+ * @returns {number} Content offset.
+ */
+export function cellContentStart(text, from, to) {
+  let pos = from;
+  while (pos < to && (text[pos] === ' ' || text[pos] === '\t' || text[pos] === '|')) {
+    pos += 1;
+  }
+  return pos;
+}
+
+/**
  * Builds one table cell (`th` for headers, `td` for body) with its
  * logical alignment and formatted inline content.
  * @param {object} document Owner document.
  * @param {string} tag 'th' or 'td'.
  * @param {Array} segments Inline cell segments.
  * @param {string} align Logical alignment.
+ * @param {number} row Row index (-1 for the header).
+ * @param {number} col Column index.
+ * @param {number} tableFrom Document offset of the Table node.
  * @returns {HTMLElement} Cell element.
  */
-function buildCell(document, tag, segments, align) {
+function buildCell(document, tag, segments, align, row, col, tableFrom) {
   const cell = document.createElement(tag);
   cell.style.textAlign = align;
+  cell.dataset.tableRow = String(row);
+  cell.dataset.tableCol = String(col);
+  cell.dataset.tableFrom = String(tableFrom);
   renderInline(document, cell, segments);
   return cell;
 }
@@ -326,6 +401,12 @@ class TableWidget extends WidgetType {
       && JSON.stringify(other.table.aligns) === JSON.stringify(this.table.aligns);
   }
 
+  ignoreEvent() {
+    // Let mousedown reach the editor so the cell handler runs; the default
+    // swallows widget events before any domEventHandler sees them.
+    return false;
+  }
+
   /**
    * Builds the table node for the collected header, rows and alignments.
    * @returns {HTMLElement} Wrapper holding the table.
@@ -339,20 +420,20 @@ class TableWidget extends WidgetType {
     const head = document.createElement('thead');
     const headRow = document.createElement('tr');
     header.forEach((segments, index) => {
-      headRow.append(buildCell(document, 'th', segments, aligns[index] ?? 'start'));
+      headRow.append(buildCell(document, 'th', segments, aligns[index] ?? 'start', -1, index, this.table.from));
     });
     head.append(headRow);
     table.append(head);
     const body = document.createElement('tbody');
-    for (const row of rows) {
+    rows.forEach((cells, rowIndex) => {
       const bodyRow = document.createElement('tr');
       // Cells beyond the header ride the last alignment; missing cells
       // simply leave the row shorter, like the source does.
-      row.forEach((segments, index) => {
-        bodyRow.append(buildCell(document, 'td', segments, aligns[Math.min(index, aligns.length - 1)] ?? 'start'));
+      cells.forEach((segments, index) => {
+        bodyRow.append(buildCell(document, 'td', segments, aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from));
       });
       body.append(bodyRow);
-    }
+    });
     table.append(body);
     wrapper.append(table);
     return wrapper;
@@ -429,9 +510,140 @@ const tableTheme = EditorView.theme({
 });
 
 /**
+ * Moves the cursor to one cell content start, for click-to-cell and
+ * Tab navigation. Pure position math over the syntax tree.
+ * @param {object} state Editor state.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @param {number} row Row index (-1 for the header).
+ * @param {number} col Column index.
+ * @returns {number|null} Cursor offset, or null when the cell is absent.
+ */
+function tableCellCursor(state, tableFrom, row, col) {
+  const range = findTableCell(state, tableFrom, row, col);
+  if (!range) {
+    return null;
+  }
+  const text = state.doc.sliceString(range.from, range.to);
+  return range.from + cellContentStart(text, 0, text.length);
+}
+
+/**
+ * Lists every cell content start of one table in visual order: header
+ * first, then body rows top to bottom, left to right.
+ * @param {object} state Editor state.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @returns {Array<number>} Cursor offsets, ascending.
+ */
+function tableCellStops(state, tableFrom) {
+  const tree = syntaxTree(state);
+  if (!tree) {
+    return [];
+  }
+  let table = null;
+  tree.iterate({
+    enter(cursor) {
+      if (cursor.name === 'Table' && cursor.from === tableFrom) {
+        table = cursor.node;
+      }
+    },
+  });
+  if (!table) {
+    return [];
+  }
+  const stops = [];
+  const collect = (parent) => {
+    let cell = parent.firstChild;
+    while (cell) {
+      if (cell.name === 'TableCell') {
+        const text = state.doc.sliceString(cell.from, cell.to);
+        stops.push(cell.from + cellContentStart(text, 0, text.length));
+      }
+      cell = cell.nextSibling;
+    }
+  };
+  let child = table.firstChild;
+  while (child) {
+    if (child.name === 'TableHeader' || child.name === 'TableRow') {
+      collect(child);
+    }
+    child = child.nextSibling;
+  }
+  return stops;
+}
+
+/**
+ * Jumps across table cells with Tab and Shift-Tab while the cursor stands
+ * inside a table; anywhere else the key falls through (to indent). Past the
+ * last cell (or before the first) the cursor parks on the table edge instead
+ * of wrapping: no rows are ever created implicitly.
+ * @param {boolean} forward True for Tab, false for Shift-Tab.
+ * @returns {Function} Keymap command.
+ */
+function jumpTableCell(forward) {
+  return (view) => {
+    const { state } = view;
+    const head = state.selection.main.head;
+    const tree = syntaxTree(state);
+    if (!tree) {
+      return false;
+    }
+    let tableFrom = -1;
+    let tableTo = -1;
+    tree.iterate({
+      enter(cursor) {
+        if (cursor.name === 'Table' && cursor.from <= head && head <= cursor.to) {
+          tableFrom = cursor.from;
+          tableTo = cursor.to;
+        }
+      },
+    });
+    if (tableFrom < 0) {
+      return false;
+    }
+    const stops = tableCellStops(state, tableFrom).sort((a, b) => a - b);
+    const target = forward
+      ? stops.find((stop) => stop > head) ?? tableTo
+      : [...stops].reverse().find((stop) => stop < head) ?? tableFrom;
+    view.dispatch({ selection: EditorSelection.cursor(target), scrollIntoView: true });
+    return true;
+  };
+}
+
+/**
  * Returns the live-table extensions for the editor.
  * @returns {Array} Table field plus theme.
  */
 export function tableViewExtensions() {
-  return [tableField, tableTheme];
+  return [
+    tableField,
+    tableTheme,
+    Prec.high(keymap.of([
+      { key: 'Tab', run: jumpTableCell(true), shift: jumpTableCell(false) },
+    ])),
+    EditorView.domEventHandlers({
+      mousedown(event, view) {
+        if (event.ctrlKey || event.metaKey) {
+          return false;
+        }
+        const cell = event.target?.closest?.('th,td');
+        if (!cell?.isConnected) {
+          return false;
+        }
+        const row = Number(cell.dataset?.tableRow);
+        const col = Number(cell.dataset?.tableCol);
+        const tableFrom = Number(cell.dataset?.tableFrom);
+        if (!Number.isInteger(row) || !Number.isInteger(col) || !Number.isInteger(tableFrom)) {
+          return false;
+        }
+        const pos = tableCellCursor(view.state, tableFrom, row, col);
+        if (pos === null) {
+          return false;
+        }
+        event.preventDefault();
+        view.dispatch({ selection: EditorSelection.cursor(pos), scrollIntoView: true });
+        view.focus();
+        return true;
+      },
+    }),
+  ];
 }
