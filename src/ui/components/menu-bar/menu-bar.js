@@ -34,6 +34,7 @@ class ParsiMenuBar extends PeyElement {
   #searchOpen = false;
   #downloadOpen = false;
   #openSubmenu = null;
+  #submenuFlip = false;
   #search = { ...SEARCH_DEFAULTS };
   #formatNumber = String;
   #assetBaseUrl = null;
@@ -50,11 +51,13 @@ class ParsiMenuBar extends PeyElement {
     this.#searchOpen = false;
     this.#downloadOpen = false;
     this.#openSubmenu = null;
+    this.#submenuFlip = false;
     this.requestRender();
   };
   #onDocumentKeydown = (event) => {
     if (event.key === 'Escape' && this.#openSubmenu !== null) {
       this.#openSubmenu = null;
+      this.#submenuFlip = false;
       this.requestRender();
       return;
     }
@@ -298,6 +301,7 @@ class ParsiMenuBar extends PeyElement {
       const id = button.getAttribute('data-menu');
       this.#openMenu = this.#openMenu === id ? null : id;
       this.#openSubmenu = null;
+      this.#submenuFlip = false;
       this.requestRender();
       return;
     }
@@ -305,7 +309,22 @@ class ParsiMenuBar extends PeyElement {
     if (submenuToggle) {
       const id = submenuToggle.getAttribute('data-submenu');
       this.#openSubmenu = this.#openSubmenu === id ? null : id;
+      if (this.#openSubmenu === null) {
+        this.#submenuFlip = false;
+      }
       this.requestRender();
+      if (this.#openSubmenu !== null) {
+        // Flip to the other side when the viewport has no room on the
+        // opening side. Measured after render, like the search focus.
+        queueMicrotask(() => {
+          const open = this.shadowRoot?.querySelector('[part="menu-subdropdown"]:not([hidden])');
+          const rect = open?.getBoundingClientRect();
+          if (open && rect && rect.left < 0 && this.#submenuFlip !== true) {
+            this.#submenuFlip = true;
+            this.requestRender();
+          }
+        });
+      }
       return;
     }
     const item = event.target?.closest?.('[data-action]');
@@ -313,6 +332,7 @@ class ParsiMenuBar extends PeyElement {
       const action = item.getAttribute('data-action');
       this.#openMenu = null;
       this.#openSubmenu = null;
+      this.#submenuFlip = false;
       this.requestRender();
       this.dispatchEvent(
         new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action } }),
@@ -342,7 +362,7 @@ class ParsiMenuBar extends PeyElement {
               return `
             <div part="menu-item-wrap">
               <button type="button" part="menu-item" role="menuitem" data-submenu="${entry.id}" aria-haspopup="true" aria-expanded="${subOpen}" ${entry.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(entry.label)}</span><span part="menu-sub-indicator" aria-hidden="true">‹</span></button>
-              <div part="menu-subdropdown" role="menu" ${subOpen ? '' : 'hidden'}>${entry.children.map((child) => `
+              <div part="menu-subdropdown" role="menu" data-flip="${this.#submenuFlip === true}" ${subOpen ? '' : 'hidden'}>${entry.children.map((child) => `
                 <button type="button" part="menu-item" role="menuitem" data-action="${child.action}" ${child.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(child.label)}</span></button>`).join('')}
               </div>
             </div>`;

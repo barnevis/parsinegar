@@ -645,3 +645,31 @@ test('should_close_submenu_when_outside_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_open_submenu_toward_center_when_insert_is_open', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const style = [...element.shadowRoot.querySelectorAll('style')].map((node) => node.textContent).join('\n');
+    assert.ok(style.includes('[part="menu-subdropdown"]'), 'expected the submenu rule');
+    assert.ok(style.includes('inset-inline-start'), 'expected the center-ward opening side');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_submenu_unflipped_by_default_when_opened', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="insert"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-submenu="insert-admonition"]').click();
+    await flush();
+    const open = element.shadowRoot.querySelector('[part="menu-subdropdown"]:not([hidden])');
+    assert.ok(open, 'expected the open submenu');
+    assert.equal(open.getAttribute('data-flip'), 'false');
+  } finally {
+    element.remove();
+  }
+});
