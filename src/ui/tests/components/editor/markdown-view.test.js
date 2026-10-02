@@ -3,6 +3,7 @@ import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { EditorView } from 'codemirror';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../../sample-document.js';
 
@@ -652,6 +653,57 @@ test('should_scope_to_selection_when_in_selection_is_set', () => {
     const replaced = editor.searchReplaceAll({ query: 'یک', replace: '۱', inSelection: true });
     assert.equal(replaced.replaced, 1);
     assert.equal(editor.getValue(), 'یک دو ۱');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_jump_to_line_edges_when_home_end_are_pressed', () => {
+  const text = '**bold** rest of the line';
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: text });
+  try {
+    const content = host.querySelector('.cm-content');
+    const head = () => EditorView.findFromDOM(content).state.selection.main.head;
+    const press = (key) => content.dispatchEvent(
+      new KeyboardEvent('keydown', { key, code: key, bubbles: true, cancelable: true }),
+    );
+    press('End');
+    assert.equal(head(), text.length);
+    press('Home');
+    assert.equal(head(), 0);
+    press('Home');
+    assert.equal(head(), 0);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_consume_homeend_when_already_at_the_edge', () => {
+  const text = '**bold** rest of the line';
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: text });
+  try {
+    // Fresh cursor sits at the line start: the stock binding would no-op and
+    // let the event fall through, so consuming proves our own binding ran.
+    const content = host.querySelector('.cm-content');
+    const home = new KeyboardEvent('keydown', { key: 'Home', code: 'Home', bubbles: true, cancelable: true });
+    content.dispatchEvent(home);
+    assert.equal(home.defaultPrevented, true);
+    const head = () => EditorView.findFromDOM(content).state.selection.main.head;
+    for (let index = 0; index < 3; index += 1) {
+      content.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'End', code: 'End', bubbles: true, cancelable: true }),
+      );
+    }
+    assert.equal(head(), text.length);
+    const end = new KeyboardEvent('keydown', { key: 'End', code: 'End', bubbles: true, cancelable: true });
+    content.dispatchEvent(end);
+    assert.equal(end.defaultPrevented, true);
   } finally {
     editor.destroy();
     host.remove();

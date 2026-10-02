@@ -7,7 +7,7 @@
 // listeners until destroy() releases them.
 import { EditorView, minimalSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { indentWithTab, redo, selectAll, undo } from '@codemirror/commands';
+import { cursorLineEnd, cursorLineStart, indentWithTab, redo, selectAll, selectLineEnd, selectLineStart, undo } from '@codemirror/commands';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { SearchQuery, search, setSearchQuery } from '@codemirror/search';
 import { keymap } from '@codemirror/view';
@@ -60,6 +60,20 @@ function isSelectAllEvent(event) {
     && (event.ctrlKey || event.metaKey)
     && !event.altKey
     && !event.shiftKey;
+}
+
+/**
+ * Wraps a cursor command so it always consumes its key, even when the
+ * cursor is already there. Without this, a no-change run reports false
+ * and the event falls through to the stock binding behind it.
+ * @param {Function} command CodeMirror cursor command.
+ * @returns {Function} Command that always returns true.
+ */
+function alwaysConsume(command) {
+  return (view) => {
+    command(view);
+    return true;
+  };
 }
 
 /**
@@ -176,6 +190,21 @@ export function createMarkdownView(host, options = {}) {
         { key: 'Shift-Tab', run: (target) => indentListItem(target, true) },
         indentWithTab,
       ]),
+      // Home/End jump to the logical line start/end in one press. The stock
+      // bindings stop at every visual wrap point and bidi edge instead, which
+      // strands the cursor hopping between marks on marked lines (the lookup
+      // resolves through zero-size mark spans and flips with cursor affinity,
+      // so it never settles on the line start). Position-based jumps bypass
+      // measurement entirely and behave the same in rtl and ltr. Prec.high:
+      // minimalSetup already carries defaultKeymap, which wins ties by
+      // position, so equal precedence would never reach these bindings.
+      // Always consume: CodeMirror falls through to lower-precedence bindings
+      // when a command reports no change, which would revive the stock
+      // hopping exactly when already parked at the line edge.
+      Prec.high(keymap.of([
+        { key: 'Home', run: alwaysConsume(cursorLineStart), shift: alwaysConsume(selectLineStart) },
+        { key: 'End', run: alwaysConsume(cursorLineEnd), shift: alwaysConsume(selectLineEnd) },
+      ])),
       // Bracket pairing (`()[]{}`) plus pair-aware Backspace from the keymap.
       // Quotes and backticks pair through `quote-pairs.js` below instead:
       // closeBrackets only pairs same-character tokens inside string
