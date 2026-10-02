@@ -1207,6 +1207,30 @@ test('should_insert_mark_when_insert_action_arrives', async () => {
   }
 });
 
+test('should_insert_table_and_admonition_when_new_actions_arrive', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-menu-bar').dispatchEvent(
+      new CustomEvent('menu-action', { bubbles: true, detail: { action: 'insert-table' } }),
+    );
+    await settled();
+    assert.ok(element.value.includes('|  |  |'));
+    child(element, 'parsi-menu-bar').dispatchEvent(
+      new CustomEvent('menu-action', { bubbles: true, detail: { action: 'insert-admonition-tip' } }),
+    );
+    await settled();
+    assert.ok(element.value.includes('...راهنما'));
+    child(element, 'parsi-menu-bar').dispatchEvent(
+      new CustomEvent('menu-action', { bubbles: true, detail: { action: 'insert-unknown-kind' } }),
+    );
+    await settled();
+    assert.ok(!element.value.includes('unknown-kind'));
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_highlight_first_heading_when_mounted_with_outline', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: '# الف\nمتن\n## ب', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);

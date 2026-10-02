@@ -67,6 +67,29 @@
   opacity: 0.45;
   cursor: default;
 }
+[part="menu-item-wrap"] {
+  position: relative;
+}
+[part="menu-sub-indicator"] {
+  color: var(--pey-color-text-muted, #55555f);
+}
+[part="menu-subdropdown"] {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: calc(100% + 0.25rem);
+  min-inline-size: 9rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 0.3rem;
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 10px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+}
+[part="menu-subdropdown"][hidden] {
+  display: none;
+}
 [part="menu-button"]:focus-visible,
 [part="menu-item"]:focus-visible {
   outline: 2px solid var(--pey-color-focus-ring, #5eead4);

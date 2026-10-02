@@ -37,6 +37,14 @@ test('should_build_five_menus_when_called', () => {
   for (const menu of menus) {
     assert.ok(menu.items.length > 0, `expected items in ${menu.id}`);
     for (const item of menu.items) {
+      if (Array.isArray(item.children)) {
+        assert.ok(item.children.length > 0, `expected children in ${item.id}`);
+        for (const child of item.children) {
+          assert.equal(typeof child.action, 'string');
+          assert.equal(typeof child.disabled, 'boolean');
+        }
+        continue;
+      }
       assert.equal(typeof item.action, 'string');
       assert.equal(typeof item.disabled, 'boolean');
     }
@@ -46,7 +54,7 @@ test('should_build_five_menus_when_called', () => {
 test('should_offer_every_mark_when_insert_menu_is_read', () => {
   const menus = buildMenuModel({ t: translate, hasDocument: true });
   const insert = menus.find(({ id }) => id === 'insert');
-  assert.deepEqual(insert.items.map(({ action }) => action), [
+  assert.deepEqual(insert.items.map(({ action }) => action ?? null), [
     'insert-heading',
     'insert-bold',
     'insert-italic',
@@ -56,8 +64,16 @@ test('should_offer_every_mark_when_insert_menu_is_read', () => {
     'insert-code',
     'insert-unordered-list',
     'insert-ordered-list',
+    'insert-task-list',
+    'insert-highlight',
+    'insert-image',
+    'insert-horizontal-rule',
+    'insert-table',
+    null,
+    'insert-poem',
+    'insert-code-block',
   ]);
-  assert.deepEqual(insert.items.map(({ shortcut }) => shortcut), [
+  assert.deepEqual(insert.items.map(({ shortcut }) => shortcut ?? null), [
     'Ctrl+H',
     'Ctrl+B',
     'Ctrl+I',
@@ -67,6 +83,28 @@ test('should_offer_every_mark_when_insert_menu_is_read', () => {
     'Ctrl+E',
     'Ctrl+Shift+U',
     'Ctrl+Shift+L',
+    'Ctrl+Shift+T',
+    'Ctrl+Shift+H',
+    'Ctrl+Shift+M',
+    'Ctrl+Shift+Y',
+    'Ctrl+Shift+G',
+    null,
+    'Ctrl+Shift+X',
+    'Ctrl+Shift+E',
+  ]);
+});
+
+test('should_offer_five_kinds_when_admonition_submenu_is_read', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true });
+  const insert = menus.find(({ id }) => id === 'insert');
+  const parent = insert.items.find(({ id }) => id === 'insert-admonition');
+  assert.ok(parent, 'expected the admonition parent');
+  assert.deepEqual(parent.children.map(({ action }) => action), [
+    'insert-admonition-warning',
+    'insert-admonition-caution',
+    'insert-admonition-important',
+    'insert-admonition-tip',
+    'insert-admonition-note',
   ]);
 });
 

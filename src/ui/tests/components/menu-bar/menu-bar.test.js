@@ -161,6 +161,13 @@ test('should_show_shortcuts_when_insert_menu_is_open', async () => {  const elem
       'Ctrl+E',
       'Ctrl+Shift+U',
       'Ctrl+Shift+L',
+      'Ctrl+Shift+T',
+      'Ctrl+Shift+H',
+      'Ctrl+Shift+M',
+      'Ctrl+Shift+Y',
+      'Ctrl+Shift+G',
+      'Ctrl+Shift+X',
+      'Ctrl+Shift+E',
     ]);
   } finally {
     element.remove();
@@ -552,6 +559,88 @@ test('should_close_download_dropdown_when_outside_is_clicked', async () => {
     document.body.click();
     await flush();
     assert.equal(element.shadowRoot.querySelector('[part="download-dropdown"]').hasAttribute('hidden'), true);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_render_admonition_parent_with_indicator_when_insert_is_open', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="insert"]').click();
+    await flush();
+    const parent = element.shadowRoot.querySelector('[data-submenu="insert-admonition"]');
+    assert.ok(parent, 'expected the submenu parent');
+    assert.equal(parent.getAttribute('aria-expanded'), 'false');
+    assert.equal(element.shadowRoot.querySelector('[part="menu-subdropdown"]').hasAttribute('hidden'), true);
+    const kinds = [...element.shadowRoot.querySelectorAll('[part="menu-subdropdown"] [data-action]')]
+      .map((node) => node.getAttribute('data-action'));
+    assert.deepEqual(kinds, [
+      'insert-admonition-warning',
+      'insert-admonition-caution',
+      'insert-admonition-important',
+      'insert-admonition-tip',
+      'insert-admonition-note',
+    ]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_open_submenu_and_emit_kind_when_option_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('menu-action', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-menu="insert"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-submenu="insert-admonition"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="menu-subdropdown"]').hasAttribute('hidden'), false);
+    element.shadowRoot.querySelector('[data-action="insert-admonition-tip"]').click();
+    await flush();
+    assert.deepEqual(seen, [{ action: 'insert-admonition-tip' }]);
+    assert.equal(element.shadowRoot.querySelector('[part="menu-subdropdown"]').hasAttribute('hidden'), true);
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_close_submenu_first_when_escape_is_pressed', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="insert"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-submenu="insert-admonition"]').click();
+    await flush();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="menu-subdropdown"]').hasAttribute('hidden'), true);
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 1);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_close_submenu_when_outside_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.shadowRoot.querySelector('[data-menu="insert"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-submenu="insert-admonition"]').click();
+    await flush();
+    document.body.click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[part="menu-subdropdown"]').hasAttribute('hidden'), true);
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
   } finally {
     element.remove();
   }

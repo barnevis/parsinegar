@@ -29,7 +29,7 @@ import { tableViewExtensions } from './table-view.js';
 import { collectSearchMatches, createSearchQuery, indexOfMatchAt, normalizeSearchSpec, resolveSearchScope } from './search-ops.js';
 import { taskListExtensions } from './task-list.js';
 import { textHighlightExtensions } from './text-highlight.js';
-import { shortcutCommand, toggleBold, toggleCode, toggleHeading, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleUnorderedList, insertLink } from './toggle-mark.js';
+import { shortcutCommand, toggleBold, toggleCode, toggleHeading, toggleItalic, toggleOrderedList, toggleQuote, toggleStrikethrough, toggleUnorderedList, insertLink, toggleTaskList, toggleHighlight, insertImage, insertHorizontalRule, insertTable, insertAdmonition, insertPoem, insertCodeBlock, ADMONITION_KINDS } from './toggle-mark.js';
 
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const DEFAULT_FONT_SIZE = 16;
@@ -45,6 +45,16 @@ const INSERT_COMMANDS = {
   code: toggleCode,
   'unordered-list': toggleUnorderedList,
   'ordered-list': toggleOrderedList,
+  'task-list': toggleTaskList,
+  highlight: toggleHighlight,
+  image: insertImage,
+  'horizontal-rule': insertHorizontalRule,
+  table: insertTable,
+  ...Object.fromEntries(
+    ADMONITION_KINDS.map(({ id, word }) => [`admonition-${id}`, (view) => insertAdmonition(view, word)]),
+  ),
+  poem: insertPoem,
+  'code-block': insertCodeBlock,
 };
 
 /**

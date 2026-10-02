@@ -37,6 +37,18 @@ const INSERT_MARK_KINDS = [
   'code',
   'unordered-list',
   'ordered-list',
+  'task-list',
+  'highlight',
+  'image',
+  'horizontal-rule',
+  'table',
+  'admonition-warning',
+  'admonition-caution',
+  'admonition-important',
+  'admonition-tip',
+  'admonition-note',
+  'poem',
+  'code-block',
 ];
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
 

@@ -263,7 +263,7 @@ export function indentListItem(view, outdent) {
  * @param {number} lineNumber 1-based line number.
  * @returns {boolean} True inside fenced code.
  */
-function inFencedCode(state, lineNumber) {
+export function inFencedCode(state, lineNumber) {
   let inFence = false;
   for (let n = 1; n < lineNumber; n += 1) {
     if (FENCE_PATTERN.test(state.doc.line(n).text)) {

@@ -13,6 +13,8 @@
  * @param {boolean} [options.builtInOpen] Whether a built-in doc is showing.
  * @returns {Array<object>} Menus with `{ id, label, items: [{ id, label, action, disabled, shortcut }] }`.
  * Insert items carry their keyboard shortcut display (`shortcut` is absent elsewhere).
+ * The admonition item carries `children` (one per kind) instead of an action:
+ * the first submenu of the project.
  */
 export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen = false } = {}) {
   const translate = typeof t === 'function' ? t : (key) => key;
@@ -68,6 +70,24 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
         { id: 'insert-code', label: translate('parsinegar.insert.code'), action: 'insert-code', shortcut: 'Ctrl+E', disabled: false },
         { id: 'insert-unordered-list', label: translate('parsinegar.insert.unordered-list'), action: 'insert-unordered-list', shortcut: 'Ctrl+Shift+U', disabled: false },
         { id: 'insert-ordered-list', label: translate('parsinegar.insert.ordered-list'), action: 'insert-ordered-list', shortcut: 'Ctrl+Shift+L', disabled: false },
+        { id: 'insert-task-list', label: translate('parsinegar.insert.task-list'), action: 'insert-task-list', shortcut: 'Ctrl+Shift+T', disabled: false },
+        { id: 'insert-highlight', label: translate('parsinegar.insert.highlight'), action: 'insert-highlight', shortcut: 'Ctrl+Shift+H', disabled: false },
+        { id: 'insert-image', label: translate('parsinegar.insert.image'), action: 'insert-image', shortcut: 'Ctrl+Shift+M', disabled: false },
+        { id: 'insert-horizontal-rule', label: translate('parsinegar.insert.horizontal-rule'), action: 'insert-horizontal-rule', shortcut: 'Ctrl+Shift+Y', disabled: false },
+        { id: 'insert-table', label: translate('parsinegar.insert.table'), action: 'insert-table', shortcut: 'Ctrl+Shift+G', disabled: false },
+        {
+          id: 'insert-admonition',
+          label: translate('parsinegar.insert.admonition'),
+          children: [
+            { id: 'insert-admonition-warning', label: translate('parsinegar.insert.admonition-warning'), action: 'insert-admonition-warning', disabled: false },
+            { id: 'insert-admonition-caution', label: translate('parsinegar.insert.admonition-caution'), action: 'insert-admonition-caution', disabled: false },
+            { id: 'insert-admonition-important', label: translate('parsinegar.insert.admonition-important'), action: 'insert-admonition-important', disabled: false },
+            { id: 'insert-admonition-tip', label: translate('parsinegar.insert.admonition-tip'), action: 'insert-admonition-tip', disabled: false },
+            { id: 'insert-admonition-note', label: translate('parsinegar.insert.admonition-note'), action: 'insert-admonition-note', disabled: false },
+          ],
+        },
+        { id: 'insert-poem', label: translate('parsinegar.insert.poem'), action: 'insert-poem', shortcut: 'Ctrl+Shift+X', disabled: false },
+        { id: 'insert-code-block', label: translate('parsinegar.insert.code-block'), action: 'insert-code-block', shortcut: 'Ctrl+Shift+E', disabled: false },
       ],
     },
     {

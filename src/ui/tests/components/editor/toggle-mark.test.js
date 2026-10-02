@@ -5,15 +5,24 @@ import test from 'node:test';
 import { EditorView } from 'codemirror';
 import { EditorSelection } from '@codemirror/state';
 import {
+  ADMONITION_KINDS,
+  insertAdmonition,
+  insertCodeBlock,
+  insertHorizontalRule,
+  insertImage,
   insertLink,
+  insertPoem,
+  insertTable,
   shortcutCommand,
   toggleBold,
   toggleCode,
   toggleHeading,
+  toggleHighlight,
   toggleItalic,
   toggleOrderedList,
   toggleQuote,
   toggleStrikethrough,
+  toggleTaskList,
   toggleUnorderedList,
 } from '../../../components/editor/toggle-mark.js';
 
@@ -258,6 +267,14 @@ test('should_match_shortcuts_by_code_when_queried', () => {
   assert.equal(shortcutCommand({ code: 'KeyE', ctrlKey: true }), toggleCode);
   assert.equal(shortcutCommand({ code: 'KeyL', ctrlKey: true, shiftKey: true }), toggleOrderedList);
   assert.equal(shortcutCommand({ code: 'KeyU', ctrlKey: true, shiftKey: true }), toggleUnorderedList);
+  assert.equal(shortcutCommand({ code: 'KeyT', ctrlKey: true, shiftKey: true }), toggleTaskList);
+  assert.equal(shortcutCommand({ code: 'KeyH', ctrlKey: true, shiftKey: true }), toggleHighlight);
+  assert.equal(shortcutCommand({ code: 'KeyM', ctrlKey: true, shiftKey: true }), insertImage);
+  assert.equal(shortcutCommand({ code: 'KeyY', ctrlKey: true, shiftKey: true }), insertHorizontalRule);
+  assert.equal(shortcutCommand({ code: 'KeyG', ctrlKey: true, shiftKey: true }), insertTable);
+  assert.equal(shortcutCommand({ code: 'KeyX', ctrlKey: true, shiftKey: true }), insertPoem);
+  assert.equal(shortcutCommand({ code: 'KeyE', ctrlKey: true, shiftKey: true }), insertCodeBlock);
+  assert.equal(shortcutCommand({ code: 'KeyT', ctrlKey: true }), null);
 });
 
 test('should_ignore_key_layout_when_matching', () => {
@@ -270,4 +287,147 @@ test('should_reject_missing_modifiers_when_matching', () => {
   assert.equal(shortcutCommand({ code: 'KeyB', ctrlKey: true, altKey: true }), null);
   assert.equal(shortcutCommand({ code: 'KeyB', ctrlKey: true, shiftKey: true }), null);
   assert.equal(shortcutCommand({ code: 'KeyA', ctrlKey: true }), null);
+});
+
+test('should_toggle_task_box_per_line_when_task_toggles', () => {
+  const plain = createView('متن', 2);
+  try {
+    assert.equal(toggleTaskList(plain.view), true);
+    assert.equal(docOf(plain.view), '- [ ] متن');
+  } finally {
+    plain.destroy();
+  }
+  const bullet = createView('- مورد', 2);
+  try {
+    assert.equal(toggleTaskList(bullet.view), true);
+    assert.equal(docOf(bullet.view), '- [ ] مورد');
+  } finally {
+    bullet.destroy();
+  }
+  const boxed = createView('- [x] انجام‌شده', 2);
+  try {
+    assert.equal(toggleTaskList(boxed.view), true);
+    assert.equal(docOf(boxed.view), '- انجام‌شده');
+  } finally {
+    boxed.destroy();
+  }
+  const mixed = createView('- [ ] یک\n- دو', 0, 13);
+  try {
+    assert.equal(toggleTaskList(mixed.view), true);
+    assert.equal(docOf(mixed.view), '- یک\n- [ ] دو');
+  } finally {
+    mixed.destroy();
+  }
+});
+
+test('should_wrap_and_unwrap_highlight_when_toggled', () => {
+  const empty = createView('', 0);
+  try {
+    assert.equal(toggleHighlight(empty.view), true);
+    assert.equal(docOf(empty.view), '====');
+    assert.deepEqual(selectionOf(empty.view), [2, 2]);
+  } finally {
+    empty.destroy();
+  }
+  const wrapped = createView('a word b', 2, 6);
+  try {
+    assert.equal(toggleHighlight(wrapped.view), true);
+    assert.equal(docOf(wrapped.view), 'a ==word== b');
+  } finally {
+    wrapped.destroy();
+  }
+  const marked = createView('a ==word== b', 2, 10);
+  try {
+    assert.equal(toggleHighlight(marked.view), true);
+    assert.equal(docOf(marked.view), 'a word b');
+  } finally {
+    marked.destroy();
+  }
+});
+
+test('should_insert_image_template_when_image_inserts', () => {
+  const empty = createView('', 0);
+  try {
+    assert.equal(insertImage(empty.view), true);
+    assert.equal(docOf(empty.view), '![]()');
+    assert.deepEqual(selectionOf(empty.view), [2, 2]);
+  } finally {
+    empty.destroy();
+  }
+  const selected = createView('a word b', 2, 6);
+  try {
+    assert.equal(insertImage(selected.view), true);
+    assert.equal(docOf(selected.view), 'a ![word]() b');
+  } finally {
+    selected.destroy();
+  }
+});
+
+test('should_insert_rule_with_padding_when_hr_inserts', () => {
+  const blank = createView('متن\n\nبعد', 4);
+  try {
+    assert.equal(insertHorizontalRule(blank.view), true);
+    assert.equal(docOf(blank.view), 'متن\n\n---\nبعد');
+  } finally {
+    blank.destroy();
+  }
+  const text = createView('متن', 3);
+  try {
+    assert.equal(insertHorizontalRule(text.view), true);
+    assert.equal(docOf(text.view), 'متن\n\n---');
+  } finally {
+    text.destroy();
+  }
+});
+
+test('should_insert_table_skeleton_when_table_inserts', () => {
+  const blank = createView('', 0);
+  try {
+    assert.equal(insertTable(blank.view), true);
+    assert.equal(docOf(blank.view), '|  |  |\n|---|---|\n|  |  |');
+    assert.deepEqual(selectionOf(blank.view), [2, 2]);
+  } finally {
+    blank.destroy();
+  }
+});
+
+test('should_insert_each_admonition_kind_when_inserts', () => {
+  assert.deepEqual(ADMONITION_KINDS.map(({ id }) => id), ['warning', 'caution', 'important', 'tip', 'note']);
+  for (const { word } of ADMONITION_KINDS) {
+    const mounted = createView('', 0);
+    try {
+      assert.equal(insertAdmonition(mounted.view, word), true);
+      assert.equal(docOf(mounted.view), `...${word}\n\n...`);
+    } finally {
+      mounted.destroy();
+    }
+  }
+  const attachment = createView('', 0);
+  try {
+    assert.equal(insertPoem(attachment.view), true);
+    assert.equal(docOf(attachment.view), '...شعر\n\n...');
+  } finally {
+    attachment.destroy();
+  }
+});
+
+test('should_insert_fence_pair_when_code_block_inserts', () => {
+  const blank = createView('متن\n\nبعد', 4);
+  try {
+    assert.equal(insertCodeBlock(blank.view), true);
+    assert.equal(docOf(blank.view), 'متن\n```\n\n```\nبعد');
+    assert.deepEqual(selectionOf(blank.view), [8, 8]);
+  } finally {
+    blank.destroy();
+  }
+});
+
+test('should_refuse_code_block_inside_fenced_code_when_inserting', () => {
+  const mounted = createView('```js\nconst x = 1;\n```', 10);
+  try {
+    assert.equal(insertCodeBlock(mounted.view), false);
+    assert.equal(docOf(mounted.view), '```js\nconst x = 1;\n```');
+  } finally {
+    mounted.destroy();
+  }
 });

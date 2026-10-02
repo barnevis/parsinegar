@@ -33,10 +33,11 @@ class ParsiMenuBar extends PeyElement {
   #openMenu = null;
   #searchOpen = false;
   #downloadOpen = false;
+  #openSubmenu = null;
   #search = { ...SEARCH_DEFAULTS };
   #formatNumber = String;
   #assetBaseUrl = null;
-  #onDocumentClick = (event) => {
+    #onDocumentClick = (event) => {
     if (this.#openMenu === null && !this.#searchOpen && !this.#downloadOpen) {
       return;
     }
@@ -48,9 +49,15 @@ class ParsiMenuBar extends PeyElement {
     this.#openMenu = null;
     this.#searchOpen = false;
     this.#downloadOpen = false;
+    this.#openSubmenu = null;
     this.requestRender();
   };
   #onDocumentKeydown = (event) => {
+    if (event.key === 'Escape' && this.#openSubmenu !== null) {
+      this.#openSubmenu = null;
+      this.requestRender();
+      return;
+    }
     if (event.key === 'Escape' && this.#openMenu !== null) {
       this.#openMenu = null;
       this.requestRender();
@@ -290,6 +297,14 @@ class ParsiMenuBar extends PeyElement {
     if (button) {
       const id = button.getAttribute('data-menu');
       this.#openMenu = this.#openMenu === id ? null : id;
+      this.#openSubmenu = null;
+      this.requestRender();
+      return;
+    }
+    const submenuToggle = event.target?.closest?.('[data-submenu]');
+    if (submenuToggle) {
+      const id = submenuToggle.getAttribute('data-submenu');
+      this.#openSubmenu = this.#openSubmenu === id ? null : id;
       this.requestRender();
       return;
     }
@@ -297,6 +312,7 @@ class ParsiMenuBar extends PeyElement {
     if (item && !item.disabled) {
       const action = item.getAttribute('data-action');
       this.#openMenu = null;
+      this.#openSubmenu = null;
       this.requestRender();
       this.dispatchEvent(
         new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action } }),
@@ -320,8 +336,20 @@ class ParsiMenuBar extends PeyElement {
       return `
         <div part="menu">
           <button type="button" part="menu-button" data-menu="${menu.id}" aria-haspopup="true" aria-expanded="${open}">${escapeHtml(menu.label)}</button>
-          <div part="menu-dropdown" role="menu" ${open ? '' : 'hidden'}>${menu.items.map((entry) => `
-            <button type="button" part="menu-item" role="menuitem" data-action="${entry.id}" ${entry.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(entry.label)}</span>${typeof entry.shortcut === 'string' && entry.shortcut.length > 0 ? `<span part="menu-shortcut">${escapeHtml(entry.shortcut)}</span>` : ''}</button>`).join('')}
+          <div part="menu-dropdown" role="menu" ${open ? '' : 'hidden'}>${menu.items.map((entry) => {
+            if (Array.isArray(entry.children)) {
+              const subOpen = open && this.#openSubmenu === entry.id;
+              return `
+            <div part="menu-item-wrap">
+              <button type="button" part="menu-item" role="menuitem" data-submenu="${entry.id}" aria-haspopup="true" aria-expanded="${subOpen}" ${entry.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(entry.label)}</span><span part="menu-sub-indicator" aria-hidden="true">‹</span></button>
+              <div part="menu-subdropdown" role="menu" ${subOpen ? '' : 'hidden'}>${entry.children.map((child) => `
+                <button type="button" part="menu-item" role="menuitem" data-action="${child.action}" ${child.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(child.label)}</span></button>`).join('')}
+              </div>
+            </div>`;
+            }
+            return `
+            <button type="button" part="menu-item" role="menuitem" data-action="${entry.id}" ${entry.disabled ? 'disabled' : ''}><span part="menu-item-label">${escapeHtml(entry.label)}</span>${typeof entry.shortcut === 'string' && entry.shortcut.length > 0 ? `<span part="menu-shortcut">${escapeHtml(entry.shortcut)}</span>` : ''}</button>`;
+          }).join('')}
           </div>
         </div>`;
     }).join('');
