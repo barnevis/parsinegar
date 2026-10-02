@@ -70,6 +70,12 @@
 [part="menu-item-wrap"] {
   position: relative;
 }
+[part="menu-item-wrap"] > [part="menu-item"] {
+  /* The submenu parent must fill the row like every flat item: without an
+    explicit width it shrink-wraps its content, so clicks on the empty part
+    of the row hit nothing. */
+  inline-size: 100%;
+}
 [part="menu-sub-indicator"] {
   color: var(--pey-color-text-muted, #55555f);
   /* The `‹` glyph is bidi-mirrored in rtl context (it would paint as `›`,

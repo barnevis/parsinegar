@@ -685,3 +685,15 @@ test('should_pin_submenu_indicator_direction_when_rendered', async () => {
     element.remove();
   }
 });
+
+test('should_fill_row_width_when_submenu_parent_is_rendered', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const style = [...element.shadowRoot.querySelectorAll('style')].map((node) => node.textContent).join('\n');
+    assert.ok(style.includes('[part="menu-item-wrap"] > [part="menu-item"]'), 'expected the fill rule');
+    assert.ok(style.includes('inline-size: 100%'), 'expected the full-row width');
+  } finally {
+    element.remove();
+  }
+});
