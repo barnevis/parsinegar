@@ -72,6 +72,10 @@
 }
 [part="menu-sub-indicator"] {
   color: var(--pey-color-text-muted, #55555f);
+  /* The `‹` glyph is bidi-mirrored in rtl context (it would paint as `›`,
+    away from the submenu), so pin the span left-to-right. */
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 [part="menu-subdropdown"] {
   position: absolute;

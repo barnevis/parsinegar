@@ -673,3 +673,15 @@ test('should_keep_submenu_unflipped_by_default_when_opened', async () => {
     element.remove();
   }
 });
+
+test('should_pin_submenu_indicator_direction_when_rendered', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const style = [...element.shadowRoot.querySelectorAll('style')].map((node) => node.textContent).join('\n');
+    assert.ok(style.includes('[part="menu-sub-indicator"]'), 'expected the indicator rule');
+    assert.ok(style.includes('direction: ltr'), 'expected the unmirrored indicator direction');
+  } finally {
+    element.remove();
+  }
+});
