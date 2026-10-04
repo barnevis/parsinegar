@@ -455,6 +455,56 @@ export function collectExtendedMarkRanges(doc, tree, from, to) {
 }
 
 /**
+ * Checks whether a URL range is the whole visible content of its link: a
+ * bare autolink (`https://…`), an angle autolink (`<https://…>`) or a link
+ * with empty text (`[](https://…)`). Those render nothing without the URL
+ * itself, so the URL must stay visible instead of hiding with other marks.
+ * @param {object} tree Syntax tree.
+ * @param {number} from URL range start.
+ * @param {number} to URL range end.
+ * @returns {boolean} True when the URL is the link's only content.
+ */
+export function isBareLinkUrl(tree, from, to) {
+  if (!tree) {
+    return false;
+  }
+  // Resolve `.node` inside `enter`: the iterator reuses one cursor, so a
+  // stored cursor would have walked on by the time it is read.
+  let scope = null;
+  tree.iterate({
+    from,
+    to,
+    enter(cursor) {
+      const name = cursor.name;
+      if ((name === 'Link' || name === 'Autolink' || name === 'Image') && cursor.from <= from && cursor.to >= to) {
+        scope = cursor.node ?? scope;
+      }
+    },
+  });
+  if (!scope) {
+    return true;
+  }
+  if (scope.name === 'Image') {
+    return false;
+  }
+  // Plain text leaves no node behind, so any gap between the mark and URL
+  // children is visible content (e.g. the label of `[text](url)`).
+  let pos = scope.from;
+  let child = scope.firstChild;
+  while (child) {
+    if (child.name !== 'URL' && child.name !== 'LinkMark') {
+      return false;
+    }
+    if (child.from > pos) {
+      return false;
+    }
+    pos = Math.max(pos, child.to);
+    child = child.nextSibling;
+  }
+  return pos >= scope.to;
+}
+
+/**
  * Reveals hidden formatting marks only where the cursor (or selection)
  * overlaps them, so the exact spot under edit opens up while every other
  * mark on the line keeps its rendered form. For inline spans and headings
@@ -492,6 +542,14 @@ export function buildMarkRevealDecorations(view) {
     const extended = collectExtendedMarkRanges(view.state.doc, tree, from, to);
     highlightTree(tree, persianHighlight, (rangeFrom, rangeTo, classes) => {
       if (!MARK_REVEAL_PATTERN.test(classes)) {
+        return;
+      }
+      if (/\bparsi-url\b/.test(classes) && isBareLinkUrl(tree, rangeFrom, rangeTo)) {
+        // A URL that is its own link content stays visible and link-styled:
+        // the triple class wins over the hiding rule in either nesting order
+        // (same-element rule plus the open-descendant rule), with or without
+        // the cursor on it.
+        pending.push({ from: rangeFrom, to: rangeTo, cls: 'parsi-mark parsi-mark-open parsi-link' });
         return;
       }
       if (rangesOverlap(selection.from, selection.to, rangeFrom, rangeTo)) {

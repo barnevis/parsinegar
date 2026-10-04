@@ -24,22 +24,33 @@ export function linkHrefAt(state, pos) {
     return '';
   }
   let node = syntaxTree(state).resolveInner(pos, 1).node;
+  let scope = null;
+  let inImage = false;
+  let urlText = '';
   while (node) {
-    if (node.name === 'Link') {
+    if (node.name === 'Image') {
+      inImage = true;
+    }
+    if (node.name === 'URL' && !urlText) {
+      urlText = state.doc.sliceString(node.from, node.to);
+    }
+    if (node.name === 'Link' || node.name === 'Autolink') {
+      scope = node;
       break;
     }
     node = node.parent;
   }
-  if (!node) {
-    return '';
-  }
   let href = '';
-  let child = node.firstChild;
-  while (child) {
-    if (child.name === 'URL') {
-      href = state.doc.sliceString(child.from, child.to);
+  if (scope) {
+    let child = scope.firstChild;
+    while (child) {
+      if (child.name === 'URL') {
+        href = state.doc.sliceString(child.from, child.to);
+      }
+      child = child.nextSibling;
     }
-    child = child.nextSibling;
+  } else if (!inImage) {
+    href = urlText;
   }
   return REMOTE_PATTERN.test(href) ? href : '';
 }

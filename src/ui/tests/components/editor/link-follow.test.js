@@ -79,3 +79,10 @@ test('should_keep_cursor_when_plain_click_lands_on_label', () => {
     host.remove();
   }
 });
+
+test('should_resolve_bare_and_angle_autolinks_when_resolving', () => {
+  assert.equal(linkHrefAt(stateWith('https://github.com/'), 8), 'https://github.com/');
+  assert.equal(linkHrefAt(stateWith('<https://github.com/>'), 8), 'https://github.com/');
+  assert.equal(linkHrefAt(stateWith('[](https://github.com/)'), 10), 'https://github.com/');
+  assert.equal(linkHrefAt(stateWith('![a](https://img.example/x)'), 3), '');
+});

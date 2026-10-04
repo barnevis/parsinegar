@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { buildMarkRevealDecorations, collectExtendedMarkRanges, collectInlineContainers, isParkedOnEmptyMarker, selectionTouches } from '../../../components/editor/live-preview.js';
+import { buildMarkRevealDecorations, collectExtendedMarkRanges, collectInlineContainers, isBareLinkUrl, isParkedOnEmptyMarker, selectionTouches } from '../../../components/editor/live-preview.js';
 
 function createEditor(documentText) {
   const host = document.createElement('div');
@@ -358,6 +359,45 @@ test('should_keep_fence_line_unpainted_when_cursor_is_collapsed', () => {
     const line = mounted.host.querySelector('.cm-line.parsi-code-line');
     assert.ok(line, 'expected the fence line');
     assert.ok(!line.classList.contains('parsi-selected'), 'expected no paint');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_detect_bare_link_urls_when_classified', () => {
+  const treeOf = (text) => {
+    const state = EditorState.create({ doc: text, extensions: [markdown({ base: markdownLanguage })] });
+    ensureSyntaxTree(state, text.length, 2000);
+    return syntaxTree(state);
+  };
+  assert.equal(isBareLinkUrl(treeOf('https://github.com/'), 0, 19), true);
+  assert.equal(isBareLinkUrl(treeOf('<https://github.com/>'), 1, 20), true);
+  assert.equal(isBareLinkUrl(treeOf('[](https://github.com/)'), 3, 22), true);
+  assert.equal(isBareLinkUrl(treeOf('[متن](https://github.com/)'), 6, 25), false);
+  assert.equal(isBareLinkUrl(treeOf('![alt](https://i.com/a.png)'), 7, 26), false);
+  assert.equal(isBareLinkUrl(null, 0, 1), false);
+});
+
+test('should_keep_bare_link_urls_visible_when_rendered', () => {
+  const cases = ['متن\n\nhttps://github.com/', 'متن\n\n[](https://github.com/)', 'متن\n\n<https://github.com/>'];
+  for (const documentText of cases) {
+    const mounted = createEditor(documentText);
+    try {
+      const open = [...mounted.host.querySelectorAll('.parsi-mark-open')]
+        .filter((span) => span.textContent.includes('github.com'));
+      assert.ok(open.length > 0, `expected a visible URL in ${documentText}`);
+    } finally {
+      destroy(mounted);
+    }
+  }
+});
+
+test('should_keep_hiding_normal_link_urls_when_rendered', () => {
+  const mounted = createEditor('متن\n\n[لینک](https://github.com/)');
+  try {
+    assert.equal(mounted.host.querySelectorAll('.parsi-mark-open').length, 0);
+    const labels = [...mounted.host.querySelectorAll('.parsi-link')].map((span) => span.textContent);
+    assert.ok(labels.some((text) => text.includes('لینک')), 'expected the visible label');
   } finally {
     destroy(mounted);
   }
