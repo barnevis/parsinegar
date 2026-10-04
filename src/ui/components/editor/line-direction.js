@@ -100,7 +100,9 @@ function buildDirectionDecorations(view, baseDirection, forcedDirection) {
       let lineClass;
       if (FENCE_PATTERN.test(line.text)) {
         inFence = !inFence;
-        lineClass = forcedDirection ? forcedClass : classForText(line.text, baseClass);
+        // Fence runs are code artifacts, always left-to-right like fenced
+        // content: on an rtl line the backticks would otherwise park right.
+        lineClass = 'parsi-dir-ltr';
       } else if (forcedDirection && inFence) {
         lineClass = 'parsi-dir-ltr';
       } else if (forcedDirection) {

@@ -79,7 +79,7 @@ test('should_align_opener_end_when_themed', () => {
         return false;
       }
     });
-    assert.ok(has('.cm-line.parsi-code-line.parsi-code-first', 'text-align', 'right'));
+    assert.ok(has('.cm-line.parsi-code-line.parsi-code-first', 'text-align', 'left'));
   } finally {
     destroy(mounted);
   }

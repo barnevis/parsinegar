@@ -84,7 +84,7 @@ const livePreviewTheme = EditorView.theme({
   '& .parsi-list-line': { paddingInlineStart: '1em' },
   '& .parsi-list-marker': { color: 'var(--pey-color-text-muted, #6b6b78)', fontWeight: '700' },
   '& .parsi-code-line': { backgroundColor: 'var(--pey-color-surface, #f1f1f4)', fontFamily: MONO_FONT },
-  '& .cm-line.parsi-code-line.parsi-code-first': { borderTopLeftRadius: '8px', borderTopRightRadius: '8px', textAlign: 'right' },
+  '& .cm-line.parsi-code-line.parsi-code-first': { borderTopLeftRadius: '8px', borderTopRightRadius: '8px', textAlign: 'left' },
   '& .cm-line.parsi-code-line.parsi-code-last': { borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' },
   '& .parsi-em': { fontStyle: 'italic' },
   '& .parsi-strong': { fontWeight: '700' },

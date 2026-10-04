@@ -138,9 +138,9 @@ test('should_keep_fenced_code_ltr_when_direction_is_rtl', () => {
     const lines = [...host.querySelectorAll('.cm-line')];
     assert.equal(lines.length, 5);
     assert.ok(lines[0].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
-    assert.ok(lines[1].classList.contains('parsi-base-rtl'), 'expected the fence marker on the base');
+    assert.ok(lines[1].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left');
     assert.ok(lines[2].classList.contains('parsi-dir-ltr'), 'expected the code line left');
-    assert.ok(lines[3].classList.contains('parsi-base-rtl'), 'expected the fence marker on the base');
+    assert.ok(lines[3].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left');
     assert.ok(lines[4].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
     const code = globalThis.getComputedStyle(lines[2]);
     assert.equal(code.direction, 'ltr');
@@ -158,7 +158,9 @@ test('should_detect_code_per_line_when_direction_is_auto', () => {
   try {
     const lines = [...host.querySelectorAll('.cm-line')];
     assert.ok(lines[0].classList.contains('parsi-dir-rtl'), 'expected the text line right');
+    assert.ok(lines[1].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left in auto');
     assert.ok(lines[2].classList.contains('parsi-dir-rtl'), 'expected per-line detection inside fences in auto');
+    assert.ok(lines[3].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left in auto');
   } finally {
     editor.destroy();
     host.remove();
