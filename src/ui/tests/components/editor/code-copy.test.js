@@ -68,6 +68,24 @@ test('should_seat_button_inside_wash_when_fenced', () => {
   }
 });
 
+test('should_float_button_right_with_room_when_fenced', () => {
+  const mounted = createEditor('متن\n\n```js\nconst x = 1;\n```\n');
+  try {
+    const styleSheets = [...document.styleSheets];
+    const has = (selector, property, expected) => styleSheets.some((sheet) => {
+      try {
+        return [...sheet.cssRules].some((rule) => rule.selectorText?.includes(selector) && rule.style?.getPropertyValue(property).includes(expected));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(has('.parsi-code-copy', 'float', 'right'), 'expected the floated button rule');
+    assert.ok(has('.cm-line.parsi-code-first', 'min-height', 'calc'), 'expected the opener room rule');
+  } finally {
+    destroy(mounted);
+  }
+});
+
 test('should_align_opener_end_when_themed', () => {
   const mounted = createEditor('متن\n\n```js\nconst x = 1;\n```\n');
   try {

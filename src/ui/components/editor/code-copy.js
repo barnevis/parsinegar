@@ -142,11 +142,18 @@ class CopyButtonWidget extends WidgetType {
 
 const copyTheme = EditorView.theme({
   '& .parsi-code-copy-row': { textAlign: 'end' },
+  // The opener row keeps room for the floated button below: without it the
+  // row would collapse to the (zero-size) hidden fence text once the button
+  // leaves the inline flow. Keep in sync with .parsi-code-copy box below.
+  '& .cm-line.parsi-code-first': { minHeight: 'calc(2rem + 0.6rem + 2px)' },
   '& .parsi-code-copy': {
     font: 'inherit',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    // Floated to the top-right corner regardless of line alignment (the
+    // fence text stays left per the opener rule).
+    float: 'right',
     inlineSize: '2rem',
     blockSize: '2rem',
     border: '1px solid var(--pey-color-border, #d8d8de)',
@@ -166,8 +173,10 @@ const copyTheme = EditorView.theme({
 
 /**
  * Builds copy-button widgets for visible fenced blocks, each parked at
- * the end of its opening fence line (widgets need a position; the range
- * still addresses the whole content for copying).
+ * the end of its opening fence line — the top-right corner in the
+ * left-to-right fence runs (widgets need a position; the range still
+ * addresses the whole content for copying). The end (not the start) keeps
+ * the line start free for placing the cursor on the fence itself.
  * @param {object} view Active editor view.
  * @param {object} options Widget options.
  * @returns {object} Decoration set.
