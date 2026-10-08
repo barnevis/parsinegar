@@ -523,42 +523,6 @@ test('should_match_menubar_type_size_when_file_menu_is_rendered', async () => {
   }
 });
 
-test('should_toggle_disk_branches_when_toggle_is_clicked', async () => {
-  const disk = {
-    rootName: 'docs',
-    items: [{ id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' }],
-  };
-  const element = mount({ items: [], currentId: null, disk });
-  try {
-    await flush();
-    assert.ok(element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]'), 'expected the nested entry');
-    element.shadowRoot.querySelector('[data-disk-toggle="sub"]').click();
-    await flush();
-    assert.equal(element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]'), null, 'expected the branch collapsed');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_keep_dom_nodes_when_snapshot_is_stable', async () => {
-  const disk = {
-    rootName: 'docs',
-    items: [{ id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' }],
-  };
-  const element = mount({ items: [], currentId: null, disk });
-  try {
-    await flush();
-    const before = element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]');
-    assert.ok(before, 'expected the disk row');
-    element.configure({ disk });
-    await flush();
-    const after = element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]');
-    assert.equal(after, before, 'expected no re-render on a stable snapshot');
-  } finally {
-    element.remove();
-  }
-});
-
 test('should_toggle_folders_when_toggle_is_clicked', async () => {
   const element = mount({
     items: [{ id: 'd', title: 'سند', folderId: 'f1' }],

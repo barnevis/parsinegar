@@ -1718,35 +1718,23 @@ function menuAction(element, action) {
   );
 }
 
-test('should_open_disk_file_when_picker_returns_entry', async () => {
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') }, contents: { 'note.md': '# یادداشت\n' } });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    assert.equal(element.value, '# یادداشت\n');
-    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
-    assert.deepEqual(ids, ['d1', 'disk:note.md']);
-    assert.equal(inChildAll(element, 'parsi-side-panel', '[data-doc-menu]').length, 1, 'expected the menu only on indexed documents');
-    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]'), 'expected the save item');
-    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="close-disk"]'), 'expected the close item');
-  } finally {
-    delete window.showOpenFilePicker;
-    element.remove();
-  }
-});
+function diskEntries() {
+  return [
+    { name: 'a.md', path: 'a.md', handle: { kind: 'file', name: 'a.md' } },
+    { name: 'sub/b.md', path: 'sub/b.md', handle: { kind: 'file', name: 'b.md' } },
+  ];
+}
 
-test('should_switch_disk_entries_when_list_item_is_clicked', async () => {
-  window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'docs' });
+function stubDirectoryPicker() {
+  window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'notes' });
+}
+
+test('should_import_folder_when_picker_returns_entries', async () => {
+  stubDirectoryPicker();
   const filesystem = createFilesystem({
-    directory: { name: 'docs', path: 'docs', handle: { kind: 'directory', name: 'docs' } },
-    entries: [
-      { name: 'a.md', path: 'a.md', handle: diskFileHandle('a.md') },
-      { name: 'sub/b.md', path: 'sub/b.md', handle: diskFileHandle('b.md') },
-    ],
+    directory: { name: 'notes', path: 'notes', handle: { kind: 'directory', name: 'notes' } },
+    entries: diskEntries(),
+    contents: { 'a.md': 'متن الف', 'sub/b.md': 'متن ب' },
   });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
@@ -1754,209 +1742,68 @@ test('should_switch_disk_entries_when_list_item_is_clicked', async () => {
     menuAction(element, 'open-folder');
     await settled();
     await settled();
-    assert.equal(element.value, '# a.md\n');
-    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
-    assert.deepEqual(ids, ['d1', 'disk:sub/b.md', 'disk:a.md'], 'expected directories before files in tree order');
-    inChild(element, 'parsi-side-panel', '[data-doc-id="disk:sub/b.md"]').click();
-    await settled();
-    await settled();
-    assert.equal(element.value, '# sub/b.md\n');
+    assert.equal(element.value, 'متن الف');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), 'expected the imported folder');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id]'), 'expected imported documents listed');
   } finally {
     delete window.showDirectoryPicker;
     element.remove();
   }
 });
 
-test('should_save_through_handle_when_ctrl_s_is_pressed', async () => {
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') }, contents: { 'note.md': 'اول' } });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    element.setDocument('اول ویرایش‌شده');
-    await settled();
-    element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'S', code: 'KeyS', ctrlKey: true, bubbles: true }));
-    await settled();
-    await settled();
-    const writes = filesystem.calls.filter(([method]) => method === 'write');
-    assert.equal(writes.length, 1);
-    assert.deepEqual(writes[0][1], { path: 'note.md', content: 'اول ویرایش‌شده' });
-  } finally {
-    delete window.showOpenFilePicker;
-    element.remove();
-  }
-});
-
-test('should_fall_back_to_download_when_entry_has_no_handle', async () => {
-  const created = [];
-  URL.createObjectURL = () => 'blob:disk';
-  URL.revokeObjectURL = () => {};
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md' }, contents: { 'note.md': 'متن' }, write: null });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    const anchors = [];
-    const append = element.shadowRoot.append.bind(element.shadowRoot);
-    element.shadowRoot.append = (...nodes) => {
-      anchors.push(...nodes);
-      return append(...nodes);
-    };
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    menuAction(element, 'save-disk');
-    await settled();
-    await settled();
-    assert.ok(created.length >= 0);
-    const downloads = anchors.filter((node) => node?.tagName === 'A');
-    assert.equal(downloads.length, 1, 'expected the download fallback');
-    assert.equal(downloads[0].download, 'note.md');
-  } finally {
-    delete window.showOpenFilePicker;
-    delete URL.createObjectURL;
-    delete URL.revokeObjectURL;
-    element.remove();
-  }
-});
-
-test('should_close_disk_and_restore_draft_when_close_arrives', async () => {
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') } });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    assert.equal(element.value, '# note.md\n');
-    menuAction(element, 'close-disk');
-    await settled();
-    assert.equal(element.value, 'متن');
-    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
-    assert.deepEqual(ids, ['d1']);
-  } finally {
-    delete window.showOpenFilePicker;
-    element.remove();
-  }
-});
-
-test('should_ignore_ctrl_s_outside_disk_mode', async () => {
-  const filesystem = createFilesystem();
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'S', code: 'KeyS', ctrlKey: true, bubbles: true }));
-    await settled();
-    assert.deepEqual(filesystem.calls, [], 'expected no filesystem use outside disk mode');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_keep_folder_listed_when_adopting_after_disk', async () => {
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') } });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    assert.equal(element.value, '# note.md\n');
-    menuAction(element, 'new-document');
-    await settled();
-    await settled();
-    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
-    assert.ok(ids.includes('disk:note.md'), 'expected the folder still listed');
-    const save = inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]');
-    assert.ok(save, 'expected the save item while listed');
-    assert.equal(save.hasAttribute('disabled'), true, 'expected save disabled on indexed documents');
-    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="close-disk"]'), 'expected the close item while listed');
-  } finally {
-    delete window.showOpenFilePicker;
-    element.remove();
-  }
-});
-
-test('should_restore_shadow_when_disk_is_unchanged', async () => {
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({
-    file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') },
-    contents: { 'note.md': 'روی دیسک' },
-    shadows: { 'note.md\nnote.md': { root: 'note.md', path: 'note.md', base: 'روی دیسک', draft: 'پیش‌نویس' } },
-  });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    assert.equal(element.value, 'پیش‌نویس');
-  } finally {
-    delete window.showOpenFilePicker;
-    element.remove();
-  }
-});
-
-test('should_prefer_disk_when_shadow_base_is_stale', async () => {
-  window.showOpenFilePicker = async () => diskFileHandle('note.md');
-  const filesystem = createFilesystem({
-    file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') },
-    contents: { 'note.md': 'تازه روی دیسک' },
-    shadows: { 'note.md\nnote.md': { root: 'note.md', path: 'note.md', base: 'قدیمی', draft: 'کهنه' } },
-  });
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
-  try {
-    menuAction(element, 'open-file');
-    await settled();
-    await settled();
-    assert.equal(element.value, 'تازه روی دیسک');
-    assert.ok(filesystem.calls.some(([method]) => method === 'shadow-clear'), 'expected the stale shadow dropped');
-  } finally {
-    delete window.showOpenFilePicker;
-    element.remove();
-  }
-});
-
-test('should_persist_shadow_when_switching_entries', async () => {
-  window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'docs' });
-  const filesystem = createFilesystem({
-    directory: { name: 'docs', path: 'docs', handle: { kind: 'directory', name: 'docs' } },
-    entries: [
-      { name: 'a.md', path: 'a.md', handle: diskFileHandle('a.md') },
-      { name: 'b.md', path: 'b.md', handle: diskFileHandle('b.md') },
-    ],
-  });
+test('should_update_changed_files_when_folder_is_reopened', async () => {
+  stubDirectoryPicker();
+  const overrides = {
+    directory: { name: 'notes', path: 'notes', handle: { kind: 'directory', name: 'notes' } },
+    entries: diskEntries(),
+    contents: { 'a.md': 'اول', 'sub/b.md': 'ب' },
+  };
+  const filesystem = createFilesystem(overrides);
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
   try {
     menuAction(element, 'open-folder');
     await settled();
     await settled();
-    element.setDocument('ویرایش a');
+    assert.equal(element.value, 'اول');
+    overrides.contents = { 'a.md': 'دوم', 'sub/b.md': 'ب' };
+    menuAction(element, 'open-folder');
     await settled();
-    inChild(element, 'parsi-side-panel', '[data-doc-id="disk:b.md"]').click();
     await settled();
-    await settled();
-    const saves = filesystem.calls.filter(([method]) => method === 'shadow-save');
-    assert.ok(saves.some(([, record]) => record.path === 'a.md' && record.draft === 'ویرایش a'), 'expected the parked draft persisted');
-    assert.equal(element.value, '# b.md\n');
+    assert.equal(element.value, 'دوم', 'expected the changed file updated in place');
   } finally {
     delete window.showDirectoryPicker;
     element.remove();
   }
 });
 
-test('should_create_folder_and_rename_inline_when_new_folder_arrives', async () => {
+test('should_import_through_fallback_when_picker_is_missing', async () => {
+  delete window.showDirectoryPicker;
+  const filesystem = createFilesystem({});
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-folder');
+    await settled();
+    const picker = element.shadowRoot.querySelector('input[type="file"]');
+    assert.ok(picker, 'expected the fallback input');
+    assert.equal(picker.getAttribute('webkitdirectory'), '');
+    const file = new File(['# سلام\n'], 'a.md', { type: 'text/markdown' });
+    Object.defineProperty(picker, 'files', { value: [file], configurable: true });
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    await settled();
+    assert.equal(element.value, '# سلام\n');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_create_folder_when_header_button_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
-    menuAction(element, 'new-folder');
+    inChild(element, 'parsi-side-panel', '[part="docs-folder-new"]').click();
     await settled();
     await settled();
     const input = inChild(element, 'parsi-side-panel', '[data-rename-input^="folder:"]');
@@ -1965,67 +1812,7 @@ test('should_create_folder_and_rename_inline_when_new_folder_arrives', async () 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await settled();
     await settled();
-    assert.ok(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), 'expected the folder toggle');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_move_document_when_move_arrives', async () => {
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents);
-  try {
-    menuAction(element, 'new-folder');
-    await settled();
-    await settled();
-    const input = inChild(element, 'parsi-side-panel', '[data-rename-input^="folder:"]');
-    input.value = 'کار';
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await settled();
-    await settled();
-    const folderId = input.getAttribute('data-rename-input').slice('folder:'.length);
-    child(element, 'parsi-side-panel').dispatchEvent(
-      new CustomEvent('document-move', { bubbles: true, detail: { id: 'd1', folderId } }),
-    );
-    await settled();
-    await settled();
-    const nested = inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]');
-    assert.ok(nested, 'expected the moved document listed');
-    assert.ok(nested.closest('ul')?.closest('li[data-disk-dir]'), 'expected the document nested under its folder');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_confirm_folder_delete_when_accepted', async () => {
-  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
-  const element = await mountWithDocuments(documents);
-  try {
-    menuAction(element, 'new-folder');
-    await settled();
-    await settled();
-    const input = inChild(element, 'parsi-side-panel', '[data-rename-input^="folder:"]');
-    input.value = 'کار';
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await settled();
-    await settled();
-    const folderId = input.getAttribute('data-rename-input').slice('folder:'.length);
-    child(element, 'parsi-side-panel').dispatchEvent(
-      new CustomEvent('document-move', { bubbles: true, detail: { id: 'd1', folderId } }),
-    );
-    await settled();
-    await settled();
-    child(element, 'parsi-side-panel').dispatchEvent(
-      new CustomEvent('folder-delete', { bubbles: true, detail: { id: folderId } }),
-    );
-    await settled();
-    const dialog = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
-    assert.ok(dialog && dialog.textContent.includes('کار'), 'expected the folder confirm modal');
-    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="yes"]').click();
-    await settled();
-    await settled();
-    assert.equal(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), null, 'expected the folder gone');
-    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id]'), 'expected a survivor document open');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), 'expected the created folder');
   } finally {
     element.remove();
   }

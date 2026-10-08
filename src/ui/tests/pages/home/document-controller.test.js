@@ -422,3 +422,106 @@ test('should_confirm_folder_delete_with_count_when_armed', async () => {
   assert.equal(controller.getState().folders.length, 0);
   assert.ok(controller.getState().items.some(({ id }) => id === 'd2'), 'expected the outside document kept');
 });
+
+function createImportService() {
+  const docs = new Map();
+  const folders = new Map();
+  let docCounter = 0;
+  let folderCounter = 0;
+  const service = {
+    async listDocuments() {
+      return [...docs.values()];
+    },
+    async listFolders() {
+      return [...folders.values()];
+    },
+    async saveDocument(input = {}) {
+      const previous = [...docs.values()].find((record) => record.id === input.id) ?? null;
+      const record = {
+        id: input.id ?? `doc-${++docCounter}`,
+        title: input.title ?? 't',
+        content: input.content ?? '',
+        folderId: input.folderId ?? previous?.folderId ?? null,
+        origin: input.origin ?? previous?.origin ?? null,
+        updatedAt: Date.now(),
+      };
+      docs.set(record.id, record);
+      return record;
+    },
+    async createDocument(title, folderId = null, origin = null) {
+      return service.saveDocument({ title, content: '', folderId, origin });
+    },
+    async renameDocument(id, title) {
+      const record = docs.get(id) ?? null;
+      if (!record) {
+        return null;
+      }
+      const renamed = { ...record, title, updatedAt: Date.now() };
+      docs.set(id, renamed);
+      return renamed;
+    },
+    async createFolder(name, parentId = null) {
+      const folder = { id: `folder-${++folderCounter}`, name, parentId: parentId ?? null, createdAt: Date.now() };
+      folders.set(folder.id, folder);
+      return folder;
+    },
+  };
+  return { service, docs, folders };
+}
+
+test('should_import_folder_with_nesting_when_requested', async () => {
+  const { service } = createImportService();
+  const controller = createController(service);
+  const result = await controller.importFolder({
+    rootName: 'notes',
+    files: [
+      { name: 'a.md', path: 'a.md', content: '# الف' },
+      { name: 'b.md', path: 'sub/b.md', content: '# ب' },
+    ],
+  });
+  assert.ok(result.apply, 'expected the first document adopted');
+  assert.equal(result.apply.content, '# الف');
+  assert.equal(result.folders.length, 2, 'expected the root plus the nested folder');
+  const nested = result.folders.find((folder) => folder.parentId !== null);
+  assert.equal(nested.name, 'sub');
+  const inside = result.items.find(({ origin }) => origin === 'sub/b.md');
+  assert.equal(inside.folderId, nested.id);
+  assert.equal(controller.getState().folders.length, 2);
+});
+
+test('should_update_by_origin_when_folder_is_reopened', async () => {
+  const { service } = createImportService();
+  const controller = createController(service);
+  await controller.importFolder({ rootName: 'notes', files: [{ name: 'a.md', path: 'a.md', content: 'اول' }] });
+  const before = controller.getState();
+  assert.equal(before.folders.length, 1, 'expected no duplicate folder');
+  const again = await controller.importFolder({ rootName: 'notes', files: [{ name: 'a.md', path: 'a.md', content: 'دوم' }] });
+  assert.equal(again.items.filter(({ origin }) => origin === 'a.md').length, 1, 'expected no duplicate document');
+  assert.equal(again.apply.content, 'دوم');
+});
+
+test('should_keep_renames_when_folder_is_reopened', async () => {
+  const { service } = createImportService();
+  const controller = createController(service);
+  await controller.importFolder({ rootName: 'notes', files: [{ name: 'a.md', path: 'a.md', content: 'اول' }] });
+  const [doc] = controller.getState().items;
+  await controller.renameDocument(doc.id, 'نام تازه');
+  const again = await controller.importFolder({ rootName: 'notes', files: [{ name: 'a.md', path: 'a.md', content: 'دوم' }] });
+  const kept = again.items.find(({ origin }) => origin === 'a.md');
+  assert.equal(kept.title, 'نام تازه', 'expected the rename kept');
+  assert.equal(kept.content, 'دوم', 'expected the content updated');
+});
+
+test('should_keep_disk_gone_files_when_folder_is_reopened', async () => {
+  const { service } = createImportService();
+  const controller = createController(service);
+  await controller.importFolder({
+    rootName: 'notes',
+    files: [
+      { name: 'a.md', path: 'a.md', content: 'الف' },
+      { name: 'b.md', path: 'b.md', content: 'ب' },
+    ],
+  });
+  const again = await controller.importFolder({ rootName: 'notes', files: [{ name: 'a.md', path: 'a.md', content: 'الف' }] });
+  assert.ok(again.items.some(({ origin }) => origin === 'b.md'), 'expected the removed file kept');
+});

@@ -1,7 +1,7 @@
 // Verifies the files view rendering (pure, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_FILES_SORT, FILES_SORT_MODES, buildDiskTree, buildFolderTree, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES, buildFolderTree, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
 
 function translate(key, params) {
   const template = {
@@ -34,13 +34,21 @@ test('should_render_items_when_documents_are_given', () => {
 test('should_render_actions_when_called', () => {
   const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/' });
   assert.ok(html.includes('part="docs-new"'));
+  assert.ok(html.includes('part="docs-folder-new"'));
   assert.ok(html.includes('part="docs-import"'));
   assert.ok(!html.includes('part="docs-delete"'), 'expected no panel delete button');
   assert.ok(html.includes('aria-label="سند تازه"'));
   assert.ok(html.includes('<svg'));
   assert.ok(html.includes('#add-notes'));
+  assert.ok(html.includes('#create-new-folder'));
   assert.ok(html.includes('#upload'));
   assert.ok(html.includes('#sort'));
+});
+
+test('should_render_vertical_menu_buttons_when_items_are_given', () => {
+  const html = renderFilesView({ t: translate, items: [{ id: 'a', title: 'اول' }], currentId: null });
+  assert.ok(html.includes('>⋮<'), 'expected the vertical ellipsis glyph');
+  assert.ok(!html.includes('>⋯<'), 'expected no horizontal ellipsis glyph');
 });
 
 test('should_render_menu_button_when_items_are_given', () => {
@@ -187,60 +195,6 @@ test('should_tolerate_missing_fields_when_sorting', () => {
   assert.deepEqual(sortDocuments('nope', 'name'), []);
 });
 
-test('should_build_nested_tree_when_paths_nest', () => {
-  const tree = buildDiskTree([
-    { id: 'disk:b.md', title: 'b.md', path: 'b.md' },
-    { id: 'disk:sub/deep/c.md', title: 'sub/deep/c.md', path: 'sub/deep/c.md' },
-    { id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' },
-    { id: 'disk:pic.png', title: 'pic.png', path: 'pic.png' },
-  ]);
-  assert.deepEqual(tree.map(({ kind, label }) => `${kind}:${label}`), ['dir:sub', 'file:b', 'file:pic.png']);
-  const [sub] = tree;
-  assert.deepEqual(sub.children.map(({ kind, label }) => `${kind}:${label}`), ['dir:deep', 'file:a']);
-  assert.equal(sub.children[0].children[0].id, 'disk:sub/deep/c.md');
-});
-
-test('should_render_disk_group_when_disk_is_open', () => {
-  const html = renderFilesView({
-    t: translate,
-    items: [{ id: 'd1', title: 'سند' }],
-    currentId: 'disk:sub/a.md',
-    assetBaseUrl: 'http://localhost/assets/',
-    disk: {
-      root: 'docs',
-      entries: [
-        { id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' },
-        { id: 'disk:b.md', title: 'b.md', path: 'b.md' },
-      ],
-      collapsed: [],
-    },
-  });
-  assert.ok(html.includes('docs'), 'expected the folder header');
-  assert.ok(html.includes('data-doc-id="disk:sub/a.md"'), 'expected the nested entry');
-  assert.ok(html.includes('data-disk-toggle="sub"'), 'expected the directory toggle');
-  assert.ok(html.includes('aria-current="true"'), 'expected the current entry marked');
-  assert.ok(html.includes('part="outline-chevron"'), 'expected the outline chevron gutter');
-  assert.ok(html.includes('part="outline-spacer"'), 'expected the leaf spacer column');
-  assert.ok(html.includes('parsinegar.disk.collapse'), 'expected the toggle label');
-  assert.ok(html.includes('>b<'), 'expected the extension hidden from the label');
-  assert.ok(!html.includes('>b.md<'), 'expected no extension in row labels');
-  assert.ok(html.includes('title="b.md"'), 'expected the full path kept in the tooltip');
-  const diskRows = html.split('data-disk="true"').length - 1;
-  assert.equal(diskRows, 2);
-  assert.ok(!html.includes('data-doc-menu="disk:'), 'expected no item menus on device rows');
-});
-
-test('should_hide_collapsed_branches_when_collapsed', () => {
-  const disk = {
-    root: 'docs',
-    entries: [{ id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' }],
-    collapsed: ['sub'],
-  };
-  const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/', disk });
-  assert.ok(!html.includes('data-doc-id="disk:sub/a.md"'), 'expected the collapsed branch hidden');
-  assert.ok(html.includes('aria-expanded="false"'), 'expected the toggle state');
-});
-
 test('should_build_folder_tree_when_nested', () => {
   const tree = buildFolderTree([
     { id: 'f2', name: 'ب', parentId: null },
@@ -287,6 +241,8 @@ test('should_render_move_submenu_when_open', () => {
     moveMenuId: 'd1',
   });
   assert.ok(html.includes('data-move-toggle="d1"'), 'expected the move toggle');
+  assert.ok(html.includes('part="file-subdropdown"'), 'expected the flyout submenu');
+  assert.ok(html.includes('part="file-sub-indicator"'), 'expected the submenu indicator');
   assert.ok(html.includes('data-move-to="d1|"'), 'expected the root target');
   assert.ok(html.includes('data-move-to="d1|f1"'), 'expected the folder target');
 });

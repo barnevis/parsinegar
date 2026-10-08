@@ -92,6 +92,18 @@ function withFolderId(record) {
 }
 
 /**
+ * Backfills the disk origin for records stored before origin tracking.
+ * @param {object|null} record Stored record.
+ * @returns {object|null} Record with `origin`.
+ */
+function withOrigin(record) {
+  if (!record || typeof record !== 'object') {
+    return record;
+  }
+  return { ...record, origin: typeof record.origin === 'string' ? record.origin : null };
+}
+
+/**
  * Checks whether another record already carries the title.
  * @param {object} state Activation-bound references.
  * @param {string} title Candidate title.
@@ -205,11 +217,11 @@ function createService(state) {
   const service = {
     async listDocuments() {
       const records = await requireStorage(state).query(COLLECTION, {});
-      return orderByUpdated(records).map(withCreatedAt).map(withReadOnly).map(withFolderId);
+      return orderByUpdated(records).map(withCreatedAt).map(withReadOnly).map(withFolderId).map(withOrigin);
     },
     async openDocument(id) {
       try {
-        return withFolderId(withReadOnly(withCreatedAt(await requireStorage(state).read(COLLECTION, id))));
+        return withOrigin(withFolderId(withReadOnly(withCreatedAt(await requireStorage(state).read(COLLECTION, id)))));
       } catch (error) {
         if (error?.code === 'RECORD_NOT_FOUND') {
           return null;
@@ -233,18 +245,24 @@ function createService(state) {
       const folderId = typeof input.folderId === 'string'
         ? await resolveFolderId(state, input.folderId)
         : (input.folderId === null ? null : (existing?.folderId ?? null));
-      const stored = { ...record, readOnly, folderId, createdAt: existing?.createdAt ?? record.updatedAt };
+      // The disk origin survives overwrites the same way (folder re-imports
+      // match on it, so renames in the app never break the link).
+      const origin = typeof input.origin === 'string'
+        ? input.origin
+        : (input.origin === null ? null : (existing?.origin ?? null));
+      const stored = { ...record, readOnly, folderId, origin, createdAt: existing?.createdAt ?? record.updatedAt };
       await requireStorage(state).write(COLLECTION, stored);
       state.events?.publish(CHANGED_EVENT, { id: stored.id });
       return stored;
     },
-    async createDocument(title, folderId = null) {
+    async createDocument(title, folderId = null, origin = null) {
       const base = typeof title === 'string' && title.length > 0 ? title : UNTITLED_TITLE;
       const folder = await resolveFolderId(state, folderId);
+      const tagged = typeof origin === 'string' && origin.length > 0 ? origin : null;
       for (let attempt = 1; attempt <= 999; attempt += 1) {
         const candidate = attempt === 1 ? base : `${base} ${toFaDigits(attempt)}`;
         try {
-          return await service.saveDocument({ title: candidate, folderId: folder });
+          return await service.saveDocument({ title: candidate, folderId: folder, origin: tagged });
         } catch (error) {
           if (error?.code !== 'DOCUMENT_TITLE_DUPLICATE') {
             throw error;

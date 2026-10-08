@@ -293,3 +293,19 @@ test('should_publish_folder_event_when_created', async () => {
   const folder = await service.createFolder('کار');
   assert.ok(published.some(({ type, data }) => type === 'folders:changed' && data.id === folder.id));
 });
+
+test('should_track_origin_when_saved', async () => {
+  const { service } = setup();
+  const created = await service.createDocument('یادداشت', null, 'note.md');
+  assert.equal(created.origin, 'note.md');
+  const kept = await service.saveDocument({ id: created.id, title: 'تغییرنام', content: 'x' });
+  assert.equal(kept.title, 'تغییرنام');
+  assert.equal(kept.origin, 'note.md');
+  const [listed] = await service.listDocuments();
+  assert.equal(listed.origin, 'note.md');
+});
+
+test('should_backfill_origin_when_missing', async () => {
+  const { service } = setup([{ id: 'd', title: 'قدیمی', content: '', updatedAt: 1 }]);
+  assert.equal((await service.openDocument('d')).origin, null);
+});

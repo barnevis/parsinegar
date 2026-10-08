@@ -122,43 +122,21 @@
   padding-inline-start: 1rem;
   flex-basis: 100%;
 }
-[part="docs-group"] {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin: 0.8rem 0 0.2rem;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--pey-color-text-muted, #6b7280);
-}
-[part="docs-group"] svg {
-  inline-size: 16px;
-  block-size: 16px;
-  flex: none;
-}
-[part="docs-item"][data-disk="true"] [part="docs-open"] {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  min-inline-size: 0;
-}
-[part="docs-item"][data-disk="true"] [part="docs-open"] > span:last-child {
-  flex: 1;
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+[part="files-view"] {
+  font-size: 13px;
 }
 [part="docs-toggle"] {
   font: inherit;
+  position: relative;
   display: flex;
   gap: 0.2rem;
   align-items: center;
+  flex: 1;
+  min-inline-size: 0;
   border: 1px solid transparent;
   border-radius: 8px;
   background-color: transparent;
   padding: 0.35rem 0.6rem;
-  inline-size: 100%;
   cursor: pointer;
   color: inherit;
   text-align: start;
@@ -167,10 +145,55 @@
   background-color: var(--pey-color-canvas, #ffffff);
 }
 [part="docs-toggle"] > [part="outline-chevron"] {
-  /* 0.24rem chevron plus margins fills the 1rem gutter exactly like
-     outline-toggle, so directory titles align with the leaf spacer column. */
-  flex: none;
-  margin-inline: 0.38rem;
+  /* Overlays the row's inline-start padding so the label starts exactly
+     where document labels start (root documents keep their edge distance). */
+  position: absolute;
+  inset-inline-start: -0.7rem;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-50%) rotate(45deg);
+}
+[part="docs-toggle"][aria-expanded="false"] > [part="outline-chevron"] {
+  transform: translateY(-50%) rotate(135deg);
+}
+[part="file-submenu-wrap"] {
+  position: relative;
+}
+[part="file-submenu-wrap"] > [part="file-menu-item"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  inline-size: 100%;
+}
+[part="file-sub-indicator"] {
+  color: var(--pey-color-text-muted, #55555f);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+[part="file-subdropdown"] {
+  position: absolute;
+  inset-block-start: 0;
+  /* Opens toward the viewport center like the menubar submenu: in rtl the
+    inline-start edge is on the right, so this lands left of the row. */
+  inset-inline-start: calc(100% + 0.25rem);
+  min-inline-size: 9rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 0.3rem;
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 10px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
+  font-size: 12px;
+}
+[part="file-subdropdown"][hidden] {
+  display: none;
+}
+[part="file-subdropdown"][data-flip="true"] {
+  inset-inline-start: auto;
+  inset-inline-end: calc(100% + 0.25rem);
 }
 [part="docs-menu"] {
   font: inherit;
@@ -240,6 +263,7 @@
   margin-block-end: 0.6rem;
 }
 [part="docs-new"],
+[part="docs-folder-new"],
 [part="docs-import"],
 [part="docs-sort"] {
   font: inherit;
@@ -253,6 +277,7 @@
   color: inherit;
 }
 [part="docs-new"] svg,
+[part="docs-folder-new"] svg,
 [part="docs-import"] svg,
 [part="docs-sort"] svg {
   inline-size: 20px;
@@ -260,6 +285,7 @@
   vertical-align: middle;
 }
 [part="docs-new"]:hover,
+[part="docs-folder-new"]:hover,
 [part="docs-import"]:hover,
 [part="docs-sort"]:hover {
   background-color: var(--pey-color-surface, #f1f1f5);

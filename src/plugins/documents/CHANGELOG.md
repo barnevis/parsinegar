@@ -1,5 +1,11 @@
 # Changelog — parsinegar.documents
 
+## [0.5.0]
+
+### Added
+
+- Disk origin tracking: `saveDocument`/`createDocument` carry an optional `origin` filename (preserved across overwrites like the lock); folder re-imports match on it so in-app renames survive.
+
 ## [0.4.0]
 
 ### Added

@@ -91,65 +91,6 @@ export function sortDocuments(items, mode) {
 }
 
 /**
- * Builds a nested directory tree from flat device entries. Intermediate
- * directories are derived from relative paths; directories sort before
- * files, each alphabetically (Persian-aware). File labels drop the
- * Markdown extension (the full path stays in the row tooltip).
- * @param {Array<object>} entries Flat entries with `{ id, title, path }`.
- * @returns {Array<object>} Tree nodes: `{ kind: 'dir', key, label, children }`
- *   or `{ kind: 'file', key, label, id, path }`.
- */
-export function buildDiskTree(entries) {
-  const root = { kind: 'dir', key: '', label: '', children: [], directories: new Map() };
-  for (const entry of Array.isArray(entries) ? entries : []) {
-    if (!entry || typeof entry.path !== 'string') {
-      continue;
-    }
-    const segments = entry.path.split('/').filter((segment) => segment.length > 0);
-    if (segments.length === 0) {
-      continue;
-    }
-    let node = root;
-    let prefix = '';
-    for (const segment of segments.slice(0, -1)) {
-      prefix = prefix ? `${prefix}/${segment}` : segment;
-      let child = node.directories.get(prefix);
-      if (!child) {
-        child = { kind: 'dir', key: prefix, label: segment, children: [], directories: new Map() };
-        node.directories.set(prefix, child);
-        node.children.push(child);
-      }
-      node = child;
-    }
-    node.children.push({
-      kind: 'file',
-      key: entry.path,
-      label: segments[segments.length - 1].replace(/\.(md|markdown|mdown|txt)$/i, ''),
-      id: entry.id,
-      path: entry.path,
-    });
-  }
-  const order = (nodes) => {
-    for (const node of nodes) {
-      if (node.kind === 'dir') {
-        order(node.children);
-      }
-    }
-    nodes.sort((left, right) => {
-      if (left.kind !== right.kind) {
-        return left.kind === 'dir' ? -1 : 1;
-      }
-      return compareTitles(left.label, right.label);
-    });
-  };
-  const strip = (nodes) => nodes.map(({ directories, ...node }) => (
-    node.kind === 'dir' ? { ...node, children: strip(node.children) } : node
-  ));
-  order(root.children);
-  return strip(root.children);
-}
-
-/**
  * Builds a nested folder tree from flat folder records. Siblings sort
  * alphabetically (Persian-aware); documents attach at render time.
  * @param {Array<object>} folders Flat folders with `{ id, name, parentId }`.
@@ -205,15 +146,15 @@ function folderDisplayPath(foldersById, id) {
  * @param {string|null} options.currentId Open document id.
  * @param {string|null} [options.openMenuId] Document whose menu is open (or `folder:<id>`).
  * @param {string|null} [options.moveMenuId] Document whose move submenu is open.
+ * @param {boolean} [options.moveFlip] Whether the move submenu opens mirrored.
  * @param {object|null} [options.editing] Inline rename state `{ id, error }` (`folder:<id>` for folders).
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
  * @param {string} [options.sortMode] Active ordering for the sort menu (defaults to `updated-desc`).
  * @param {boolean} [options.sortMenuOpen] Whether the sort menu renders open.
  * @param {Array<string>} [options.folderCollapsed] Collapsed folder ids.
- * @param {object|null} [options.disk] Open device folder: `{ root, entries, collapsed }` (highlight via `currentId`).
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, folders = [], currentId, openMenuId, moveMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, folderCollapsed = [], disk = null }) {
+export function renderFilesView({ t, items, folders = [], currentId, openMenuId, moveMenuId, moveFlip = false, editing, assetBaseUrl, sortMode, sortMenuOpen, folderCollapsed = [] }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const activeSort = FILES_SORT_MODES.includes(sortMode) ? sortMode : DEFAULT_FILES_SORT;
   const documents = Array.isArray(items) ? items : [];
@@ -221,7 +162,7 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
   const foldersById = new Map(folderList.filter((folder) => folder && typeof folder.id === 'string').map((folder) => [folder.id, folder]));
   const collapsed = new Set(Array.isArray(folderCollapsed) ? folderCollapsed : []);
   const scope = {
-    translate, currentId, openMenuId, moveMenuId, editing, foldersById, collapsed,
+    translate, currentId, openMenuId, moveMenuId, moveFlip, editing, foldersById, collapsed,
   };
   const rootDocs = documents.filter((item) => (item.folderId ?? null) === null);
   const docsOf = (folderId) => documents.filter((item) => (item.folderId ?? null) === folderId);
@@ -238,7 +179,7 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
     return `
     <li part="docs-item"${item.id === currentId ? ' data-current="true"' : ''}>
       <button type="button" part="docs-open" data-doc-id="${id}" ${item.id === currentId ? 'aria-current="true"' : ''}>${title}</button>
-      <button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋯</button>
+      <button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋮</button>
       ${openMenuId === item.id ? renderFileMenu(scope, id, item.id) : ''}
     </li>`;
   };
@@ -253,9 +194,9 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
     }
     const shut = collapsed.has(node.id);
     return `
-    <li part="docs-item" data-disk-dir="true">
+    <li part="docs-item" data-folder-dir="true">
       <button type="button" part="docs-toggle" data-folder-toggle="${escapeHtml(node.id)}" aria-expanded="${shut ? 'false' : 'true'}" aria-label="${escapeHtml(translate(shut ? 'parsinegar.disk.expand' : 'parsinegar.disk.collapse'))}"><span part="outline-chevron" aria-hidden="true"></span><span>${escapeHtml(node.label)}</span></button>
-      <button type="button" part="docs-menu" data-doc-menu="${escapeHtml(folderKey)}" aria-haspopup="true" aria-expanded="${openMenuId === folderKey}" aria-label="${escapeHtml(translate('parsinegar.folders.menu'))}">⋯</button>
+      <button type="button" part="docs-menu" data-doc-menu="${escapeHtml(folderKey)}" aria-haspopup="true" aria-expanded="${openMenuId === folderKey}" aria-label="${escapeHtml(translate('parsinegar.folders.menu'))}">⋮</button>
       ${openMenuId === folderKey ? renderFolderMenu(translate, node.id) : ''}
       ${shut ? '' : `<ul part="docs-list">${node.children.map(renderFolderNode).join('')}${docsOf(node.id).map(renderDocRow).join('')}</ul>`}
     </li>`;
@@ -266,15 +207,17 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
   ].join('');
   const newLabel = escapeHtml(translate('parsinegar.documents.new'));
   const newIcon = iconMarkup(assetBaseUrl, 'add-notes') || newLabel;
+  const newFolderLabel = escapeHtml(translate('parsinegar.folders.new'));
+  const newFolderIcon = iconMarkup(assetBaseUrl, 'create-new-folder') || newFolderLabel;
   const importLabel = escapeHtml(translate('parsinegar.documents.import'));
   const importIcon = iconMarkup(assetBaseUrl, 'upload') || importLabel;
   const sortLabel = escapeHtml(translate('parsinegar.documents.sort'));
   const sortIcon = iconMarkup(assetBaseUrl, 'sort') || sortLabel;
-  const fileIcon = iconMarkup(assetBaseUrl, 'file-copy') || '';
   return `
     <div part="files-view">
       <div part="files-bar">
         <button type="button" part="docs-new" aria-label="${newLabel}" title="${newLabel}">${newIcon}</button>
+        <button type="button" part="docs-folder-new" aria-label="${newFolderLabel}" title="${newFolderLabel}">${newFolderIcon}</button>
         <button type="button" part="docs-import" aria-label="${importLabel}" title="${importLabel}">${importIcon}</button>
         <div part="docs-sort-wrap">
           <button type="button" part="docs-sort" data-doc-sort aria-haspopup="true" aria-expanded="${sortMenuOpen === true}" aria-label="${sortLabel}" title="${sortLabel}">${sortIcon}</button>
@@ -282,59 +225,7 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
         </div>
       </div>
       <ul part="docs-list">${rows}</ul>
-      ${renderDiskGroup(translate, fileIcon, disk, currentId)}
     </div>`;
-}
-
-/**
- * Renders one device-tree node in the outline language: a directory row
- * carries the same chevron gutter as outline toggles (leaves carry the
- * same spacer, so all titles align in one column), and children nest in a
- * plain indented list. Device rows have no ⋯ menu — entries have no
- * rename/download/delete.
- * @param {Function} translate Translation function.
- * @param {string|null} fileIcon Files glyph markup.
- * @param {object} node Tree node from `buildDiskTree`.
- * @param {string|null} currentId Open document id.
- * @param {Array<string>} collapsed Collapsed directory paths.
- * @returns {string} Node markup.
- */
-function renderDiskNode(translate, fileIcon, node, currentId, collapsed) {
-  if (node.kind === 'dir') {
-    const shut = collapsed.includes(node.key);
-    const toggle = escapeHtml(node.key);
-    return `
-    <li part="docs-item" data-disk-dir="true">
-      <button type="button" part="docs-toggle" data-disk-toggle="${toggle}" aria-expanded="${shut ? 'false' : 'true'}" aria-label="${escapeHtml(translate(shut ? 'parsinegar.disk.expand' : 'parsinegar.disk.collapse'))}"><span part="outline-chevron" aria-hidden="true"></span><span>${escapeHtml(node.label)}</span></button>
-      ${shut ? '' : `<ul part="docs-list">${node.children.map((child) => renderDiskNode(translate, fileIcon, child, currentId, collapsed)).join('')}</ul>`}
-    </li>`;
-  }
-  const id = escapeHtml(node.id);
-  return `
-    <li part="docs-item"${node.id === currentId ? ' data-current="true"' : ''} data-disk="true" title="${escapeHtml(node.path)}">
-      <span part="outline-spacer" aria-hidden="true"></span><button type="button" part="docs-open" data-doc-id="${id}" ${node.id === currentId ? 'aria-current="true"' : ''}><span>${escapeHtml(node.label)}</span></button>
-    </li>`;
-}
-
-/**
- * Renders the open device folder as a second group below the documents:
- * a header with the folder label plus the collapsible file tree. The open
- * row highlights through the shared `currentId` (`disk:<path>` ids).
- * @param {Function} translate Translation function.
- * @param {string|null} fileIcon Files glyph markup.
- * @param {object} disk `{ root, entries, collapsed }`.
- * @param {string|null} currentId Open document id.
- * @returns {string} Group markup (empty when no folder is open).
- */
-function renderDiskGroup(translate, fileIcon, disk, currentId) {
-  if (!disk || !Array.isArray(disk.entries) || disk.entries.length === 0) {
-    return '';
-  }
-  const collapsed = Array.isArray(disk.collapsed) ? disk.collapsed : [];
-  const tree = buildDiskTree(disk.entries);
-  return `
-      <p part="docs-group">${fileIcon}<span>${escapeHtml(disk.root ?? '')}</span></p>
-      <ul part="docs-list">${tree.map((node) => renderDiskNode(translate, fileIcon, node, currentId, collapsed)).join('')}</ul>`;
 }
 
 /**
@@ -357,13 +248,14 @@ function renderSortMenu(translate, activeSort) {
 /**
  * Renders the per-document action menu (rename, move submenu, download,
  * download-html, properties, delete).
- * @param {object} scope Render scope `{ translate, moveMenuId, foldersById }`.
+ * @param {object} scope Render scope `{ translate, moveMenuId, moveFlip, foldersById }`.
  * @param {string} id Escaped document id.
  * @param {string} rawId Unescaped document id for move targets.
  * @returns {string} Menu markup.
  */
 function renderFileMenu(scope, id, rawId) {
-  const { translate, moveMenuId, foldersById } = scope;
+  const { translate, moveMenuId, moveFlip, foldersById } = scope;
+  const flip = moveFlip === true;
   const entry = (key, labelKey) => `
         <button type="button" part="file-menu-item" data-file-${key}="${id}">${escapeHtml(translate(labelKey))}</button>`;
   const open = moveMenuId === rawId;
@@ -372,7 +264,7 @@ function renderFileMenu(scope, id, rawId) {
     targets.push(`<button type="button" part="file-menu-item" data-move-to="${id}|${escapeHtml(folder.id)}">${escapeHtml(folderDisplayPath(foldersById, folder.id))}</button>`);
   }
   return `
-      <div part="file-menu" role="menu">${entry('rename', 'parsinegar.documents.rename')}<button type="button" part="file-menu-item" data-move-toggle="${id}" aria-expanded="${open ? 'true' : 'false'}">${escapeHtml(translate('parsinegar.folders.moveTo'))}</button>${open ? `<div part="file-submenu" role="menu">${targets.join('')}</div>` : ''}${entry('download', 'parsinegar.documents.download')}${entry('download-html', 'parsinegar.documents.downloadHtml')}${entry('properties', 'parsinegar.documents.properties')}${entry('delete', 'parsinegar.documents.delete')}
+      <div part="file-menu" role="menu">${entry('rename', 'parsinegar.documents.rename')}<div part="file-submenu-wrap"><button type="button" part="file-menu-item" role="menuitem" data-move-toggle="${id}" aria-haspopup="true" aria-expanded="${open ? 'true' : 'false'}"><span>${escapeHtml(translate('parsinegar.folders.moveTo'))}</span><span part="file-sub-indicator" aria-hidden="true">‹</span></button><div part="file-subdropdown" role="menu" data-flip="${flip === true}" ${open ? '' : 'hidden'}>${targets.join('')}</div></div>${entry('download', 'parsinegar.documents.download')}${entry('download-html', 'parsinegar.documents.downloadHtml')}${entry('properties', 'parsinegar.documents.properties')}${entry('delete', 'parsinegar.documents.delete')}
       </div>`;
 }
 

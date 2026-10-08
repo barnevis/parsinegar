@@ -1,6 +1,6 @@
 {
   "name": "parsinegar.documents",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "architecture": "0.11",
   "description": "Parsinegar document management: Markdown documents in nested folders over pey.storage.service",
   "type": "product",
@@ -33,17 +33,18 @@
           "name": "saveDocument",
           "description": "Creates or overwrites a document, stamps updatedAt, publishes documents:changed.",
           "params": [
-            { "name": "input", "type": "{ id?: string, title?: string, content?: string, folderId?: string | null }" }
+            { "name": "input", "type": "{ id?: string, title?: string, content?: string, folderId?: string | null, origin?: string | null }" }
           ],
           "returns": "Promise<object>",
           "errors": ["DOCUMENT_TITLE_DUPLICATE", "DOCUMENTS_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "createDocument",
-          "description": "Creates a new empty document with the given title, suffixing until unique. Lands in the given folder, or the root.",
+          "description": "Creates a new empty document with the given title, suffixing until unique. Lands in the given folder, or the root. Records the disk origin filename when given (folder re-imports match on it).",
           "params": [
             { "name": "title", "type": "string" },
-            { "name": "folderId", "type": "string | null (optional, defaults to the root)" }
+            { "name": "folderId", "type": "string | null (optional, defaults to the root)" },
+            { "name": "origin", "type": "string | null (optional disk filename, defaults to null)" }
           ],
           "returns": "Promise<object>",
           "errors": ["DOCUMENT_TITLE_DUPLICATE", "DOCUMENTS_STORAGE_UNAVAILABLE"]

@@ -601,6 +601,187 @@ export function createDocumentController({
     },
 
     /**
+     * Imports a device folder as browser documents: reuses the root folder
+     * with the same name (or creates it), recreates nested folders, and
+     * matches files by disk origin — changed files update in place (even
+     * renamed documents), new files are added, and files gone from disk
+     * stay untouched (never auto-deleted).
+     * @param {object} [input] Import payload.
+     * @param {string} [input.rootName] Disk folder name.
+     * @param {Array} [input.files] `{ name, path, content }` in disk order.
+     * @returns {Promise<object|null>} `{ apply|null, items, folders }`, or null on no-op/failure.
+     */
+    async importFolder({ rootName, files } = {}) {
+      if (!service || typeof service.createFolder !== 'function') {
+        return null;
+      }
+      const entries = (Array.isArray(files) ? files : []).filter((file) => file && typeof file.name === 'string');
+      try {
+        await controller.flushSave();
+        if (!isLive()) {
+          return null;
+        }
+        const cleanRoot = typeof rootName === 'string' && rootName.trim().length > 0
+          ? rootName.trim()
+          : translate('parsinegar.folders.new');
+        let folderList = await service.listFolders();
+        const findChild = (parentId, name) => folderList.find((folder) => (folder.parentId ?? null) === (parentId ?? null) && folder.name === name) ?? null;
+        let root = findChild(null, cleanRoot);
+        if (!root) {
+          root = await service.createFolder(cleanRoot, null);
+          folderList = await service.listFolders();
+        }
+        if (!isLive()) {
+          return null;
+        }
+        const ensureDir = async (segments) => {
+          let parent = root;
+          for (const segment of segments) {
+            const next = findChild(parent.id, segment);
+            if (next) {
+              parent = next;
+            } else {
+              parent = await service.createFolder(segment, parent.id);
+              folderList = await service.listFolders();
+            }
+          }
+          return parent;
+        };
+        const listed = await service.listDocuments();
+        const byOrigin = new Map();
+        for (const record of listed) {
+          if (typeof record.origin === 'string') {
+            byOrigin.set(`${record.folderId ?? ''}\n${record.origin}`, record);
+          }
+        }
+        const adopted = [];
+        for (const file of entries) {
+          const relative = typeof file.path === 'string' && file.path.length > 0 ? file.path : file.name;
+          const segments = relative.split('/').filter((segment) => segment.length > 0);
+          const folder = await ensureDir(segments.slice(0, -1));
+          if (!isLive()) {
+            return null;
+          }
+          const title = deriveImportTitle(file.name);
+          const text = typeof file.content === 'string' ? file.content.replace(/^\uFEFF/, '') : '';
+          const known = byOrigin.get(`${folder.id}\n${relative}`);
+          if (known) {
+            const saved = await service.saveDocument({ id: known.id, title: known.title, content: text });
+            adopted.push({ ...saved, content: text });
+          } else {
+            const created = await service.createDocument(title.length > 0 ? title : translate('parsinegar.documents.new-title'), folder.id, relative);
+            const saved = await service.saveDocument({ id: created.id, title: created.title, content: text });
+            adopted.push({ ...saved, content: text });
+          }
+          if (!isLive()) {
+            return null;
+          }
+        }
+        const { items: fresh, folders: freshFolders } = await readLists();
+        items = fresh;
+        folders = freshFolders;
+        if (adopted.length === 0) {
+          return { apply: null, items: fresh, folders: freshFolders };
+        }
+        return { apply: adopted[0], items: fresh, folders: freshFolders };
+      } catch (error) {
+        console.error('[parsi-document-controller] folder import failed');
+        return null;
+      }
+    },
+
+    /**
+     * Imports a device folder as browser documents: reuses the root folder
+     * with the same name (or creates it), recreates nested folders, and
+     * matches files by disk origin — changed files update in place (even
+     * renamed documents keep their names), new files are added, and files
+     * gone from disk stay untouched (never auto-deleted).
+     * @param {object} [input] Import payload.
+     * @param {string} [input.rootName] Disk folder name.
+     * @param {Array} [input.files] `{ name, path, content }` in disk order.
+     * @returns {Promise<object|null>} `{ apply|null, items, folders }`, or null on no-op/failure.
+     */
+    async importFolder({ rootName, files } = {}) {
+      if (!service || typeof service.createFolder !== 'function') {
+        return null;
+      }
+      const entries = (Array.isArray(files) ? files : []).filter((file) => file && typeof file.name === 'string');
+      try {
+        await controller.flushSave();
+        if (!isLive()) {
+          return null;
+        }
+        const cleanRoot = typeof rootName === 'string' && rootName.trim().length > 0
+          ? rootName.trim()
+          : translate('parsinegar.folders.new');
+        let folderList = await service.listFolders();
+        const findChild = (parentId, name) => folderList.find((folder) => (folder.parentId ?? null) === (parentId ?? null) && folder.name === name) ?? null;
+        let root = findChild(null, cleanRoot);
+        if (!root) {
+          root = await service.createFolder(cleanRoot, null);
+          folderList = await service.listFolders();
+        }
+        if (!isLive()) {
+          return null;
+        }
+        const ensureDir = async (segments) => {
+          let parent = root;
+          for (const segment of segments) {
+            const next = findChild(parent.id, segment);
+            if (next) {
+              parent = next;
+            } else {
+              parent = await service.createFolder(segment, parent.id);
+              folderList = await service.listFolders();
+            }
+          }
+          return parent;
+        };
+        const listed = await service.listDocuments();
+        const byOrigin = new Map();
+        for (const record of listed) {
+          if (typeof record.origin === 'string') {
+            byOrigin.set(`${record.folderId ?? ''}\n${record.origin}`, record);
+          }
+        }
+        const adopted = [];
+        for (const file of entries) {
+          const relative = typeof file.path === 'string' && file.path.length > 0 ? file.path : file.name;
+          const segments = relative.split('/').filter((segment) => segment.length > 0);
+          const folder = await ensureDir(segments.slice(0, -1));
+          if (!isLive()) {
+            return null;
+          }
+          const name = deriveImportTitle(file.name);
+          const title = name.length > 0 ? name : translate('parsinegar.documents.new-title');
+          const text = typeof file.content === 'string' ? file.content.replace(/^\uFEFF/, '') : '';
+          const known = byOrigin.get(`${folder.id}\n${relative}`);
+          if (known) {
+            const saved = await service.saveDocument({ id: known.id, title: known.title, content: text });
+            adopted.push({ ...saved, content: text });
+          } else {
+            const created = await service.createDocument(title, folder.id, relative);
+            const saved = await service.saveDocument({ id: created.id, title: created.title, content: text });
+            adopted.push({ ...saved, content: text });
+          }
+          if (!isLive()) {
+            return null;
+          }
+        }
+        const { items: fresh, folders: freshFolders } = await readLists();
+        items = fresh;
+        folders = freshFolders;
+        if (adopted.length === 0) {
+          return { apply: null, items: fresh, folders: freshFolders };
+        }
+        return { apply: adopted[0], items: fresh, folders: freshFolders };
+      } catch (error) {
+        console.error('[parsi-document-controller] folder import failed');
+        return null;
+      }
+    },
+
+    /**
      * Creates a folder (optionally nested) and refreshes the lists.
      * @param {unknown} name Folder name.
      * @param {unknown} parentId Parent folder id, null for the root.
