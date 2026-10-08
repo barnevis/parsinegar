@@ -56,3 +56,33 @@ test('should_decorate_only_unoverlapped_spans_when_focused', () => {
     destroy(mounted);
   }
 });
+
+test('should_keep_highlight_neutral_inside_code_span', () => {
+  const mounted = createEditor('متن\n\n`==آزمایش==`');
+  try {
+    assert.equal(mounted.host.querySelector('.parsi-highlight'), null, 'expected no highlight inside backticks');
+    assert.equal(mounted.host.querySelectorAll('.parsi-delim').length, 0, 'expected visible delimiters inside backticks');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_keep_highlight_neutral_inside_fenced_code', () => {
+  const mounted = createEditor('متن\n\n```js\n==آزمایش==\n```\n');
+  try {
+    assert.equal(mounted.host.querySelector('.parsi-highlight'), null, 'expected no highlight inside fences');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_highlight_outside_code_when_mixed', () => {
+  const mounted = createEditor('متن\n\n==بیرون== و `==درون==`');
+  try {
+    const highlighted = [...mounted.host.querySelectorAll('.parsi-highlight')];
+    assert.equal(highlighted.length, 1);
+    assert.equal(highlighted[0].textContent, 'بیرون');
+  } finally {
+    destroy(mounted);
+  }
+});
