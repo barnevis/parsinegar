@@ -258,8 +258,9 @@ test('should_detect_line_direction_when_themed', () => {
     assert.ok(hasRule('.cm-line.parsi-dir-ltr', 'text-align', 'left'));
     assert.ok(hasRule('.cm-line.parsi-base-rtl', 'text-align', 'right'));
     assert.ok(hasRule('.cm-line.parsi-base-ltr', 'text-align', 'left'));
-    // Nested list levels indent with tab stops pinned to eight columns.
-    assert.ok(hasRule('.cm-content', 'tab-size', '8'));
+    // Nested list levels indent with tab stops: the facet lands inline on
+    // the content (a stylesheet rule could never beat it).
+    assert.equal(host.querySelector('.cm-content').style.getPropertyValue('tab-size'), '8');
   } finally {
     editor.destroy();
     host.remove();

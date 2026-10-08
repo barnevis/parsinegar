@@ -152,15 +152,17 @@ class ListMarkerWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
     span.className = this.folded ? 'parsi-list-marker parsi-list-collapsed' : 'parsi-list-marker';
-    span.textContent = this.label;
     if (Number.isInteger(this.foldFrom) && Number.isInteger(this.foldTo)) {
       span.dataset.foldFrom = String(this.foldFrom);
       span.dataset.foldTo = String(this.foldTo);
+      // Leading chevron like the outline gutter (not trailing): the marker
+      // glyph stays glued to its text while the toggle keeps a fixed column.
       const chevron = document.createElement('span');
       chevron.className = 'parsi-list-chevron';
       chevron.setAttribute('aria-hidden', 'true');
       span.append(chevron);
     }
+    span.append(document.createTextNode(this.label));
     return span;
   }
 

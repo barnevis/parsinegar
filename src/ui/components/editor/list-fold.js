@@ -135,7 +135,7 @@ const foldTheme = EditorView.theme({
     display: 'inline-block',
     inlineSize: '0.3em',
     blockSize: '0.3em',
-    marginInlineStart: '0.3em',
+    marginInlineEnd: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
     transform: 'rotate(225deg)',

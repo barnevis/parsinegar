@@ -168,6 +168,9 @@ export function createMarkdownView(host, options = {}) {
       minimalSetup,
       markdown({ base: markdownLanguage, codeLanguages: codeLanguageDescriptions }),
       EditorView.lineWrapping,
+      // Nested list levels indent with tab stops: eight columns for both
+      // rendering (inline tab-size on the content) and column math.
+      EditorState.tabSize.of(8),
       editableCompartment.of(lockExtensions(options.readOnly === true)),
       // Search state plus match highlighting; the default panel and keymap
       // stay out on purpose (the menubar form owns the UI, and its
@@ -292,9 +295,6 @@ export function createMarkdownView(host, options = {}) {
         },
         '& .cm-content': {
           lineHeight: '1.5',
-          // Pinned (never inherited): nested list levels indent with tab
-          // characters, which must measure eight columns everywhere.
-          tabSize: '8',
         },
       }),
       ...editorColorScheme(options.colorScheme),

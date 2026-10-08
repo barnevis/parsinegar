@@ -73,7 +73,6 @@ class TaskBoxWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
     span.className = this.fold?.folded === true ? 'parsi-task-marker parsi-list-collapsed' : 'parsi-task-marker';
-    span.textContent = this.checked ? CHECKED_GLYPH : UNCHECKED_GLYPH;
     span.setAttribute('role', 'checkbox');
     span.setAttribute('aria-checked', String(this.checked));
     span.dataset.taskFrom = String(this.from);
@@ -85,6 +84,7 @@ class TaskBoxWidget extends WidgetType {
       chevron.setAttribute('aria-hidden', 'true');
       span.append(chevron);
     }
+    span.append(document.createTextNode(this.checked ? CHECKED_GLYPH : UNCHECKED_GLYPH));
     return span;
   }
 }
