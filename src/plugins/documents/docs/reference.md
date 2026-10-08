@@ -48,12 +48,12 @@ const document = await service.openDocument('doc-id');
 const saved = await service.saveDocument({ id: 'doc-id', title: 'یادداشت', content: '# سلام' });
 ```
 
-### `createDocument(title)`
+### `createDocument(title, folderId?)`
 
-سند خالی تازه می‌سازد و عنوان را پسوند می‌زند (`title ۲` و …) تا یکتا شود.
+سند خالی تازه می‌سازد و عنوان را پسوند می‌زند (`title ۲` و …) تا یکتا شود. در پوشهٔ داده‌شده می‌نشیند (پیش‌فرض ریشه؛ پوشهٔ ناموجود به ریشه برمی‌گردد).
 
 ```js
-const created = await service.createDocument('ایده‌ها');
+const created = await service.createDocument('ایده‌ها', folderId);
 ```
 
 ### `renameDocument(id, title)`
@@ -80,11 +80,44 @@ await service.deleteDocument('doc-id');
 const locked = await service.setReadOnly('doc-id', true);
 ```
 
+### `listFolders()`
+
+پوشه‌ها را تخت برمی‌گرداند (`{ id, name, parentId, createdAt }`)؛ تودرتوسازی با فراخوان است.
+
+```js
+const folders = await service.listFolders();
+```
+
+### `createFolder(name, parentId?)`
+
+پوشه زیر والد داده‌شده (پیش‌فرض ریشه) می‌سازد و نام را بین هم‌ریشه‌ها پسوند می‌زند تا یکتا شود. نام خالی یا دارای `/` با `FOLDER_INVALID_NAME` رد می‌شود.
+
+```js
+const folder = await service.createFolder('کار', parentId);
+```
+
+### `renameFolder(id, name)`
+
+پوشه را تغییرنام می‌دهد و `folders:changed` منتشر می‌کند. وقتی شناسه نیست `null`؛ نام نامعتبر/تکراری بین هم‌ریشه‌ها reject می‌شود.
+
+### `deleteFolder(id)`
+
+پوشه را با همهٔ زیرپوشه‌ها و سندهای داخلش حذف می‌کند (هر سند `documents:changed` خودش را می‌گیرد) و به‌ازای هر پوشه `folders:changed` منتشر می‌کند. وقتی شناسه نیست no-op.
+
+### `moveDocument(id, folderId)`
+
+سند را به پوشه می‌برد (`null` یعنی ریشه) و `documents:changed` منتشر می‌کند. وقتی سند یا پوشه نیست `null` برمی‌گرداند.
+
+```js
+const moved = await service.moveDocument('doc-id', folderId);
+```
+
 ## ایونت‌ها
 
 | ایونت | کی | داده |
 |---|---|---|
-| `documents:changed` | بعد از ذخیره یا تغییرنام یا حذف یا (باز)قفل شدن سند. | `{ id }` |
+| `documents:changed` | بعد از ذخیره یا تغییرنام یا انتقال یا حذف یا (باز)قفل شدن سند. | `{ id }` |
+| `folders:changed` | بعد از ساخت یا تغییرنام یا حذف پوشه. | `{ id }` |
 
 این افزونه به هیچ ایونتی گوش نمی‌دهد.
 
@@ -94,6 +127,8 @@ const locked = await service.setReadOnly('doc-id', true);
 
 - `DOCUMENT_TITLE_DUPLICATE` (operational با `detail: { field: 'title' }`) — رکورد دیگری همین عنوان را دارد.
 - `DOCUMENT_INVALID_TITLE` (operational با `detail: { field: 'title' }`) — عنوان خالی تغییرنام.
+- `FOLDER_INVALID_NAME` (operational با `detail: { field: 'name' }`) — نام پوشه خالی است یا `/` دارد.
+- `FOLDER_TITLE_DUPLICATE` (operational با `detail: { field: 'name' }`) — هم‌ریشه دیگری همین نام را دارد.
 
 ## پیکربندی
 
@@ -104,6 +139,9 @@ const locked = await service.setReadOnly('doc-id', true);
 - هر رکورد ذخیره‌شده `updatedAt` زمان ذخیره را حمل می‌کند؛ صدازننده نمی‌تواند بازنویسی‌اش کند.
 - هر رکورد `createdAt` حمل می‌کند که یک‌بار موقع ساخت ست می‌شود و ذخیره‌های بعدی حفظش می‌کنند؛ رکوردهای پیش از خودش به `updatedAt` برمی‌گردند.
 - هر رکورد `readOnly` حمل می‌کند (پیش‌فرض `false`)؛ `saveDocument` قفل ذخیره‌شده را نگه می‌دارد مگر `input.readOnly` صریح بگوید و `setReadOnly` برمی‌گرداندش.
+- هر سند `folderId` حمل می‌کند (`null` یعنی ریشه)؛ رکوردهای پیش از پوشه‌ها به ریشه برمی‌گردند. `saveDocument` پوشهٔ ذخیره‌شده را نگه می‌دارد مگر ورودی صریح بگوید (رشتهٔ ناموجود به ریشه برمی‌گردد).
+- نام پوشه بین هم‌ریشه‌ها یکتاست (نه سراسری)؛ `createFolder` پسوند فارسی می‌زند. انتقال پوشه وجود ندارد (والد فقط هنگام ساخت) — پس چرخه ناممکن است.
+- عنوان سندها همچنان سراسری یکتاست (شکسته نمی‌شود).
 - عنوان‌ها در همه رکوردها یکتایند: ذخیره یا تغییرنام روی عنوان تکراری reject می‌شود (موقع به‌روزرسانی خود رکورد مستثناست). `createDocument` با ارقام فارسی پسوند می‌زند تا آزاد شود.
 - ترتیب فهرست همیشه تازه‌ترینِ ویرایش‌شده اول است.
 - `openDocument` برای شناسه گمشده هرگز throw نمی‌کند — `null` برمی‌گرداند.

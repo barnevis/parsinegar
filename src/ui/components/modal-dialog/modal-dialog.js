@@ -37,7 +37,7 @@ class ParsiModalDialog extends PeyElement {
   /**
    * Updates the pending overlay snapshot.
    * @param {object} data New data.
-   * @param {object|null} [data.modal] `{ kind: 'confirm', title }` or the formatted properties snapshot, or null when closed.
+   * @param {object|null} [data.modal] `{ kind: 'confirm', title }`, `{ kind: 'confirm-folder', title, count }` or the formatted properties snapshot, or null when closed.
    * @returns {void}
    */
   configure({ modal } = {}) {
@@ -77,6 +77,16 @@ class ParsiModalDialog extends PeyElement {
   render() {
     if (this.#modal?.kind === 'confirm') {
       return renderConfirmModal({ t: this.#t, title: this.#modal.title, assetBaseUrl: this.#assetBaseUrl });
+    }
+    if (this.#modal?.kind === 'confirm-folder') {
+      return renderConfirmModal({
+        t: this.#t,
+        title: this.#modal.title,
+        assetBaseUrl: this.#assetBaseUrl,
+        headingKey: 'parsinegar.folders.delete',
+        messageKey: 'parsinegar.folders.delete-confirm',
+        messageParams: { count: this.#modal.count ?? 0 },
+      });
     }
     if (this.#modal?.kind === 'properties') {
       return renderPropertiesModal({

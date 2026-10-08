@@ -1,7 +1,7 @@
 // Verifies the files view rendering (pure, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_FILES_SORT, FILES_SORT_MODES, buildDiskTree, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES, buildDiskTree, buildFolderTree, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
 
 function translate(key, params) {
   const template = {
@@ -238,5 +238,67 @@ test('should_hide_collapsed_branches_when_collapsed', () => {
   };
   const html = renderFilesView({ t: translate, items: [], currentId: null, assetBaseUrl: 'http://localhost/assets/', disk });
   assert.ok(!html.includes('data-doc-id="disk:sub/a.md"'), 'expected the collapsed branch hidden');
+  assert.ok(html.includes('aria-expanded="false"'), 'expected the toggle state');
+});
+
+test('should_build_folder_tree_when_nested', () => {
+  const tree = buildFolderTree([
+    { id: 'f2', name: 'ب', parentId: null },
+    { id: 'f1', name: 'الف', parentId: null },
+    { id: 'f3', name: 'زیر', parentId: 'f1' },
+  ]);
+  assert.deepEqual(tree.map(({ label }) => label), ['الف', 'ب']);
+  assert.deepEqual(tree[0].children.map(({ label }) => label), ['زیر']);
+});
+
+test('should_render_folder_tree_when_folders_exist', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'd1', title: 'ریشه' }, { id: 'd2', title: 'داخلی', folderId: 'f1' }],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: 'd2',
+  });
+  assert.ok(html.includes('data-folder-toggle="f1"'), 'expected the folder toggle');
+  assert.ok(html.includes('data-doc-menu="folder:f1"'), 'expected the folder menu');
+  assert.ok(html.includes('>کار<'), 'expected the folder label');
+  assert.ok(html.includes('aria-current="true"'), 'expected the current document marked');
+});
+
+test('should_render_folder_menu_when_open', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: null,
+    openMenuId: 'folder:f1',
+  });
+  assert.ok(html.includes('data-folder-rename="f1"'), 'expected the folder rename action');
+  assert.ok(html.includes('data-folder-new-doc="f1"'), 'expected the new-here action');
+  assert.ok(html.includes('data-folder-delete="f1"'), 'expected the folder delete action');
+});
+
+test('should_render_move_submenu_when_open', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'd1', title: 'سند' }],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: null,
+    openMenuId: 'd1',
+    moveMenuId: 'd1',
+  });
+  assert.ok(html.includes('data-move-toggle="d1"'), 'expected the move toggle');
+  assert.ok(html.includes('data-move-to="d1|"'), 'expected the root target');
+  assert.ok(html.includes('data-move-to="d1|f1"'), 'expected the folder target');
+});
+
+test('should_hide_collapsed_folders_when_collapsed', () => {
+  const html = renderFilesView({
+    t: translate,
+    items: [{ id: 'd2', title: 'داخلی', folderId: 'f1' }],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: null,
+    folderCollapsed: ['f1'],
+  });
+  assert.ok(!html.includes('data-doc-id="d2"'), 'expected the collapsed folder hidden');
   assert.ok(html.includes('aria-expanded="false"'), 'expected the toggle state');
 });

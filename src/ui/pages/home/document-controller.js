@@ -56,11 +56,13 @@ export function createDocumentController({
   let translate = t;
   let formatFn = format;
   let items = [];
+  let folders = [];
   let currentId = null;
   let docTitle = '';
   let draft = null;
   let saveTimer = null;
   let confirmDeleteId = null;
+  let confirmFolderDeleteId = null;
   let propsRecord = null;
 
   function clearSaveTimer() {
@@ -68,6 +70,44 @@ export function createDocumentController({
       clearTimeout(saveTimer);
       saveTimer = null;
     }
+  }
+
+  /**
+   * Reads both lists, degrading when the service predates folders.
+   * @returns {Promise<object>} `{ items, folders }`.
+   */
+  async function readLists() {
+    const listed = await service.listDocuments();
+    const folderList = typeof service.listFolders === 'function' ? await service.listFolders() : [];
+    return { items: listed, folders: folderList };
+  }
+
+  /**
+   * Counts documents inside a folder subtree (the folder itself plus all
+   * descendants) from the current snapshots.
+   * @param {string} id Folder id.
+   * @returns {number} Contained document count.
+   */
+  function countFolderDocuments(id) {
+    const childrenOf = new Map();
+    for (const folder of folders) {
+      const parent = folder.parentId ?? null;
+      if (!childrenOf.has(parent)) {
+        childrenOf.set(parent, []);
+      }
+      childrenOf.get(parent).push(folder.id);
+    }
+    const inside = new Set([id]);
+    const queue = [id];
+    while (queue.length > 0) {
+      for (const child of childrenOf.get(queue.pop()) ?? []) {
+        if (!inside.has(child)) {
+          inside.add(child);
+          queue.push(child);
+        }
+      }
+    }
+    return items.filter((item) => inside.has(item.folderId ?? null)).length;
   }
 
   async function saveNow() {
@@ -116,27 +156,33 @@ export function createDocumentController({
 
     /**
      * Returns a render snapshot of the working set (never the live arrays).
-     * @returns {object} `{ items, currentId, docTitle, draft, confirmDeleteId, propsRecord }`.
+     * @returns {object} `{ items, folders, currentId, docTitle, draft, confirmDeleteId, confirmFolderDeleteId, propsRecord }`.
      */
     getState() {
       return {
         items: [...items],
+        folders: [...folders],
         currentId,
         docTitle,
         draft,
         confirmDeleteId,
+        confirmFolderDeleteId,
         propsRecord,
       };
     },
 
     /**
      * Returns the pending modal snapshot, or null when nothing is pending.
-     * @returns {object|null} `{ kind: 'confirm', title }` or the formatted properties snapshot.
+     * @returns {object|null} `{ kind: 'confirm', title }`, `{ kind: 'confirm-folder', title, count }` or the formatted properties snapshot.
      */
     getModal() {
       if (confirmDeleteId !== null) {
         const pending = items.find((item) => item.id === confirmDeleteId) ?? null;
         return { kind: 'confirm', title: pending?.title ?? null };
+      }
+      if (confirmFolderDeleteId !== null) {
+        const pending = folders.find((folder) => folder.id === confirmFolderDeleteId) ?? null;
+        return { kind: 'confirm-folder', title: pending?.name ?? null, count: countFolderDocuments(confirmFolderDeleteId) };
       }
       if (propsRecord !== null) {
         const record = propsRecord;
@@ -161,10 +207,14 @@ export function createDocumentController({
      * incoming draft.
      * @param {object} record Opened document record.
      * @param {object[]} itemsSnapshot Fresh document list.
+     * @param {object[]|null} [foldersSnapshot] Fresh folder list (keeps the old one when absent).
      * @returns {void}
      */
-    adopt(record, itemsSnapshot) {
+    adopt(record, itemsSnapshot, foldersSnapshot = null) {
       items = itemsSnapshot;
+      if (foldersSnapshot !== null) {
+        folders = foldersSnapshot;
+      }
       currentId = record.id;
       docTitle = record.title ?? '';
       draft = record.content ?? '';
@@ -190,7 +240,7 @@ export function createDocumentController({
     /**
      * Opens the most recent document on boot, creating the welcome document
      * when the store is empty.
-     * @returns {Promise<object>} `{ apply, items }` to open, or `{ none: true }`.
+     * @returns {Promise<object>} `{ apply, items, folders }` to open, or `{ none: true }`.
      */
     async ensureInitial() {
       if (!service) {
@@ -201,22 +251,26 @@ export function createDocumentController({
         if (!isLive()) {
           return { none: true };
         }
+        const folderList = typeof service.listFolders === 'function' ? await service.listFolders() : [];
+        if (!isLive()) {
+          return { none: true };
+        }
         if (listed.length === 0) {
           const created = await service.saveDocument({
-            title: translate('parsinegar.documents.welcome-title'),
+            title: translate('parsinegar.documents.new-title'),
             content: SAMPLE_DOCUMENT,
           });
           if (!isLive()) {
             return { none: true };
           }
-          return { apply: created, items: [created] };
+          return { apply: created, items: [created], folders: folderList };
         }
         const opened = await service.openDocument(listed[0].id);
         if (!isLive()) {
           return { none: true };
         }
         const record = opened ?? listed[0];
-        return { apply: record, items: listed };
+        return { apply: record, items: listed, folders: folderList };
       } catch (error) {
         console.error('[parsi-document-controller] document load failed');
         return { none: true };
@@ -226,13 +280,14 @@ export function createDocumentController({
     /**
      * Switches to another document, flushing the pending save first.
      * @param {unknown} id Target document id.
-     * @returns {Promise<object|null>} `{ apply, items }`, or null on no-op/failure.
+     * @returns {Promise<object|null>} `{ apply, items, folders }`, or null on no-op/failure.
      */
     async switchDocument(id) {
       if (!id || id === currentId || !service) {
         return null;
       }
       confirmDeleteId = null;
+      confirmFolderDeleteId = null;
       try {
         await controller.flushSave();
         if (!isLive()) {
@@ -242,11 +297,11 @@ export function createDocumentController({
         if (!isLive() || !opened) {
           return null;
         }
-        const listed = await service.listDocuments();
+        const { items: listed, folders: folderList } = await readLists();
         if (!isLive()) {
           return null;
         }
-        return { apply: opened, items: listed };
+        return { apply: opened, items: listed, folders: folderList };
       } catch (error) {
         console.error('[parsi-document-controller] document switch failed');
         return null;
@@ -254,29 +309,32 @@ export function createDocumentController({
     },
 
     /**
-     * Creates a new empty document and opens it.
-     * @returns {Promise<object|null>} `{ apply, items }`, or null on failure.
+     * Creates a new empty document and opens it (in the given folder, or
+     * the root).
+     * @param {string|null} [folderId] Target folder id, null for the root.
+     * @returns {Promise<object|null>} `{ apply, items, folders }`, or null on failure.
      */
-    async createDocument() {
+    async createDocument(folderId = null) {
       if (!service) {
         return null;
       }
       confirmDeleteId = null;
+      confirmFolderDeleteId = null;
       try {
         await controller.flushSave();
         if (!isLive()) {
           return null;
         }
-        const created = await service.createDocument(translate('parsinegar.documents.new-title'));
+        const created = await service.createDocument(translate('parsinegar.documents.new-title'), folderId);
         if (!isLive()) {
           return null;
         }
-        const listed = await service.listDocuments();
+        const { items: listed, folders: folderList } = await readLists();
         if (!isLive()) {
           return null;
         }
         const record = { ...created, content: '' };
-        return { apply: record, items: listed };
+        return { apply: record, items: listed, folders: folderList };
       } catch (error) {
         console.error('[parsi-document-controller] document creation failed');
         return null;
@@ -303,11 +361,12 @@ export function createDocumentController({
     },
 
     /**
-     * Dismisses any pending overlay (delete confirmation, properties).
+     * Dismisses any pending overlay (delete confirmations, properties).
      * @returns {void}
      */
     cancelOverlays() {
       confirmDeleteId = null;
+      confirmFolderDeleteId = null;
       propsRecord = null;
     },
 
@@ -317,7 +376,7 @@ export function createDocumentController({
      * a background document only refreshes the list — the timer, focus and
      * undo of the open document stay alive because the timer is cleared
      * solely on current removal.
-     * @returns {Promise<object|null>} `{ apply|null, items, removingCurrent }`, or null on no-op.
+     * @returns {Promise<object|null>} `{ apply|null, items, folders, removingCurrent }`, or null on no-op.
      */
     async confirmDelete() {
       if (!service) {
@@ -337,13 +396,14 @@ export function createDocumentController({
         if (!isLive()) {
           return null;
         }
-        const listed = await service.listDocuments();
+        const { items: listed, folders: folderList } = await readLists();
         if (!isLive()) {
           return null;
         }
         if (!removingCurrent) {
           items = listed;
-          return { apply: null, items: listed, removingCurrent };
+          folders = folderList;
+          return { apply: null, items: listed, folders: folderList, removingCurrent };
         }
         if (listed.length === 0) {
           const created = await service.saveDocument({
@@ -353,16 +413,89 @@ export function createDocumentController({
           if (!isLive()) {
             return null;
           }
-          return { apply: created, items: [created], removingCurrent };
+          return { apply: created, items: [created], folders: folderList, removingCurrent };
         }
         const opened = await service.openDocument(listed[0].id);
         if (!isLive()) {
           return null;
         }
         const record = opened ?? listed[0];
-        return { apply: record, items: listed, removingCurrent };
+        return { apply: record, items: listed, folders: folderList, removingCurrent };
       } catch (error) {
         console.error('[parsi-document-controller] document deletion failed');
+        return null;
+      }
+    },
+
+    /**
+     * Arms the folder delete confirmation. The modal names the folder with
+     * its contained document count.
+     * @param {unknown} id Folder id from the event detail.
+     * @returns {boolean} True when a confirmation is pending.
+     */
+    armFolderDelete(id) {
+      if (!service || typeof id !== 'string' || id.length === 0) {
+        return false;
+      }
+      if (!folders.some((folder) => folder.id === id)) {
+        return false;
+      }
+      confirmFolderDeleteId = id;
+      confirmDeleteId = null;
+      propsRecord = null;
+      return true;
+    },
+
+    /**
+     * Deletes the confirmed folder with its subtree. When the open document
+     * goes away with it, the most recent survivor (or a fresh document) is
+     * returned for the page to adopt.
+     * @returns {Promise<object|null>} `{ apply|null, items, folders, removingCurrent }`, or null on no-op.
+     */
+    async confirmFolderDelete() {
+      if (!service || confirmFolderDeleteId === null) {
+        return null;
+      }
+      const removedId = confirmFolderDeleteId;
+      confirmFolderDeleteId = null;
+      try {
+        await controller.flushSave();
+        if (!isLive()) {
+          return null;
+        }
+        await service.deleteFolder(removedId);
+        if (!isLive()) {
+          return null;
+        }
+        const { items: listed, folders: folderList } = await readLists();
+        if (!isLive()) {
+          return null;
+        }
+        const removingCurrent = currentId !== null && !listed.some((item) => item.id === currentId);
+        if (!removingCurrent) {
+          items = listed;
+          folders = folderList;
+          return { apply: null, items: listed, folders: folderList, removingCurrent };
+        }
+        clearSaveTimer();
+        if (listed.length === 0) {
+          const created = await service.saveDocument({
+            title: translate('parsinegar.documents.new-title'),
+            content: '',
+          });
+          if (!isLive()) {
+            return null;
+          }
+          return { apply: created, items: [created], folders: folderList, removingCurrent };
+        }
+        const opened = await service.openDocument(listed[0].id);
+        if (!isLive()) {
+          return null;
+        }
+        const record = opened ?? listed[0];
+        return { apply: record, items: listed, folders: folderList, removingCurrent };
+      } catch (error) {
+        console.error('[parsi-document-controller] folder deletion failed');
         return null;
       }
     },
@@ -432,7 +565,7 @@ export function createDocumentController({
      * @param {object} [input] Import payload.
      * @param {string} [input.title] Candidate title (falls back to a new title).
      * @param {string} [input.content] Markdown text.
-     * @returns {Promise<object|null>} `{ apply, items }`, or null on no-op/failure.
+     * @returns {Promise<object|null>} `{ apply, items, folders }`, or null on no-op/failure.
      */
     async importContent({ title, content } = {}) {
       if (!service) {
@@ -455,15 +588,103 @@ export function createDocumentController({
         if (!isLive()) {
           return null;
         }
-        const listed = await service.listDocuments();
+        const { items: listed, folders: folderList } = await readLists();
         if (!isLive()) {
           return null;
         }
         const record = { ...saved, content: text };
-        return { apply: record, items: listed };
+        return { apply: record, items: listed, folders: folderList };
       } catch (error) {
         console.error('[parsi-document-controller] document import failed');
         return null;
+      }
+    },
+
+    /**
+     * Creates a folder (optionally nested) and refreshes the lists.
+     * @param {unknown} name Folder name.
+     * @param {unknown} parentId Parent folder id, null for the root.
+     * @returns {Promise<object|null>} `{ folders, items }`, or null on no-service.
+     */
+    async createFolder(name, parentId = null) {
+      if (!service || typeof service.createFolder !== 'function') {
+        return null;
+      }
+      try {
+        const clean = typeof name === 'string' && name.trim().length > 0
+          ? name.trim()
+          : translate('parsinegar.folders.new');
+        const folder = await service.createFolder(clean, typeof parentId === 'string' ? parentId : null);
+        if (!isLive()) {
+          return null;
+        }
+        const { items: listed, folders: folderList } = await readLists();
+        if (!isLive()) {
+          return null;
+        }
+        items = listed;
+        folders = folderList;
+        return { folders: folderList, items: listed, created: folder };
+      } catch (error) {
+        console.error('[parsi-document-controller] folder creation failed');
+        return null;
+      }
+    },
+
+    /**
+     * Renames a folder through the service.
+     * @param {unknown} id Folder id from the event detail.
+     * @param {unknown} name New name from the event detail.
+     * @returns {Promise<string>} 'renamed', 'empty', 'duplicate', 'failed' or 'ignored'.
+     */
+    async renameFolder(id, name) {
+      if (!service || typeof service.renameFolder !== 'function' || typeof id !== 'string' || id.length === 0) {
+        return 'ignored';
+      }
+      const next = typeof name === 'string' ? name.trim() : '';
+      if (next.length === 0) {
+        return 'empty';
+      }
+      try {
+        const saved = await service.renameFolder(id, next);
+        if (!isLive() || !saved) {
+          return 'failed';
+        }
+        const { folders: folderList } = await readLists();
+        folders = folderList;
+        return 'renamed';
+      } catch (error) {
+        if (error?.code === 'FOLDER_TITLE_DUPLICATE') {
+          return 'duplicate';
+        }
+        console.error('[parsi-document-controller] folder rename failed');
+        return 'failed';
+      }
+    },
+
+    /**
+     * Moves a document into a folder (or back to the root) and refreshes
+     * the lists. The open document stays open wherever it lands.
+     * @param {unknown} id Document id from the event detail.
+     * @param {unknown} folderId Target folder id, null for the root.
+     * @returns {Promise<boolean>} True when the lists were refreshed.
+     */
+    async moveDocument(id, folderId = null) {
+      if (!service || typeof service.moveDocument !== 'function' || typeof id !== 'string' || id.length === 0) {
+        return false;
+      }
+      try {
+        const moved = await service.moveDocument(id, typeof folderId === 'string' ? folderId : null);
+        if (!isLive() || !moved) {
+          return false;
+        }
+        const { items: listed, folders: folderList } = await readLists();
+        items = listed;
+        folders = folderList;
+        return true;
+      } catch (error) {
+        console.error('[parsi-document-controller] document move failed');
+        return false;
       }
     },
 

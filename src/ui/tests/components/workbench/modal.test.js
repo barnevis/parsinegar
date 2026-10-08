@@ -61,3 +61,16 @@ test('should_render_properties_when_record_is_given', async () => {
 test('should_render_nothing_when_title_is_missing', async () => {
   assert.equal(renderPropertiesModal({ t: (key) => key, title: null }), '');
 });
+
+test('should_render_folder_variant_when_keys_are_given', () => {
+  const html = renderConfirmModal({
+    t: translate,
+    title: 'کار',
+    assetBaseUrl: null,
+    headingKey: 'parsinegar.folders.delete',
+    messageKey: 'parsinegar.folders.delete-confirm',
+    messageParams: { count: 3 },
+  });
+  assert.ok(html.includes('parsinegar.folders.delete'), 'expected the folder heading key');
+  assert.ok(html.includes('parsinegar.folders.delete-confirm'), 'expected the folder message key');
+});

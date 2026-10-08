@@ -19,6 +19,7 @@ function createService(initial = []) {
         id: input.id ?? `generated-${++counter}`,
         title: input.title ?? 't',
         content: input.content ?? '',
+        folderId: input.folderId ?? null,
         updatedAt: Date.now(),
       };
       docs.set(record.id, record);
@@ -161,7 +162,7 @@ test('should_keep_current_when_deleting_background', async () => {
   apply(controller, await controller.ensureInitial());
   controller.armDelete('d1');
   const result = apply(controller, await controller.confirmDelete());
-  assert.deepEqual(result, { apply: null, items: result.items, removingCurrent: false });
+  assert.deepEqual(result, { apply: null, items: result.items, folders: [], removingCurrent: false });
   assert.deepEqual(service.calls.filter(([method]) => method === 'delete'), [['delete', 'd1']]);
   assert.equal(controller.getState().currentId, 'd2');
   assert.equal(controller.getDraft(), 'c2');
@@ -338,4 +339,86 @@ test('should_return_null_when_service_has_no_lock', async () => {
   const controller = createController(legacy);
   apply(controller, await controller.ensureInitial());
   assert.equal(await controller.setLock('d1', true), null);
+});
+
+function createFolderService() {
+  const service = createService([]);
+  const folders = new Map();
+  service.listFolders = async () => [...folders.values()];
+  service.createFolder = async (name, parentId = null) => {
+    const folder = { id: `f${folders.size + 1}`, name, parentId: parentId ?? null, createdAt: Date.now() };
+    folders.set(folder.id, folder);
+    return folder;
+  };
+  service.renameFolder = async (id, name) => {
+    const folder = folders.get(id) ?? null;
+    if (!folder) {
+      return null;
+    }
+    const renamed = { ...folder, name };
+    folders.set(id, renamed);
+    return renamed;
+  };
+  service.deleteFolder = async (id) => {
+    folders.delete(id);
+  };
+  service.moveDocument = async (id, folderId = null) => {
+    const record = await service.openDocument(id);
+    if (!record) {
+      return null;
+    }
+    return service.saveDocument({ ...record, folderId });
+  };
+  return service;
+}
+
+test('should_create_and_rename_folder_when_managed', async () => {
+  const controller = createController(createFolderService());
+  const created = await controller.createFolder('کار');
+  assert.ok(created.created, 'expected the created folder');
+  assert.equal(controller.getState().folders.length, 1);
+  assert.equal(await controller.renameFolder(created.created.id, 'زندگی'), 'renamed');
+  assert.equal(await controller.renameFolder(created.created.id, '  '), 'empty');
+  assert.equal(await controller.renameFolder('absent', 'x'), 'failed');
+  const missing = createController(null);
+  assert.equal(await missing.renameFolder('x', 'y'), 'ignored');
+});
+
+test('should_degrade_when_service_predates_folders', async () => {
+  const controller = createController(createService([{ id: 'd', title: 't', content: 'c', updatedAt: 1 }]));
+  const result = apply(controller, await controller.ensureInitial());
+  assert.deepEqual(result.folders, []);
+  assert.equal(await controller.createFolder('x'), null);
+  assert.equal(await controller.renameFolder('x', 'y'), 'ignored');
+  assert.equal(await controller.moveDocument('d', null), false);
+});
+
+test('should_move_document_when_requested', async () => {
+  const service = createFolderService();
+  await service.saveDocument({ id: 'd', title: 't', content: 'c', updatedAt: 1 });
+  const controller = createController(service);
+  apply(controller, await controller.ensureInitial());
+  const folder = (await controller.createFolder('کار')).created;
+  assert.equal(await controller.moveDocument('d', folder.id), true);
+  assert.equal(controller.getState().items.find(({ id }) => id === 'd').folderId, folder.id);
+  assert.equal(await controller.moveDocument('d', null), true);
+  assert.equal(controller.getState().items.find(({ id }) => id === 'd').folderId, null);
+  assert.equal(await controller.moveDocument('absent', folder.id), false);
+});
+
+test('should_confirm_folder_delete_with_count_when_armed', async () => {
+  const service = createFolderService();
+  await service.saveDocument({ id: 'd1', title: 't1', content: 'c', updatedAt: 1 });
+  await service.saveDocument({ id: 'd2', title: 't2', content: 'c', updatedAt: 2 });
+  const controller = createController(service);
+  apply(controller, await controller.ensureInitial());
+  const folder = (await controller.createFolder('کار')).created;
+  await controller.moveDocument('d1', folder.id);
+  assert.equal(controller.armFolderDelete(folder.id), true);
+  assert.equal(controller.armFolderDelete('absent'), false);
+  assert.deepEqual(controller.getModal(), { kind: 'confirm-folder', title: 'کار', count: 1 });
+  const result = await controller.confirmFolderDelete();
+  assert.equal(result.removingCurrent, false);
+  assert.equal(controller.getState().folders.length, 0);
+  assert.ok(controller.getState().items.some(({ id }) => id === 'd2'), 'expected the outside document kept');
 });

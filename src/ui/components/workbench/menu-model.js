@@ -26,6 +26,7 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
   const disk = diskActive === true;
   const fileItems = [
     { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
+    { id: 'new-folder', label: translate('parsinegar.folders.new'), action: 'new-folder', disabled: false },
     { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
     { id: 'open-file', label: translate('parsinegar.disk.openFile'), action: 'open-file', disabled: false },
     { id: 'open-folder', label: translate('parsinegar.disk.openFolder'), action: 'open-folder', disabled: false },

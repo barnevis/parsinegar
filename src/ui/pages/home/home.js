@@ -30,6 +30,9 @@ const FILESYSTEM_SERVICE = 'pey.filesystem.service';
 // Side-panel ids for device entries: the service owns paths, the panel only
 // needs opaque strings, so disk ids are namespaced and never collide.
 const DISK_ID_PREFIX = 'disk:';
+// Side-panel ids for folders: documents keep raw ids, folders travel
+// prefixed so rename/delete/move route to the folder flows.
+const FOLDER_ID_PREFIX = 'folder:';
 const FILESYSTEM_METHODS = ['getCapabilities', 'pickDirectory', 'pickFile', 'listDirectory', 'collectEntries', 'readEntry', 'writeEntry', 'saveShadow', 'readShadow', 'clearShadow'];
 // Browser shadow persist lags typing like the IndexedDB autosave does;
 // park operations (switch, close) persist immediately instead.
@@ -180,6 +183,9 @@ class ParsiPageHome extends PeyElement {
       'document-import',
       'document-delete',
       'document-rename',
+      'document-move',
+      'folder-create-document',
+      'folder-delete',
       'document-download',
       'document-download-html',
       'document-properties',
@@ -228,8 +234,8 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.key === 'Escape' && this.#docs) {
-        const { confirmDeleteId, propsRecord } = this.#docs.getState();
-        if (confirmDeleteId !== null || propsRecord !== null) {
+        const { confirmDeleteId, confirmFolderDeleteId, propsRecord } = this.#docs.getState();
+        if (confirmDeleteId !== null || confirmFolderDeleteId !== null || propsRecord !== null) {
           this.#docs.cancelOverlays();
           this.#requestEditor();
         }
@@ -305,6 +311,20 @@ class ParsiPageHome extends PeyElement {
         void this.#renameDocument(event.detail?.id, event.detail?.title);
         return;
       }
+      if (event.type === 'document-move' && typeof event.detail?.id === 'string') {
+        void this.#moveDocument(event.detail.id, event.detail?.folderId ?? null);
+        return;
+      }
+      if (event.type === 'folder-create-document') {
+        void this.#createDocumentInFolder(event.detail?.folderId ?? null);
+        return;
+      }
+      if (event.type === 'folder-delete' && typeof event.detail?.id === 'string') {
+        if (this.#docs?.armFolderDelete(event.detail.id)) {
+          this.#requestEditor();
+        }
+        return;
+      }
       if (event.type === 'document-download') {
         void this.#downloadDocument(event.detail?.id);
         return;
@@ -325,8 +345,7 @@ class ParsiPageHome extends PeyElement {
           this.#requestEditor();
         }
         return;
-      }
-      if (event.type === 'modal-dismiss') {
+      }      if (event.type === 'modal-dismiss') {
         this.#docs?.cancelOverlays();
         this.#requestEditor();
         return;
@@ -453,6 +472,9 @@ class ParsiPageHome extends PeyElement {
       switch (action) {
         case 'new-document':
           await this.#createDocument();
+          return;
+        case 'new-folder':
+          await this.#createFolder();
           return;
         case 'import-document':
           await this.#importDocument();
@@ -798,7 +820,7 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     const infrastructure = { events: this.#events };
-    const { items = [], currentId = null } = this.#docs?.getState() ?? {};
+    const { items = [], folders = [], currentId = null } = this.#docs?.getState() ?? {};
     const diskList = this.#disk !== null;
     const diskActive = this.#diskActive();
     const shownId = diskActive ? `${DISK_ID_PREFIX}${this.#disk.currentPath}` : currentId;
@@ -845,6 +867,7 @@ class ParsiPageHome extends PeyElement {
           assetBaseUrl: this.#assetBaseUrl,
           activeView: this.#activeView,
           items,
+          folders,
           currentId: shownId,
           documentText: this.value,
           settings: this.#prefs?.getState().settings ?? null,
@@ -855,6 +878,7 @@ class ParsiPageHome extends PeyElement {
         configure: (element) => element.configure({
           activeView: this.#activeView,
           items,
+          folders,
           currentId: shownId,
           documentText: this.value,
           settings: this.#prefs?.getState().settings ?? null,
@@ -922,6 +946,42 @@ class ParsiPageHome extends PeyElement {
 
   async #createDocument() {
     this.#applyResult(await this.#docs?.createDocument());
+  }
+
+  /**
+   * Creates a document inside a folder and opens it.
+   * @param {string|null} folderId Target folder id, null for the root.
+   * @returns {Promise<void>}
+   */
+  async #createDocumentInFolder(folderId) {
+    const target = typeof folderId === 'string' && folderId.length > 0 ? folderId : null;
+    this.#applyResult(await this.#docs?.createDocument(target));
+  }
+
+  /**
+   * Creates a root folder and opens the inline rename editor on it.
+   * @returns {Promise<void>}
+   */
+  async #createFolder() {
+    const result = await this.#docs?.createFolder();
+    if (!result?.created) {
+      return;
+    }
+    this.#refreshChrome();
+    this.#sideEl?.beginRename(`folder:${result.created.id}`);
+  }
+
+  /**
+   * Moves a document into a folder (or back to the root) and refreshes
+   * the list. The open document stays open wherever it lands.
+   * @param {string} id Document id.
+   * @param {string|null} folderId Target folder id, null for the root.
+   * @returns {Promise<void>}
+   */
+  async #moveDocument(id, folderId) {
+    if (await this.#docs?.moveDocument(id, folderId)) {
+      this.#refreshChrome();
+    }
   }
 
   /**
@@ -1427,6 +1487,20 @@ class ParsiPageHome extends PeyElement {
     // Device entries have no rename in v1 (their ⋯ menu stays hidden).
     if (typeof id === 'string' && id.startsWith(DISK_ID_PREFIX)) {
       return;
+    }
+    // Folder rows rename through the same inline editor under a prefix.
+    if (typeof id === 'string' && id.startsWith(FOLDER_ID_PREFIX)) {
+      const outcome = await this.#docs?.renameFolder(id.slice(FOLDER_ID_PREFIX.length), title);
+      if (outcome === 'renamed' || outcome === 'empty' || outcome === 'failed') {
+        this.#sideEl?.cancelRename();
+      }
+      if (outcome === 'renamed') {
+        this.#requestEditor();
+      }
+      if (outcome === 'duplicate') {
+        this.#sideEl?.configure({ renameError: 'parsinegar.folders.duplicate' });
+      }
+      return;
     }    const outcome = await this.#docs?.renameDocument(id, title);
     if (outcome === 'renamed' || outcome === 'empty' || outcome === 'failed') {
       this.#sideEl?.cancelRename();
@@ -1536,11 +1610,17 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Deletes the confirmed document through the controller, then opens the
-   * adopted record (if the open document went away with it).
+   * Deletes the confirmed document or folder through the controller, then
+   * opens the adopted record (if the open document went away with it).
    * @returns {Promise<void>}
    */
   async #confirmDeleteAndApply() {
+    const { confirmFolderDeleteId = null } = this.#docs?.getState() ?? {};
+    if (confirmFolderDeleteId !== null) {
+      const result = await this.#docs?.confirmFolderDelete();
+      this.#applyResult(result);
+      return;
+    }
     const result = await this.#docs?.confirmDelete();
     this.#applyResult(result);
   }
@@ -1577,7 +1657,7 @@ class ParsiPageHome extends PeyElement {
   /**
    * Applies a controller result to the editor: adopted records replace the
    * mounted view, list-only results just refresh the chrome.
-   * @param {object|null|undefined} result Controller result (`{ apply, items }`, `{ none: true }`) or null on no-op.
+   * @param {object|null|undefined} result Controller result (`{ apply, items, folders }`, `{ none: true }`) or null on no-op.
    * @returns {void}
    */
   #applyResult(result) {
@@ -1588,7 +1668,7 @@ class ParsiPageHome extends PeyElement {
       // Unmount first: it parks the old editor content into the draft,
       // which adopt() then overwrites with the incoming record.
       this.#unmountEditor();
-      this.#docs?.adopt(result.apply, result.items);
+      this.#docs?.adopt(result.apply, result.items, result.folders ?? null);
       this.#spy.reset();
       // Any opened document leaves a built-in doc behind; the fresh mount
       // below picks the adopted record content and its stored lock.
@@ -1649,11 +1729,12 @@ class ParsiPageHome extends PeyElement {
       formatNumber: (value) => this.#formatNumber(value),
       readOnly: this.#builtIn !== null || (!diskActive && this.#currentLocked()),
     });
-    const { items = [], currentId = null } = this.#docs?.getState() ?? {};
+    const { items = [], folders = [], currentId = null } = this.#docs?.getState() ?? {};
     const { settings = null } = this.#prefs?.getState() ?? {};
     this.#sideEl?.configure({
       activeView: this.#activeView,
       items,
+      folders,
       currentId: diskActive ? `${DISK_ID_PREFIX}${this.#disk.currentPath}` : currentId,
       documentText: this.value,
       settings,

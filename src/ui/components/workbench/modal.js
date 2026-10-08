@@ -12,9 +12,12 @@ import { escapeHtml, iconMarkup } from './html.js';
  * @param {Function} options.t Translation function.
  * @param {string|null} options.title Document name, or null when closed.
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
+ * @param {string} [options.headingKey] Title key (defaults to the document delete title).
+ * @param {string} [options.messageKey] Description key with `{ title }` (and `{ count }` for folders).
+ * @param {object} [options.messageParams] Extra message params (e.g. `{ count }`).
  * @returns {string} Modal markup or ''.
  */
-export function renderConfirmModal({ t, title, assetBaseUrl }) {
+export function renderConfirmModal({ t, title, assetBaseUrl, headingKey = 'parsinegar.documents.delete', messageKey = 'parsinegar.documents.delete-confirm', messageParams = {} }) {
   if (typeof title !== 'string' || title.length === 0) {
     return '';
   }
@@ -24,8 +27,8 @@ export function renderConfirmModal({ t, title, assetBaseUrl }) {
     <div part="modal-backdrop">
       <div part="modal-dialog" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
         <div part="modal-icon" aria-hidden="true">${icon}</div>
-        <h2 part="modal-title" id="modal-title">${escapeHtml(translate('parsinegar.documents.delete'))}</h2>
-        <p part="modal-desc" id="modal-desc">${escapeHtml(translate('parsinegar.documents.delete-confirm', { title }))}</p>
+        <h2 part="modal-title" id="modal-title">${escapeHtml(translate(headingKey))}</h2>
+        <p part="modal-desc" id="modal-desc">${escapeHtml(translate(messageKey, { title, ...messageParams }))}</p>
         <div part="modal-actions">
           <button type="button" part="modal-cancel" data-confirm-delete="no">${escapeHtml(translate('parsinegar.documents.delete-no'))}</button>
           <button type="button" part="modal-confirm" data-confirm-delete="yes">${escapeHtml(translate('parsinegar.documents.delete-yes'))}</button>

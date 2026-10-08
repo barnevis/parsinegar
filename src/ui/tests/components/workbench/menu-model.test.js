@@ -208,3 +208,12 @@ test('should_disable_save_when_folder_is_listed_without_active_entry', () => {
   assert.equal(file.items.find(({ id }) => id === 'close-disk').disabled, false);
   assert.equal(file.items.find(({ id }) => id === 'delete-document').disabled, false);
 });
+
+test('should_offer_new_folder_when_file_menu_is_read', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true });
+  const file = menus.find(({ id }) => id === 'file');
+  const item = file.items.find(({ id }) => id === 'new-folder');
+  assert.ok(item, 'expected the new-folder item');
+  assert.equal(item.action, 'new-folder');
+  assert.equal(item.disabled, false);
+});

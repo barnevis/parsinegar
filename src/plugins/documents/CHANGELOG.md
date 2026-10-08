@@ -1,5 +1,12 @@
 # Changelog — parsinegar.documents
 
+## [0.4.0]
+
+### Added
+
+- Nested browser folders: `listFolders`, `createFolder(name, parentId?)`, `renameFolder`, cascade `deleteFolder`, `moveDocument(id, folderId?)`; `folders:changed` event; `folderId` on records (older records backfill to the root).
+- `createDocument` accepts an optional `folderId`; `saveDocument` preserves the stored folder unless the input states it explicitly.
+
 ## [0.3.0]
 
 ### Added

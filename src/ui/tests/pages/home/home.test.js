@@ -125,11 +125,16 @@ test('should_emit_change_when_editor_content_changes', async () => {
 
 function createDocuments(initial = []) {
   const docs = new Map(initial.map((document) => [document.id, { ...document }]));
+  const folders = new Map();
   let counter = docs.size;
+  let folderCounter = 0;
   const service = {
     calls: [],
     async listDocuments() {
       return [...docs.values()].sort((left, right) => right.updatedAt - left.updatedAt);
+    },
+    async listFolders() {
+      return [...folders.values()];
     },
     async openDocument(id) {
       return docs.get(id) ?? null;
@@ -139,14 +144,15 @@ function createDocuments(initial = []) {
         id: input.id ?? `generated-${++counter}`,
         title: input.title ?? 't',
         content: input.content ?? '',
+        folderId: input.folderId ?? null,
         updatedAt: Date.now(),
       };
       docs.set(record.id, record);
       service.calls.push(['save', record]);
       return record;
     },
-    async createDocument(title) {
-      return service.saveDocument({ title, content: '' });
+    async createDocument(title, folderId = null) {
+      return service.saveDocument({ title, content: '', folderId });
     },
     async setReadOnly(id, readOnly) {
       const record = docs.get(id) ?? null;
@@ -156,6 +162,37 @@ function createDocuments(initial = []) {
       const updated = { ...record, readOnly: readOnly === true, updatedAt: Date.now() };
       docs.set(id, updated);
       service.calls.push(['lock', { id, readOnly: updated.readOnly }]);
+      return updated;
+    },
+    async createFolder(name, parentId = null) {
+      const folder = { id: `folder-${++folderCounter}`, name, parentId: parentId ?? null, createdAt: Date.now() };
+      folders.set(folder.id, folder);
+      return folder;
+    },
+    async renameFolder(id, name) {
+      const folder = folders.get(id) ?? null;
+      if (!folder) {
+        return null;
+      }
+      const renamed = { ...folder, name };
+      folders.set(id, renamed);
+      return renamed;
+    },
+    async deleteFolder(id) {
+      folders.delete(id);
+      for (const [docId, record] of docs) {
+        if ((record.folderId ?? null) === id) {
+          docs.delete(docId);
+        }
+      }
+    },
+    async moveDocument(id, folderId = null) {
+      const record = docs.get(id) ?? null;
+      if (!record) {
+        return null;
+      }
+      const updated = { ...record, folderId: folderId ?? null, updatedAt: Date.now() };
+      docs.set(id, updated);
       return updated;
     },
     async renameDocument(id, title) {
@@ -1911,6 +1948,85 @@ test('should_persist_shadow_when_switching_entries', async () => {
     assert.equal(element.value, '# b.md\n');
   } finally {
     delete window.showDirectoryPicker;
+    element.remove();
+  }
+});
+
+test('should_create_folder_and_rename_inline_when_new_folder_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    menuAction(element, 'new-folder');
+    await settled();
+    await settled();
+    const input = inChild(element, 'parsi-side-panel', '[data-rename-input^="folder:"]');
+    assert.ok(input, 'expected the inline folder rename editor');
+    input.value = 'کار';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await settled();
+    await settled();
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), 'expected the folder toggle');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_move_document_when_move_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    menuAction(element, 'new-folder');
+    await settled();
+    await settled();
+    const input = inChild(element, 'parsi-side-panel', '[data-rename-input^="folder:"]');
+    input.value = 'کار';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await settled();
+    await settled();
+    const folderId = input.getAttribute('data-rename-input').slice('folder:'.length);
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-move', { bubbles: true, detail: { id: 'd1', folderId } }),
+    );
+    await settled();
+    await settled();
+    const nested = inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]');
+    assert.ok(nested, 'expected the moved document listed');
+    assert.ok(nested.closest('ul')?.closest('li[data-disk-dir]'), 'expected the document nested under its folder');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_confirm_folder_delete_when_accepted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    menuAction(element, 'new-folder');
+    await settled();
+    await settled();
+    const input = inChild(element, 'parsi-side-panel', '[data-rename-input^="folder:"]');
+    input.value = 'کار';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await settled();
+    await settled();
+    const folderId = input.getAttribute('data-rename-input').slice('folder:'.length);
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('document-move', { bubbles: true, detail: { id: 'd1', folderId } }),
+    );
+    await settled();
+    await settled();
+    child(element, 'parsi-side-panel').dispatchEvent(
+      new CustomEvent('folder-delete', { bubbles: true, detail: { id: folderId } }),
+    );
+    await settled();
+    const dialog = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
+    assert.ok(dialog && dialog.textContent.includes('کار'), 'expected the folder confirm modal');
+    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="yes"]').click();
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), null, 'expected the folder gone');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id]'), 'expected a survivor document open');
+  } finally {
     element.remove();
   }
 });

@@ -4,20 +4,22 @@ import test from 'node:test';
 import { createService } from '../lib/documents-service.js';
 
 function createStorage(initial = []) {
-  const records = new Map(initial.map((record) => [record.id, { ...record }]));
+  const data = new Map(initial.map((record) => [`documents/${record.id}`, { ...record }]));
   return {
-    records,
-    async query() {
-      return [...records.values()];
+    records: data,
+    async query(collection) {
+      return [...data.entries()]
+        .filter(([key]) => key.startsWith(`${collection}/`))
+        .map(([, record]) => record);
     },
     async read(collection, key) {
-      return records.get(key) ?? null;
+      return data.get(`${collection}/${key}`) ?? null;
     },
     async write(collection, record) {
-      records.set(record.id, { ...record });
+      data.set(`${collection}/${record.id ?? record.key}`, { ...record });
     },
     async delete(collection, key) {
-      records.delete(key);
+      data.delete(`${collection}/${key}`);
     },
   };
 }
@@ -209,4 +211,85 @@ test('should_preserve_lock_when_saved_without_flag', async () => {
   assert.equal(saved.content, 'y');
   const cleared = await service.saveDocument({ id: 'd1', title: 'اول', content: 'z', readOnly: false });
   assert.equal(cleared.readOnly, false);
+});
+
+test('should_backfill_folder_when_missing', async () => {
+  const { service } = setup([{ id: 'd', title: 'قدیمی', content: '', updatedAt: 1 }]);
+  const [listed] = await service.listDocuments();
+  assert.equal(listed.folderId, null);
+  assert.equal((await service.openDocument('d')).folderId, null);
+});
+
+test('should_save_into_folder_when_created', async () => {
+  const { service } = setup();
+  const folder = await service.createFolder('کار');
+  const created = await service.createDocument('یادداشت', folder.id);
+  assert.equal(created.folderId, folder.id);
+  const moved = await service.moveDocument(created.id, null);
+  assert.equal(moved.folderId, null);
+});
+
+test('should_fall_back_to_root_when_folder_is_missing', async () => {
+  const { service } = setup();
+  const created = await service.createDocument('یادداشت', 'absent');
+  assert.equal(created.folderId, null);
+  assert.equal(await service.moveDocument(created.id, 'absent'), null);
+  assert.equal(await service.moveDocument('absent', null), null);
+});
+
+test('should_suffix_folder_names_when_taken_by_sibling', async () => {
+  const { service } = setup();
+  const first = await service.createFolder('کار');
+  const second = await service.createFolder('کار');
+  assert.notEqual(first.id, second.id);
+  assert.equal(second.name, 'کار ۲');
+  const other = await service.createFolder('کار', second.id);
+  assert.equal(other.name, 'کار');
+  assert.equal(other.parentId, second.id);
+});
+
+test('should_reject_slash_when_renaming_folder', async () => {
+  const { service } = setup();
+  const folder = await service.createFolder('کار');
+  await assert.rejects(
+    service.renameFolder(folder.id, 'a/b'),
+    (error) => error?.code === 'FOLDER_INVALID_NAME',
+  );
+  await assert.rejects(
+    service.renameFolder(folder.id, '   '),
+    (error) => error?.code === 'FOLDER_INVALID_NAME',
+  );
+  assert.equal(await service.renameFolder('absent', 'x'), null);
+});
+
+test('should_reject_duplicate_sibling_when_renaming_folder', async () => {
+  const { service } = setup();
+  await service.createFolder('یک');
+  const folder = await service.createFolder('دو');
+  await assert.rejects(
+    service.renameFolder(folder.id, 'یک'),
+    (error) => error?.code === 'FOLDER_TITLE_DUPLICATE',
+  );
+});
+
+test('should_cascade_when_folder_is_deleted', async () => {
+  const published = [];
+  const { service } = setup([], published);
+  const root = await service.createFolder('ریشه');
+  const sub = await service.createFolder('زیر', root.id);
+  const inside = await service.createDocument('داخلی', sub.id);
+  const outside = await service.createDocument('بیرونی');
+  await service.deleteFolder(root.id);
+  assert.equal(await service.openDocument(inside.id), null);
+  assert.ok(await service.openDocument(outside.id), 'expected the outside document kept');
+  assert.deepEqual(await service.listFolders(), []);
+  assert.ok(published.some(({ type, data }) => type === 'documents:changed' && data.id === inside.id));
+  assert.ok(published.some(({ type, data }) => type === 'folders:changed' && data.id === root.id));
+});
+
+test('should_publish_folder_event_when_created', async () => {
+  const published = [];
+  const { service } = setup([], published);
+  const folder = await service.createFolder('کار');
+  assert.ok(published.some(({ type, data }) => type === 'folders:changed' && data.id === folder.id));
 });

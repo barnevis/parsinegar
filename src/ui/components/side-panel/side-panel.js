@@ -38,6 +38,7 @@ class ParsiSidePanel extends PeyElement {
   };
   #activeView = FILES_VIEW;
   #items = [];
+  #folders = [];
   #currentId = null;
   #documentText = '';
   #settings = null;
@@ -48,6 +49,8 @@ class ParsiSidePanel extends PeyElement {
   #renameError = null;
   #filesSort = DEFAULT_FILES_SORT;
   #collapsedLines = new Set();
+  #folderCollapsed = new Set();
+  #moveMenuId = null;
   #diskCollapsed = new Set();
   #diskRoot = null;
   #disk = null;
@@ -95,12 +98,15 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, disk } = {}) {
+  #store({ activeView, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, disk } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
     if (Array.isArray(items)) {
       this.#items = items;
+    }
+    if (folders !== undefined) {
+      this.#folders = Array.isArray(folders) ? folders : [];
     }
     if (currentId !== undefined) {
       this.#currentId = currentId;
@@ -131,11 +137,13 @@ class ParsiSidePanel extends PeyElement {
     return {
       activeView: this.#activeView,
       items: this.#items,
+      folders: this.#folders,
       currentId: this.#currentId,
       documentText: this.#documentText,
       settings: this.#settings,
       activeLine: this.#activeLine,
       openFileMenu: this.#openFileMenu,
+      moveMenuId: this.#moveMenuId,
       sortMenuOpen: this.#sortMenuOpen,
       editingId: this.#editingId,
       renameError: this.#renameError,
@@ -177,6 +185,21 @@ class ParsiSidePanel extends PeyElement {
   }
 
   /**
+   * Opens the inline rename editor on the given row id.
+   * @param {string} id Row id (`folder:<id>` for folders).
+   * @returns {void}
+   */
+  beginRename(id) {
+    if (typeof id !== 'string' || id.length === 0) {
+      return;
+    }
+    this.#editingId = id;
+    this.#renameError = null;
+    this.#openFileMenu = null;
+    this.requestRender();
+  }
+
+  /**
    * Updates panel data, re-rendering only when the visible output would
    * change. Snapshots are compared by identity except the outline signature,
    * so per-keystroke updates from the parent stay cheap and never steal
@@ -184,6 +207,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data New data (absent fields keep current values).
    * @param {string} [data.activeView] Active view id.
    * @param {Array<object>} [data.items] Documents for the files view.
+   * @param {Array<object>} [data.folders] Folders for the files tree.
    * @param {string|null} [data.currentId] Open document id.
    * @param {string} [data.documentText] Current document text for text views.
    * @param {object|null} [data.settings] Preferences for the settings view.
@@ -193,8 +217,8 @@ class ParsiSidePanel extends PeyElement {
    * @param {object|null} [data.disk] Open device folder (`{ rootName, items }`, items pre-mapped with `{ id, title, path }`).
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, disk } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, disk });
+  configure({ activeView, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, disk } = {}) {
+    const next = this.#store({ activeView, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, disk });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -205,10 +229,12 @@ class ParsiSidePanel extends PeyElement {
     const same = prev !== null
       && prev.activeView === next.activeView
       && prev.items === next.items
+      && prev.folders === next.folders
       && prev.currentId === next.currentId
       && prev.settings === next.settings
       && prev.activeLine === next.activeLine
       && prev.openFileMenu === next.openFileMenu
+      && prev.moveMenuId === next.moveMenuId
       && prev.sortMenuOpen === next.sortMenuOpen
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
@@ -325,6 +351,39 @@ class ParsiSidePanel extends PeyElement {
       this.requestRender();
       return;
     }
+    const folderToggle = event.target?.closest?.('[data-folder-toggle]');
+    if (folderToggle) {
+      const key = folderToggle.getAttribute('data-folder-toggle') ?? '';
+      if (this.#folderCollapsed.has(key)) {
+        this.#folderCollapsed.delete(key);
+      } else {
+        this.#folderCollapsed.add(key);
+      }
+      this.requestRender();
+      return;
+    }
+    const moveToggle = event.target?.closest?.('[data-move-toggle]');
+    if (moveToggle) {
+      const id = moveToggle.getAttribute('data-move-toggle') ?? '';
+      this.#moveMenuId = this.#moveMenuId === id ? null : id;
+      this.requestRender();
+      return;
+    }
+    const moveOption = event.target?.closest?.('[data-move-to]');
+    if (moveOption) {
+      const [id, folderId] = (moveOption.getAttribute('data-move-to') ?? '|').split('|');
+      this.#moveMenuId = null;
+      this.#openFileMenu = null;
+      this.requestRender();
+      this.dispatchEvent(
+        new CustomEvent('document-move', {
+          bubbles: true,
+          composed: true,
+          detail: { id, folderId: folderId.length > 0 ? folderId : null },
+        }),
+      );
+      return;
+    }
     if (event.target?.closest?.('[part="docs-new"]')) {
       this.dispatchEvent(new CustomEvent('document-create', { bubbles: true, composed: true }));
       return;
@@ -362,7 +421,7 @@ class ParsiSidePanel extends PeyElement {
       }
       return;
     }
-    const menuAction = event.target?.closest?.('[data-file-rename],[data-file-download],[data-file-download-html],[data-file-properties],[data-file-delete]');
+    const menuAction = event.target?.closest?.('[data-file-rename],[data-file-download],[data-file-download-html],[data-file-properties],[data-file-delete],[data-folder-rename],[data-folder-new-doc],[data-folder-delete]');
     if (menuAction) {
       const renameId = menuAction.getAttribute('data-file-rename');
       if (renameId !== null) {
@@ -370,6 +429,42 @@ class ParsiSidePanel extends PeyElement {
         this.#renameError = null;
         this.#openFileMenu = null;
         this.requestRender();
+        return;
+      }
+      const folderRenameId = menuAction.getAttribute('data-folder-rename');
+      if (folderRenameId !== null) {
+        this.#editingId = `folder:${folderRenameId}`;
+        this.#renameError = null;
+        this.#openFileMenu = null;
+        this.requestRender();
+        return;
+      }
+      const folderNewDocId = menuAction.getAttribute('data-folder-new-doc');
+      if (folderNewDocId !== null) {
+        const folderId = folderNewDocId;
+        this.#openFileMenu = null;
+        this.requestRender();
+        this.dispatchEvent(
+          new CustomEvent('folder-create-document', {
+            bubbles: true,
+            composed: true,
+            detail: { folderId },
+          }),
+        );
+        return;
+      }
+      const folderDeleteId = menuAction.getAttribute('data-folder-delete');
+      if (folderDeleteId !== null) {
+        const folderId = folderDeleteId;
+        this.#openFileMenu = null;
+        this.requestRender();
+        this.dispatchEvent(
+          new CustomEvent('folder-delete', {
+            bubbles: true,
+            composed: true,
+            detail: { id: folderId },
+          }),
+        );
         return;
       }
       if (menuAction.hasAttribute('data-file-download')) {
@@ -396,7 +491,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, disk: this.#disk ? { root: this.#disk.rootName, entries: this.#disk.items, collapsed: [...this.#diskCollapsed] } : null })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed], disk: this.#disk ? { root: this.#disk.rootName, entries: this.#disk.items, collapsed: [...this.#diskCollapsed] } : null })}</div>
       </aside>`;
   }
 }

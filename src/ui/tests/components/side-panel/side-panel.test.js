@@ -558,3 +558,70 @@ test('should_keep_dom_nodes_when_snapshot_is_stable', async () => {
     element.remove();
   }
 });
+
+test('should_toggle_folders_when_toggle_is_clicked', async () => {
+  const element = mount({
+    items: [{ id: 'd', title: 'سند', folderId: 'f1' }],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: null,
+  });
+  try {
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="d"]'), 'expected the nested document');
+    element.shadowRoot.querySelector('[data-folder-toggle="f1"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-doc-id="d"]'), null, 'expected the folder collapsed');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_folder_events_when_folder_menu_is_used', async () => {
+  const element = mount({
+    items: [],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: null,
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('folder-create-document', (event) => seen.push(['create-doc', event.detail]));
+    element.addEventListener('folder-delete', (event) => seen.push(['delete', event.detail]));
+    element.shadowRoot.querySelector('[data-doc-menu="folder:f1"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-folder-new-doc="f1"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-doc-menu="folder:f1"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-folder-delete="f1"]').click();
+    await flush();
+    assert.deepEqual(seen, [
+      ['create-doc', { folderId: 'f1' }],
+      ['delete', { id: 'f1' }],
+    ]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_move_when_move_target_is_clicked', async () => {
+  const element = mount({
+    items: [{ id: 'd', title: 'سند' }],
+    folders: [{ id: 'f1', name: 'کار', parentId: null }],
+    currentId: null,
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('document-move', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-doc-menu="d"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-move-toggle="d"]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-move-to="d|f1"]').click();
+    await flush();
+    assert.deepEqual(seen, [{ id: 'd', folderId: 'f1' }]);
+  } finally {
+    element.remove();
+  }
+});
