@@ -13,8 +13,9 @@
 // Direction resolution has two modes. In `auto` mode the first strong letter
 // of each line decides its direction (mirroring the `plaintext` heuristic).
 // In a forced (`rtl`/`ltr`) mode every line takes the chosen direction —
-// even English lines under `rtl` — except fenced code content, which always
-// stays left-to-right.
+// even English lines under `rtl` — except inside fenced code: code starts
+// left-to-right, and only a line whose first strong letter is RTL (e.g. a
+// Persian sentence) turns right-to-left.
 import { EditorView } from 'codemirror';
 import { Decoration, ViewPlugin } from '@codemirror/view';
 import { FENCE_PATTERN } from './live-preview.js';
@@ -68,9 +69,10 @@ export function resolveLineDirection(text) {
  * Builds line decorations pinning every visible line to its resolved
  * direction. In `auto` mode lettered lines take their own script direction
  * and letter-less lines take the base direction; in a forced mode every line
- * takes the forced direction except fenced code content, which stays
- * left-to-right. Fence parity is resolved by scanning from the document
- * start, mirroring `live-preview.js`.
+ * takes the forced direction except inside fenced code, where each content
+ * line resolves from its own first strong letter (RTL only for RTL-started
+ * lines, LTR for everything else). Fence parity is resolved by scanning from
+ * the document start, mirroring `live-preview.js`.
  * @param {object} view Active editor view.
  * @param {string} baseDirection 'rtl' or 'ltr' base for neutral lines.
  * @param {string|null} forcedDirection 'rtl'/'ltr' to lock every line, or null for per-line detection.
@@ -103,8 +105,11 @@ function buildDirectionDecorations(view, baseDirection, forcedDirection) {
         // Fence runs are code artifacts, always left-to-right like fenced
         // content: on an rtl line the backticks would otherwise park right.
         lineClass = 'parsi-dir-ltr';
-      } else if (forcedDirection && inFence) {
-        lineClass = 'parsi-dir-ltr';
+      } else if (inFence) {
+        // Fenced code starts left-to-right (it is code): only a line whose
+        // first strong letter is RTL (a Persian sentence) turns
+        // right-to-left — Latin, digit-only and neutral lines stay LTR.
+        lineClass = resolveLineDirection(line.text) === 'rtl' ? 'parsi-dir-rtl' : 'parsi-dir-ltr';
       } else if (forcedDirection) {
         lineClass = forcedClass;
       } else {
@@ -143,8 +148,16 @@ const directionTheme = EditorView.theme({
 
 /**
  * Returns the per-line direction extensions for a base direction.
+ *
+ * Besides the pinning plugin and theme, this enables
+ * `EditorView.perLineTextDirection`: CodeMirror otherwise assumes one
+ * direction for the whole content (`textDirectionAt` returns the editor
+ * level), so on lines whose rendered direction differs (e.g. an English
+ * line under an rtl editor) clicks would resolve to the wrong offset and
+ * Left/Right would move against the visual order. Reading the direction
+ * per rendered line keeps measurement and rendering consistent.
  * @param {string} baseDirection 'rtl' or 'ltr' base for neutral lines.
- * @param {string|null} [forcedDirection] 'rtl'/'ltr' to lock every line (fenced code stays ltr), or null for per-line detection.
+ * @param {string|null} [forcedDirection] 'rtl'/'ltr' to lock every line (fenced code resolves per line instead), or null for per-line detection.
  * @returns {Array} CodeMirror extensions.
  */
 export function lineDirectionExtensions(baseDirection, forcedDirection = null) {
@@ -162,5 +175,5 @@ export function lineDirectionExtensions(baseDirection, forcedDirection = null) {
     },
     { decorations: (value) => value.decorations },
   );
-  return [plugin, directionTheme];
+  return [plugin, directionTheme, EditorView.perLineTextDirection.of(true)];
 }

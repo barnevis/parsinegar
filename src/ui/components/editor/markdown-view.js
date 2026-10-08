@@ -116,7 +116,7 @@ function countSearchMatches(matches, head) {
  * @param {object} [options] View options.
  * @param {string} [options.document] Initial Markdown text.
  * @param {string} [options.label] Accessible label for the editor.
- * @param {string} [options.direction] Writing direction: 'rtl' locks every line right (fenced code stays ltr), 'ltr' locks every line left, 'auto' detects per line from the first strong letter (default 'rtl'; letter-less lines take the rtl base so the caret stays right).
+ * @param {string} [options.direction] Writing direction: 'rtl' locks every line right (fenced code resolves per line instead: LTR unless the line starts with an RTL letter), 'ltr' locks every line left, 'auto' detects per line from the first strong letter (default 'rtl'; letter-less lines take the rtl base so the caret stays right).
  * @param {number} [options.fontSize] Editor font size in pixels (12-24, default 16).
  * @param {string} [options.colorScheme] Editor colors: 'light' (default), 'dark' or 'sepia'.
  * @param {boolean} [options.readOnly] Starts locked for reading: typing,
@@ -143,8 +143,8 @@ export function createMarkdownView(host, options = {}) {
     ? options.fontSize
     : DEFAULT_FONT_SIZE;
   const baseDirection = direction === 'ltr' ? 'ltr' : 'rtl';
-  // An explicit direction locks every line to it (fenced code stays ltr);
-  // `auto` keeps per-line detection from the first strong letter.
+  // An explicit direction locks every line to it (fenced code resolves per
+  // line instead); `auto` keeps per-line detection from the first strong letter.
   const forcedDirection = direction === 'auto' ? null : direction;
   let current = typeof options.document === 'string' ? options.document : '';
   let destroyed = false;
@@ -275,8 +275,8 @@ export function createMarkdownView(host, options = {}) {
           // Explicit base direction (never inherited). Every rendered line
           // gets its own explicit direction plus a matching explicit
           // alignment from `line-direction.js`: a forced direction locks all
-          // lines (fenced code stays ltr), while `auto` resolves per line
-          // from the first strong letter. No `unicode-bidi: plaintext`
+          // lines (fenced code resolves per line instead), while `auto`
+          // resolves per line from the first strong letter. No `unicode-bidi: plaintext`
           // remains: Firefox aligns wrapped continuation rows that break
           // inside an inline span to the wrong side under `plaintext` plus
           // `text-align: start`.

@@ -2,8 +2,10 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { EditorView } from 'codemirror';
+import { EditorState } from '@codemirror/state';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { isNeutralLine, resolveLineDirection } from '../../../components/editor/line-direction.js';
+import { isNeutralLine, lineDirectionExtensions, resolveLineDirection } from '../../../components/editor/line-direction.js';
 
 test('should_detect_neutral_lines_when_checking_text', () => {
   assert.equal(isNeutralLine(''), true);
@@ -57,6 +59,20 @@ test('should_skip_checkbox_when_resolving_task_lines', () => {
   assert.equal(resolveLineDirection('- [x] item'), 'ltr');
   assert.equal(resolveLineDirection('- [x]'), null);
   assert.equal(resolveLineDirection('- [x] ۱۲۳'), null);
+});
+
+test('should_read_direction_per_line_when_extended', () => {
+  // CodeMirror assumes one direction for the whole content unless
+  // perLineTextDirection is enabled: clicks and Left/Right on lines whose
+  // rendered direction differs from the editor base (e.g. an English line
+  // under an rtl editor) would resolve against the wrong base.
+  for (const forced of ['rtl', 'ltr', null]) {
+    const state = EditorState.create({
+      doc: 'سلام\nHello',
+      extensions: lineDirectionExtensions('rtl', forced),
+    });
+    assert.equal(state.facet(EditorView.perLineTextDirection), true, `expected per-line reading (forced=${forced})`);
+  }
 });
 
 test('should_pin_every_line_when_mounted', () => {
@@ -133,18 +149,23 @@ test('should_lock_every_line_when_direction_is_ltr', () => {
 test('should_keep_fenced_code_ltr_when_direction_is_rtl', () => {
   const host = document.createElement('div');
   document.body.append(host);
-  const editor = createMarkdownView(host, { document: 'متن\n```\nکد فارسی\n```\nبعد', direction: 'rtl' });
+  const editor = createMarkdownView(host, { document: 'متن\n```\nconst x = 1;\nکد فارسی\n12345\n```\nبعد', direction: 'rtl' });
   try {
     const lines = [...host.querySelectorAll('.cm-line')];
-    assert.equal(lines.length, 5);
+    assert.equal(lines.length, 7);
     assert.ok(lines[0].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
     assert.ok(lines[1].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left');
     assert.ok(lines[2].classList.contains('parsi-dir-ltr'), 'expected the code line left');
-    assert.ok(lines[3].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left');
-    assert.ok(lines[4].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
+    assert.ok(lines[3].classList.contains('parsi-dir-rtl'), 'expected the Persian-started code line right');
+    assert.ok(lines[4].classList.contains('parsi-dir-ltr'), 'expected the digits code line left');
+    assert.ok(lines[5].classList.contains('parsi-dir-ltr'), 'expected the fence marker from the left');
+    assert.ok(lines[6].classList.contains('parsi-base-rtl'), 'expected the text line locked right');
     const code = globalThis.getComputedStyle(lines[2]);
     assert.equal(code.direction, 'ltr');
     assert.equal(code.textAlign, 'left');
+    const persianCode = globalThis.getComputedStyle(lines[3]);
+    assert.equal(persianCode.direction, 'rtl');
+    assert.equal(persianCode.textAlign, 'right');
   } finally {
     editor.destroy();
     host.remove();
