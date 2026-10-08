@@ -206,9 +206,11 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
 }
 
 /**
- * Renders one device-tree node: a directory toggle with a nested list, or
- * a file row (marked with the files glyph, no ⋯ menu — device entries have
- * no rename/download/delete).
+ * Renders one device-tree node in the outline language: a directory row
+ * carries the same chevron gutter as outline toggles (leaves carry the
+ * same spacer, so all titles align in one column), and children nest in a
+ * plain indented list. Device rows have no ⋯ menu — entries have no
+ * rename/download/delete.
  * @param {Function} translate Translation function.
  * @param {string|null} fileIcon Files glyph markup.
  * @param {object} node Tree node from `buildDiskTree`.
@@ -222,14 +224,14 @@ function renderDiskNode(translate, fileIcon, node, currentId, collapsed) {
     const toggle = escapeHtml(node.key);
     return `
     <li part="docs-item" data-disk-dir="true">
-      <button type="button" part="docs-toggle" data-disk-toggle="${toggle}" aria-expanded="${shut ? 'false' : 'true'}"><span part="docs-toggle-icon"${shut ? ' data-collapsed="true"' : ''}></span><span>${escapeHtml(node.label)}</span></button>
+      <button type="button" part="docs-toggle" data-disk-toggle="${toggle}" aria-expanded="${shut ? 'false' : 'true'}" aria-label="${escapeHtml(translate(shut ? 'parsinegar.disk.expand' : 'parsinegar.disk.collapse'))}"><span part="outline-chevron" aria-hidden="true"></span><span>${escapeHtml(node.label)}</span></button>
       ${shut ? '' : `<ul part="docs-list">${node.children.map((child) => renderDiskNode(translate, fileIcon, child, currentId, collapsed)).join('')}</ul>`}
     </li>`;
   }
   const id = escapeHtml(node.id);
   return `
     <li part="docs-item"${node.id === currentId ? ' data-current="true"' : ''} data-disk="true" title="${escapeHtml(node.path)}">
-      <button type="button" part="docs-open" data-doc-id="${id}" ${node.id === currentId ? 'aria-current="true"' : ''}>${fileIcon}<span>${escapeHtml(node.label)}</span></button>
+      <span part="outline-spacer" aria-hidden="true"></span><button type="button" part="docs-open" data-doc-id="${id}" ${node.id === currentId ? 'aria-current="true"' : ''}>${fileIcon}<span>${escapeHtml(node.label)}</span></button>
     </li>`;
 }
 

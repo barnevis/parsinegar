@@ -219,6 +219,9 @@ test('should_render_disk_group_when_disk_is_open', () => {
   assert.ok(html.includes('data-doc-id="disk:sub/a.md"'), 'expected the nested entry');
   assert.ok(html.includes('data-disk-toggle="sub"'), 'expected the directory toggle');
   assert.ok(html.includes('aria-current="true"'), 'expected the current entry marked');
+  assert.ok(html.includes('part="outline-chevron"'), 'expected the outline chevron gutter');
+  assert.ok(html.includes('part="outline-spacer"'), 'expected the leaf spacer column');
+  assert.ok(html.includes('parsinegar.disk.collapse'), 'expected the toggle label');
   const diskRows = html.split('data-disk="true"').length - 1;
   assert.equal(diskRows, 2);
   assert.ok(!html.includes('data-doc-menu="disk:'), 'expected no item menus on device rows');

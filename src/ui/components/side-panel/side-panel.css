@@ -70,7 +70,8 @@
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg);
 }
-[part="outline-toggle"][aria-expanded="false"] [part="outline-chevron"] {
+[part="outline-toggle"][aria-expanded="false"] [part="outline-chevron"],
+[part="docs-toggle"][aria-expanded="false"] [part="outline-chevron"] {
   /* Collapsed points left in RTL (right in LTR would be -45deg). */
   transform: rotate(135deg);
 }
@@ -108,6 +109,7 @@
 [part="docs-item"] {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.2rem;
   align-items: center;
 }
@@ -117,9 +119,8 @@
   border-radius: 8px;
 }
 [part="docs-list"] [part="docs-list"] {
-  padding-inline-start: 1.1rem;
+  padding-inline-start: 1rem;
   flex-basis: 100%;
-  border-inline-start: 1px solid var(--pey-color-border, #e2e2e8);
 }
 [part="docs-group"] {
   display: flex;
@@ -160,27 +161,25 @@
 [part="docs-toggle"] {
   font: inherit;
   display: flex;
-  gap: 0.4rem;
+  gap: 0.2rem;
   align-items: center;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   background-color: transparent;
-  padding: 0.2rem 0.4rem;
+  padding: 0.35rem 0.6rem;
   inline-size: 100%;
   cursor: pointer;
   color: inherit;
   text-align: start;
 }
-[part="docs-toggle-icon"] {
-  flex: none;
-  inline-size: 0;
-  block-size: 0;
-  border-inline-start: 5px solid transparent;
-  border-inline-end: 5px solid transparent;
-  border-block-start: 6px solid currentColor;
+[part="docs-toggle"]:hover {
+  background-color: var(--pey-color-canvas, #ffffff);
 }
-[part="docs-toggle-icon"][data-collapsed="true"] {
-  transform: rotate(-90deg);
+[part="docs-toggle"] > [part="outline-chevron"] {
+  /* 0.24rem chevron plus margins fills the 1rem gutter exactly like
+     outline-toggle, so directory titles align with the leaf spacer column. */
+  flex: none;
+  margin-inline: 0.38rem;
 }
 [part="docs-menu"] {
   font: inherit;

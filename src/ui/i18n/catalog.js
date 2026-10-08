@@ -42,6 +42,8 @@ const catalog = {
     'parsinegar.disk.openFolder': 'باز کردن پوشه',
     'parsinegar.disk.close': 'بستن پوشه',
     'parsinegar.disk.save': 'ذخیره',
+    'parsinegar.disk.expand': 'باز کردن زیرپوشه‌ها',
+    'parsinegar.disk.collapse': 'بستن زیرپوشه‌ها',
     'parsinegar.documents.sort': 'چینش سندها',
     'parsinegar.documents.sort-group-name': 'نام سند',
     'parsinegar.documents.sort-group-updated': 'زمان ویرایش',
