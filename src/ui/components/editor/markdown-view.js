@@ -17,6 +17,7 @@ import { codeCopyExtensions } from './code-copy.js';
 import { codeFenceExtensions } from './code-fence.js';
 import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
 import { lineDirectionExtensions } from './line-direction.js';
+import { listFoldExtensions } from './list-fold.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList, indentListItem, listResequenceExtension } from './list-continue.js';
 import { deletePair, pairInput } from './quote-pairs.js';
@@ -184,6 +185,7 @@ export function createMarkdownView(host, options = {}) {
       ...imageViewExtensions(),
       ...linkFollowExtensions(),
       ...tableViewExtensions(),
+      ...listFoldExtensions(),
       ...taskListExtensions(),
       ...textHighlightExtensions(),
       ...codeHighlightExtensions(),
@@ -290,6 +292,9 @@ export function createMarkdownView(host, options = {}) {
         },
         '& .cm-content': {
           lineHeight: '1.5',
+          // Pinned (never inherited): nested list levels indent with tab
+          // characters, which must measure eight columns everywhere.
+          tabSize: '8',
         },
       }),
       ...editorColorScheme(options.colorScheme),

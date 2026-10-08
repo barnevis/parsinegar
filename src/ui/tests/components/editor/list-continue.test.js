@@ -144,8 +144,7 @@ test('should_indent_list_when_tab_is_pressed', () => {
   const mounted = createWired('- item');
   try {
     press(mounted.host, { key: 'Tab', code: 'Tab' });
-    const value = mounted.editor.getValue();
-    assert.ok(value === '  - item' || value === '\t- item', `expected indented, got ${JSON.stringify(value)}`);
+    assert.equal(mounted.editor.getValue(), '\t- item');
   } finally {
     mounted.editor.destroy();
     mounted.host.remove();
@@ -154,6 +153,17 @@ test('should_indent_list_when_tab_is_pressed', () => {
 
 test('should_outdent_list_when_shift_tab_is_pressed', () => {
   const mounted = createWired('  - item');
+  try {
+    press(mounted.host, { key: 'Tab', code: 'Tab', shiftKey: true });
+    assert.equal(mounted.editor.getValue(), '- item');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_outdent_tabbed_list_when_shift_tab_is_pressed', () => {
+  const mounted = createWired('\t- item');
   try {
     press(mounted.host, { key: 'Tab', code: 'Tab', shiftKey: true });
     assert.equal(mounted.editor.getValue(), '- item');
@@ -255,7 +265,7 @@ test('should_stop_block_at_blank_and_plain_lines_when_resequencing', () => {
 });
 
 test('should_fall_through_when_not_applicable', () => {
-  assert.equal(shifted('- item', 6, false).handled, false);
+  assert.equal(shifted('- item', 6, false).handled, true);
   assert.equal(shifted('plain', 5, false).handled, false);
   assert.equal(shifted('1. a', 0, true).handled, false);
   const host = document.createElement('div');

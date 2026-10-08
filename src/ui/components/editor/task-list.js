@@ -5,6 +5,7 @@
 // no services involved.
 import { EditorView } from 'codemirror';
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
+import { collectListParents, hasFoldEffects, isFoldedRange } from './list-fold.js';
 
 /**
  * Matches a task-list item line (unordered or ordered).
@@ -47,14 +48,20 @@ function findTaskBox(line, lineStart) {
  * read from in tests and is needlessly indirect in browsers).
  */
 class TaskBoxWidget extends WidgetType {
-  constructor(checked, from) {
+  constructor(checked, from, fold = null) {
     super();
     this.checked = checked;
     this.from = from;
+    this.fold = fold;
   }
 
   eq(other) {
-    return other instanceof TaskBoxWidget && other.checked === this.checked && other.from === this.from;
+    return other instanceof TaskBoxWidget
+      && other.checked === this.checked
+      && other.from === this.from
+      && other.fold?.from === this.fold?.from
+      && other.fold?.to === this.fold?.to
+      && other.fold?.folded === this.fold?.folded;
   }
 
   ignoreEvent() {
@@ -65,11 +72,19 @@ class TaskBoxWidget extends WidgetType {
 
   toDOM() {
     const span = document.createElement('span');
-    span.className = 'parsi-task-marker';
+    span.className = this.fold?.folded === true ? 'parsi-task-marker parsi-list-collapsed' : 'parsi-task-marker';
     span.textContent = this.checked ? CHECKED_GLYPH : UNCHECKED_GLYPH;
     span.setAttribute('role', 'checkbox');
     span.setAttribute('aria-checked', String(this.checked));
     span.dataset.taskFrom = String(this.from);
+    if (this.fold) {
+      span.dataset.foldFrom = String(this.fold.from);
+      span.dataset.foldTo = String(this.fold.to);
+      const chevron = document.createElement('span');
+      chevron.className = 'parsi-list-chevron';
+      chevron.setAttribute('aria-hidden', 'true');
+      span.append(chevron);
+    }
     return span;
   }
 }
@@ -77,6 +92,7 @@ class TaskBoxWidget extends WidgetType {
 /**
  * Builds checkbox widgets for task lines, leaving the raw box where the
  * cursor (or selection) overlaps it so that exact spot stays editable.
+ * Parent task items (those owning a nested list) recolor while folded.
  * @param {object} view Active editor view.
  * @returns {object} Decoration set.
  */
@@ -90,7 +106,7 @@ function buildTaskDecorations(view) {
         const box = findTaskBox(line, line.from);
         if (box && (selection.from > box.to || selection.to < box.from)) {
           builder.push(
-            Decoration.replace({ widget: new TaskBoxWidget(box.checked, box.from) }).range(box.from, box.to),
+            Decoration.replace({ widget: new TaskBoxWidget(box.checked, box.from, foldOf(view, box.from)) }).range(box.from, box.to),
           );
         }
       }
@@ -100,6 +116,26 @@ function buildTaskDecorations(view) {
   return Decoration.set(builder);
 }
 
+/**
+ * Reports the fold of the parent list item containing a position, if any.
+ * @param {object} view Active editor view.
+ * @param {number} position Document position.
+ * @returns {object|null} `{ from, to, folded }` or null outside parents.
+ */
+function foldOf(view, position) {
+  const line = view.state.doc.lineAt(position);
+  for (const parent of collectListParents(view, line.from, line.to)) {
+    if (position >= parent.itemFrom && position <= parent.itemTo) {
+      return {
+        from: parent.foldFrom,
+        to: parent.foldTo,
+        folded: isFoldedRange(view.state, parent.foldFrom, parent.foldTo),
+      };
+    }
+  }
+  return null;
+}
+
 const taskMarkerPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) {
@@ -107,7 +143,7 @@ const taskMarkerPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet || hasFoldEffects(update)) {
         this.decorations = buildTaskDecorations(update.view);
       }
     }

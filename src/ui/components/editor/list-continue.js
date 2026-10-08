@@ -206,7 +206,10 @@ export function computeNumbers(lines) {
  * Shift-Tab outdents) and resequences the contiguous ordered block, so a
  * `3.` nested under `2.` becomes `1.` there and the outer run closes its
  * gap — all in one undoable transaction with the cursor mapped along.
- * Non-ordered lines, selections and modified keys fall through (false);
+ * Unordered content lines indent/outdent by one tab stop the same way (no
+ * resequencing there to keep); task lines keep falling through. Nested
+ * levels everywhere measure one tab stop, pinned to eight columns.
+ * Non-list lines, selections and modified keys fall through (false);
  * the locked state swallows the key (true) so nothing edits.
  * @param {object} view Active editor view.
  * @param {boolean} outdent True for Shift-Tab, false for Tab.
@@ -222,6 +225,22 @@ export function indentListItem(view, outdent) {
     return false;
   }
   const line = state.doc.lineAt(selection.from);
+  if (!inFencedCode(state, line.number)
+    && !TASK_EMPTY_PATTERN.test(line.text)
+    && !TASK_CONTENT_PATTERN.test(line.text)) {
+    const unordered = UNORDERED_CONTENT_PATTERN.exec(line.text);
+    if (unordered) {
+      if (!outdent) {
+        view.dispatch({ changes: { from: line.from, insert: '\t' }, scrollIntoView: true });
+        return true;
+      }
+      if (unordered[1].startsWith('\t')) {
+        view.dispatch({ changes: { from: line.from, to: line.from + 1, insert: '' }, scrollIntoView: true });
+        return true;
+      }
+      return false;
+    }
+  }
   const parsed = parseOrderedLine(line.text);
   if (!parsed || inFencedCode(state, line.number)) {
     return false;

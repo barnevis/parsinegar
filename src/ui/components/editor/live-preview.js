@@ -13,6 +13,7 @@ import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 import { highlightTree } from '@lezer/highlight';
 import { tags } from '@lezer/highlight';
 import { TASK_LINE_PATTERN } from './task-list.js';
+import { collectListParents, hasFoldEffects, isFoldedRange } from './list-fold.js';
 
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const MONO_FONT = "'Vazirmatn', ui-monospace, monospace";
@@ -127,22 +128,46 @@ export const FENCE_PATTERN = /^[ \t]*```/;
 
 /**
  * Replaces a raw list marker with a rendered bullet or the original number.
+ * Parent items (those owning a nested list) also carry their fold range so
+ * the marker click toggles the fold, and a collapsed class that recolors
+ * the marker while folded.
  */
 class ListMarkerWidget extends WidgetType {
-  constructor(label) {
+  constructor({ label, foldFrom = null, foldTo = null, folded = false }) {
     super();
     this.label = label;
+    this.foldFrom = foldFrom;
+    this.foldTo = foldTo;
+    this.folded = folded;
   }
 
   eq(other) {
-    return other instanceof ListMarkerWidget && other.label === this.label;
+    return other instanceof ListMarkerWidget
+      && other.label === this.label
+      && other.foldFrom === this.foldFrom
+      && other.foldTo === this.foldTo
+      && other.folded === this.folded;
   }
 
   toDOM() {
     const span = document.createElement('span');
-    span.className = 'parsi-list-marker';
+    span.className = this.folded ? 'parsi-list-marker parsi-list-collapsed' : 'parsi-list-marker';
     span.textContent = this.label;
+    if (Number.isInteger(this.foldFrom) && Number.isInteger(this.foldTo)) {
+      span.dataset.foldFrom = String(this.foldFrom);
+      span.dataset.foldTo = String(this.foldTo);
+      const chevron = document.createElement('span');
+      chevron.className = 'parsi-list-chevron';
+      chevron.setAttribute('aria-hidden', 'true');
+      span.append(chevron);
+    }
     return span;
+  }
+
+  ignoreEvent() {
+    // Let mousedown reach the editor so the fold handler runs; the default
+    // swallows widget events before any domEventHandler sees them.
+    return false;
   }
 }
 
@@ -246,6 +271,8 @@ function buildMarkerDecorations(view) {
   const selection = view.state.selection.main;
   const builder = [];
   for (const { from, to } of view.visibleRanges) {
+    const found = collectListParents(view, from, to);
+    const parents = new Map(found.map((parent) => [parent.markerFrom, parent]));
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
       if (!TASK_LINE_PATTERN.test(line.text)) {
@@ -256,8 +283,17 @@ function buildMarkerDecorations(view) {
           const parkedOnEmpty = isParkedOnEmptyMarker(line.text, line.from, markerEnd, selection);
           if ((selection.from >= markerEnd || selection.to < markerStart) && !parkedOnEmpty) {
             const label = match[1] ? '• ' : `${match[2]}. `;
+            const parent = parents.get(markerStart) ?? null;
+            const folded = parent !== null && isFoldedRange(view.state, parent.foldFrom, parent.foldTo);
             builder.push(
-              Decoration.replace({ widget: new ListMarkerWidget(label) }).range(markerStart, markerEnd),
+              Decoration.replace({
+                widget: new ListMarkerWidget({
+                  label,
+                  foldFrom: parent?.foldFrom ?? null,
+                  foldTo: parent?.foldTo ?? null,
+                  folded,
+                }),
+              }).range(markerStart, markerEnd),
             );
           } else if (parkedOnEmpty) {
             builder.push(
@@ -345,7 +381,7 @@ const markerDecorationPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet || hasFoldEffects(update)) {
         this.decorations = buildMarkerDecorations(update.view);
       }
     }
