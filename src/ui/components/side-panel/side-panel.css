@@ -136,10 +136,6 @@
   block-size: 16px;
   flex: none;
 }
-[part="docs-item"][data-disk="true"] {
-  border-inline-start: 2px solid var(--pey-color-accent, #5eead4);
-  padding-inline-start: 0.4rem;
-}
 [part="docs-item"][data-disk="true"] [part="docs-open"] {
   display: flex;
   gap: 0.4rem;
@@ -152,11 +148,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-[part="docs-open"] svg {
-  inline-size: 16px;
-  block-size: 16px;
-  flex: none;
 }
 [part="docs-toggle"] {
   font: inherit;

@@ -194,9 +194,9 @@ test('should_build_nested_tree_when_paths_nest', () => {
     { id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' },
     { id: 'disk:pic.png', title: 'pic.png', path: 'pic.png' },
   ]);
-  assert.deepEqual(tree.map(({ kind, label }) => `${kind}:${label}`), ['dir:sub', 'file:b.md', 'file:pic.png']);
+  assert.deepEqual(tree.map(({ kind, label }) => `${kind}:${label}`), ['dir:sub', 'file:b', 'file:pic.png']);
   const [sub] = tree;
-  assert.deepEqual(sub.children.map(({ kind, label }) => `${kind}:${label}`), ['dir:deep', 'file:a.md']);
+  assert.deepEqual(sub.children.map(({ kind, label }) => `${kind}:${label}`), ['dir:deep', 'file:a']);
   assert.equal(sub.children[0].children[0].id, 'disk:sub/deep/c.md');
 });
 
@@ -222,6 +222,9 @@ test('should_render_disk_group_when_disk_is_open', () => {
   assert.ok(html.includes('part="outline-chevron"'), 'expected the outline chevron gutter');
   assert.ok(html.includes('part="outline-spacer"'), 'expected the leaf spacer column');
   assert.ok(html.includes('parsinegar.disk.collapse'), 'expected the toggle label');
+  assert.ok(html.includes('>b<'), 'expected the extension hidden from the label');
+  assert.ok(!html.includes('>b.md<'), 'expected no extension in row labels');
+  assert.ok(html.includes('title="b.md"'), 'expected the full path kept in the tooltip');
   const diskRows = html.split('data-disk="true"').length - 1;
   assert.equal(diskRows, 2);
   assert.ok(!html.includes('data-doc-menu="disk:'), 'expected no item menus on device rows');

@@ -93,7 +93,8 @@ export function sortDocuments(items, mode) {
 /**
  * Builds a nested directory tree from flat device entries. Intermediate
  * directories are derived from relative paths; directories sort before
- * files, each alphabetically (Persian-aware).
+ * files, each alphabetically (Persian-aware). File labels drop the
+ * Markdown extension (the full path stays in the row tooltip).
  * @param {Array<object>} entries Flat entries with `{ id, title, path }`.
  * @returns {Array<object>} Tree nodes: `{ kind: 'dir', key, label, children }`
  *   or `{ kind: 'file', key, label, id, path }`.
@@ -123,7 +124,7 @@ export function buildDiskTree(entries) {
     node.children.push({
       kind: 'file',
       key: entry.path,
-      label: segments[segments.length - 1],
+      label: segments[segments.length - 1].replace(/\.(md|markdown|mdown|txt)$/i, ''),
       id: entry.id,
       path: entry.path,
     });
@@ -231,7 +232,7 @@ function renderDiskNode(translate, fileIcon, node, currentId, collapsed) {
   const id = escapeHtml(node.id);
   return `
     <li part="docs-item"${node.id === currentId ? ' data-current="true"' : ''} data-disk="true" title="${escapeHtml(node.path)}">
-      <span part="outline-spacer" aria-hidden="true"></span><button type="button" part="docs-open" data-doc-id="${id}" ${node.id === currentId ? 'aria-current="true"' : ''}>${fileIcon}<span>${escapeHtml(node.label)}</span></button>
+      <span part="outline-spacer" aria-hidden="true"></span><button type="button" part="docs-open" data-doc-id="${id}" ${node.id === currentId ? 'aria-current="true"' : ''}><span>${escapeHtml(node.label)}</span></button>
     </li>`;
 }
 
