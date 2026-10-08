@@ -144,3 +144,34 @@ test('should_ignore_fenced_lists_when_collecting', () => {
     destroy(mounted);
   }
 });
+
+test('should_align_plain_markers_with_gutter_when_rendered', () => {
+  const mounted = createEditor('متن\n\n- تنها\n');
+  try {
+    const marker = mounted.host.querySelector('.parsi-list-marker');
+    assert.ok(marker.querySelector('.parsi-list-gutter'), 'expected the gutter column');
+    assert.equal(marker.querySelector('.parsi-list-chevron'), null, 'expected no chevron without children');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_point_chevron_by_state_when_themed', () => {
+  const mounted = createEditor('- الف\n  - ب\n');
+  try {
+    // Injected themes leave with the last editor, so assert while mounted.
+    const sheets = [...document.styleSheets];
+    const has = (selector, property, expected) => sheets.some((sheet) => {
+      try {
+        return [...sheet.cssRules].some((rule) => rule.selectorText?.includes(selector) && (rule.style?.getPropertyValue(property).includes(expected) || rule.style?.cssText.includes(expected)));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(has('.parsi-list-triangle', 'transform', 'rotate(45deg)'), 'expected the expanded chevron down');
+    assert.ok(has('.parsi-list-collapsed .parsi-list-triangle', 'transform', 'rotate(135deg)'), 'expected the collapsed chevron sideways');
+    assert.ok(has('.cm-foldPlaceholder', 'background-color', 'transparent'), 'expected the invisible fold placeholder');
+  } finally {
+    destroy(mounted);
+  }
+});

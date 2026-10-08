@@ -5,7 +5,7 @@
 // no services involved.
 import { EditorView } from 'codemirror';
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
-import { collectListParents, hasFoldEffects, isFoldedRange } from './list-fold.js';
+import { collectListParents, createFoldChevron, createFoldGutter, hasFoldEffects, isFoldedRange } from './list-fold.js';
 
 /**
  * Matches a task-list item line (unordered or ordered).
@@ -79,10 +79,9 @@ class TaskBoxWidget extends WidgetType {
     if (this.fold) {
       span.dataset.foldFrom = String(this.fold.from);
       span.dataset.foldTo = String(this.fold.to);
-      const chevron = document.createElement('span');
-      chevron.className = 'parsi-list-chevron';
-      chevron.setAttribute('aria-hidden', 'true');
-      span.append(chevron);
+      span.append(createFoldChevron());
+    } else {
+      span.append(createFoldGutter());
     }
     span.append(document.createTextNode(this.checked ? CHECKED_GLYPH : UNCHECKED_GLYPH));
     return span;

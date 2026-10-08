@@ -91,6 +91,35 @@ export function isFoldedRange(state, from, to) {
 }
 
 /**
+ * Builds the chevron gutter: a fixed-width box centering the triangle, so
+ * parent rows align exactly with the plain gutter below.
+ * @returns {Element} Chevron element.
+ */
+export function createFoldChevron() {
+  const gutter = document.createElement('span');
+  gutter.className = 'parsi-list-chevron';
+  gutter.setAttribute('aria-hidden', 'true');
+  const triangle = document.createElement('span');
+  triangle.className = 'parsi-list-triangle';
+  triangle.setAttribute('aria-hidden', 'true');
+  gutter.append(triangle);
+  return gutter;
+}
+
+/**
+ * Builds the plain gutter reserving the chevron column on rows without
+ * children, so every list row starts its glyph in one column (like the
+ * outline spacer).
+ * @returns {Element} Gutter element.
+ */
+export function createFoldGutter() {
+  const gutter = document.createElement('span');
+  gutter.className = 'parsi-list-gutter';
+  gutter.setAttribute('aria-hidden', 'true');
+  return gutter;
+}
+
+/**
  * Reports whether an update toggled any fold (fold effects change neither
  * the document, the viewport nor the selection, so decoration plugins must
  * watch for them explicitly).
@@ -123,23 +152,44 @@ const foldTheme = EditorView.theme({
   // the collapse signal, so expanded rows read exactly as before.
   '& .parsi-list-marker.parsi-list-collapsed': { color: 'var(--pey-color-accent, #5eead4)' },
   '& .parsi-task-marker.parsi-list-collapsed': { color: 'var(--pey-color-accent, #5eead4)' },
-  // The chevron lives inside the marker widget, so the two never drift apart
-  // (and it hides with the marker under the cursor). It stays out of the
-  // way until needed: hovered line, or the cursor sitting anywhere inside
-  // the parent item (which pins `parsi-list-active` on the parent row).
-  // Touch users get it through the cursor, since tapping parks it there.
-  '& .parsi-list-marker .parsi-list-chevron, & .parsi-task-marker .parsi-list-chevron': { display: 'none' },
-  '& .cm-line:hover .parsi-list-chevron': { display: 'inline-block' },
-  '& .cm-line.parsi-list-active .parsi-list-chevron': { display: 'inline-block' },
+  // The stock fold placeholder renders as a light pill (a white bar in
+  // dark themes), but the marker color already signals the fold — so the
+  // placeholder keeps its mapping role with zero paint.
+  '& .cm-foldPlaceholder': {
+    backgroundColor: 'transparent',
+    border: '0',
+    padding: '0',
+    margin: '0',
+    color: 'inherit',
+  },
+  // Fixed gutter column for the chevron (and its plain placeholder), so
+  // parent rows never sit ahead of plain rows — the outline-spacer idea.
   '& .parsi-list-chevron': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    inlineSize: '1em',
+  },
+  '& .parsi-list-gutter': { display: 'inline-block', inlineSize: '1em' },
+  // The chevron stays out of the way until needed: hovered line, or the
+  // cursor sitting anywhere inside the parent item (which pins
+  // `parsi-list-active` on the parent row). Touch users get it through the
+  // cursor, since tapping parks it there.
+  '& .parsi-list-marker .parsi-list-chevron, & .parsi-task-marker .parsi-list-chevron': { display: 'none' },
+  '& .cm-line:hover .parsi-list-chevron': { display: 'inline-flex' },
+  '& .cm-line.parsi-list-active .parsi-list-chevron': { display: 'inline-flex' },
+  '& .parsi-list-triangle': {
     display: 'inline-block',
     inlineSize: '0.3em',
     blockSize: '0.3em',
-    marginInlineEnd: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    transform: 'rotate(225deg)',
+    // Expanded points down like the outline; collapsed points left in rtl.
+    transform: 'rotate(45deg)',
     cursor: 'pointer',
+  },
+  '& .parsi-list-marker.parsi-list-collapsed .parsi-list-triangle, & .parsi-task-marker.parsi-list-collapsed .parsi-list-triangle': {
+    transform: 'rotate(135deg)',
   },
 });
 
