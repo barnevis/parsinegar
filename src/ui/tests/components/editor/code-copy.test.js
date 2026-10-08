@@ -27,7 +27,14 @@ test('should_collect_closed_blocks_when_scanning', () => {
   const blocks = collectCodeBlocks(fakeView('متن\n```js\nconst x = 1;\n```\nبعد'));
   assert.equal(blocks.length, 1);
   const [block] = blocks;
-  assert.equal('متن\n```js\nconst x = 1;\n```\nبعد'.slice(block.from, block.to), 'const x = 1;\n');
+  assert.equal('متن\n```js\nconst x = 1;\n```\nبعد'.slice(block.from, block.to), 'const x = 1;');
+});
+
+test('should_trim_one_break_when_collecting', () => {
+  const [closed] = collectCodeBlocks(fakeView('```\na\n\n```'));
+  assert.equal('```\na\n\n```'.slice(closed.from, closed.to), 'a\n');
+  const [open] = collectCodeBlocks(fakeView('متن\n```\ncode\n'));
+  assert.equal('متن\n```\ncode\n'.slice(open.from, open.to), 'code');
 });
 
 test('should_collect_unclosed_blocks_when_scanning', () => {
@@ -116,7 +123,7 @@ test('should_copy_block_content_when_clicked', async () => {
       new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.deepEqual(written, ['const x = 1;\n']);
+    assert.deepEqual(written, ['const x = 1;']);
     const button = mounted.host.querySelector('.parsi-code-copy');
     assert.equal(button.getAttribute('aria-label'), 'parsinegar.code.copied');
   } finally {

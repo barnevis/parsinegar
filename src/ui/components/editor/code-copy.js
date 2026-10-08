@@ -49,6 +49,25 @@ export async function copyText(text) {
 }
 
 /**
+ * Trims the single line break separating block content from its closing
+ * fence (or the document end): without it every copy would end with a
+ * stray empty line that is fence layout, not code.
+ * @param {object} state Editor state.
+ * @param {number} from Content start.
+ * @param {number} to Content end before trimming.
+ * @returns {number} Trimmed content end.
+ */
+function contentEnd(state, from, to) {
+  if (to > from && state.sliceDoc(to - 1, to) === '\n') {
+    to -= 1;
+    if (to > from && state.sliceDoc(to - 1, to) === '\r') {
+      to -= 1;
+    }
+  }
+  return to;
+}
+
+/**
  * Collects fenced code blocks in visible ranges: opening fence line plus
  * the content range between the delimiters (empty blocks skipped).
  * @param {object} view Active editor view.
@@ -85,7 +104,7 @@ export function collectCodeBlocks(view) {
         const wasOpen = inFence;
         trackFence(line.number);
         if (wasOpen && contentFrom < line.from) {
-          blocks.push({ openFrom: openLineFrom, from: contentFrom, to: line.from });
+          blocks.push({ openFrom: openLineFrom, from: contentFrom, to: contentEnd(view.state, contentFrom, line.from) });
         }
       }
       pos = line.to + 1;
@@ -94,7 +113,7 @@ export function collectCodeBlocks(view) {
   if (inFence) {
     const end = view.state.doc.length;
     if (contentFrom < end) {
-      blocks.push({ openFrom: openLineFrom, from: contentFrom, to: end });
+      blocks.push({ openFrom: openLineFrom, from: contentFrom, to: contentEnd(view.state, contentFrom, end) });
     }
   }
   return blocks;
