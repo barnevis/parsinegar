@@ -27,7 +27,6 @@ class ParsiSidePanel extends PeyElement {
     }
     this.#openFileMenu = null;
     this.#moveMenuId = null;
-    this.#moveFlip = false;
     this.#sortMenuOpen = false;
     this.requestRender();
   };
@@ -35,7 +34,6 @@ class ParsiSidePanel extends PeyElement {
     if (event.key === 'Escape' && (this.#openFileMenu !== null || this.#sortMenuOpen)) {
       this.#openFileMenu = null;
       this.#moveMenuId = null;
-      this.#moveFlip = false;
       this.#sortMenuOpen = false;
       this.requestRender();
     }
@@ -55,7 +53,6 @@ class ParsiSidePanel extends PeyElement {
   #collapsedLines = new Set();
   #folderCollapsed = new Set();
   #moveMenuId = null;
-  #moveFlip = false;
   #applied = null;
 
   onConnect(refs = {}) {
@@ -346,29 +343,13 @@ class ParsiSidePanel extends PeyElement {
     if (moveToggle) {
       const id = moveToggle.getAttribute('data-move-toggle') ?? '';
       this.#moveMenuId = this.#moveMenuId === id ? null : id;
-      if (this.#moveMenuId === null) {
-        this.#moveFlip = false;
-      }
       this.requestRender();
-      if (this.#moveMenuId !== null) {
-        // Flip to the other side when the viewport has no room on the
-        // opening side. Measured after render, like the menubar submenu.
-        queueMicrotask(() => {
-          const open = this.shadowRoot?.querySelector('[part="file-subdropdown"]:not([hidden])');
-          const rect = open?.getBoundingClientRect();
-          if (open && rect && rect.left < 0 && this.#moveFlip !== true) {
-            this.#moveFlip = true;
-            this.requestRender();
-          }
-        });
-      }
       return;
     }
     const moveOption = event.target?.closest?.('[data-move-to]');
     if (moveOption) {
       const [id, folderId] = (moveOption.getAttribute('data-move-to') ?? '|').split('|');
       this.#moveMenuId = null;
-      this.#moveFlip = false;
       this.#openFileMenu = null;
       this.requestRender();
       this.dispatchEvent(
@@ -491,7 +472,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, moveFlip: this.#moveFlip, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed] })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed] })}</div>
       </aside>`;
   }
 }

@@ -146,9 +146,10 @@
 }
 [part="docs-toggle"] > [part="outline-chevron"] {
   /* Overlays the row's inline-start padding so the label starts exactly
-     where document labels start (root documents keep their edge distance). */
+     where document labels start (root documents keep their edge distance).
+     Parked inside the padding zone with clearance from the panel edge. */
   position: absolute;
-  inset-inline-start: -0.7rem;
+  inset-inline-start: -0.3rem;
   top: 50%;
   margin: 0;
   transform: translateY(-50%) rotate(45deg);
@@ -157,7 +158,8 @@
   transform: translateY(-50%) rotate(135deg);
 }
 [part="file-submenu-wrap"] {
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 [part="file-submenu-wrap"] > [part="file-menu-item"] {
   display: flex;
@@ -171,29 +173,15 @@
   direction: ltr;
   unicode-bidi: isolate;
 }
-[part="file-subdropdown"] {
-  position: absolute;
-  inset-block-start: 0;
-  /* Opens toward the viewport center like the menubar submenu: in rtl the
-    inline-start edge is on the right, so this lands left of the row. */
-  inset-inline-start: calc(100% + 0.25rem);
-  min-inline-size: 9rem;
-  z-index: 10;
+/* Inline nested submenu (not a flyout): a flyout would paint-clip against
+  the scrollable panel container, so the targets expand below the toggle. */
+[part="file-submenu"] {
   display: flex;
   flex-direction: column;
-  padding: 0.3rem;
-  border: 1px solid var(--pey-color-border, #e2e2e8);
-  border-radius: 10px;
-  background-color: var(--pey-color-canvas, #ffffff);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.1);
-  font-size: 12px;
+  padding-inline-start: 1rem;
 }
-[part="file-subdropdown"][hidden] {
+[part="file-submenu"][hidden] {
   display: none;
-}
-[part="file-subdropdown"][data-flip="true"] {
-  inset-inline-start: auto;
-  inset-inline-end: calc(100% + 0.25rem);
 }
 [part="docs-menu"] {
   font: inherit;

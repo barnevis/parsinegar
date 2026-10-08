@@ -241,7 +241,7 @@ test('should_render_move_submenu_when_open', () => {
     moveMenuId: 'd1',
   });
   assert.ok(html.includes('data-move-toggle="d1"'), 'expected the move toggle');
-  assert.ok(html.includes('part="file-subdropdown"'), 'expected the flyout submenu');
+  assert.ok(html.includes('part="file-submenu"'), 'expected the nested submenu');
   assert.ok(html.includes('part="file-sub-indicator"'), 'expected the submenu indicator');
   assert.ok(html.includes('data-move-to="d1|"'), 'expected the root target');
   assert.ok(html.includes('data-move-to="d1|f1"'), 'expected the folder target');

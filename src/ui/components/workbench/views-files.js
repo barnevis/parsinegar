@@ -146,7 +146,6 @@ function folderDisplayPath(foldersById, id) {
  * @param {string|null} options.currentId Open document id.
  * @param {string|null} [options.openMenuId] Document whose menu is open (or `folder:<id>`).
  * @param {string|null} [options.moveMenuId] Document whose move submenu is open.
- * @param {boolean} [options.moveFlip] Whether the move submenu opens mirrored.
  * @param {object|null} [options.editing] Inline rename state `{ id, error }` (`folder:<id>` for folders).
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
  * @param {string} [options.sortMode] Active ordering for the sort menu (defaults to `updated-desc`).
@@ -154,7 +153,7 @@ function folderDisplayPath(foldersById, id) {
  * @param {Array<string>} [options.folderCollapsed] Collapsed folder ids.
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, folders = [], currentId, openMenuId, moveMenuId, moveFlip = false, editing, assetBaseUrl, sortMode, sortMenuOpen, folderCollapsed = [] }) {
+export function renderFilesView({ t, items, folders = [], currentId, openMenuId, moveMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, folderCollapsed = [] }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const activeSort = FILES_SORT_MODES.includes(sortMode) ? sortMode : DEFAULT_FILES_SORT;
   const documents = Array.isArray(items) ? items : [];
@@ -162,7 +161,7 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
   const foldersById = new Map(folderList.filter((folder) => folder && typeof folder.id === 'string').map((folder) => [folder.id, folder]));
   const collapsed = new Set(Array.isArray(folderCollapsed) ? folderCollapsed : []);
   const scope = {
-    translate, currentId, openMenuId, moveMenuId, moveFlip, editing, foldersById, collapsed,
+    translate, currentId, openMenuId, moveMenuId, editing, foldersById, collapsed,
   };
   const rootDocs = documents.filter((item) => (item.folderId ?? null) === null);
   const docsOf = (folderId) => documents.filter((item) => (item.folderId ?? null) === folderId);
@@ -248,14 +247,13 @@ function renderSortMenu(translate, activeSort) {
 /**
  * Renders the per-document action menu (rename, move submenu, download,
  * download-html, properties, delete).
- * @param {object} scope Render scope `{ translate, moveMenuId, moveFlip, foldersById }`.
+ * @param {object} scope Render scope `{ translate, moveMenuId, foldersById }`.
  * @param {string} id Escaped document id.
  * @param {string} rawId Unescaped document id for move targets.
  * @returns {string} Menu markup.
  */
 function renderFileMenu(scope, id, rawId) {
-  const { translate, moveMenuId, moveFlip, foldersById } = scope;
-  const flip = moveFlip === true;
+  const { translate, moveMenuId, foldersById } = scope;
   const entry = (key, labelKey) => `
         <button type="button" part="file-menu-item" data-file-${key}="${id}">${escapeHtml(translate(labelKey))}</button>`;
   const open = moveMenuId === rawId;
@@ -264,7 +262,7 @@ function renderFileMenu(scope, id, rawId) {
     targets.push(`<button type="button" part="file-menu-item" data-move-to="${id}|${escapeHtml(folder.id)}">${escapeHtml(folderDisplayPath(foldersById, folder.id))}</button>`);
   }
   return `
-      <div part="file-menu" role="menu">${entry('rename', 'parsinegar.documents.rename')}<div part="file-submenu-wrap"><button type="button" part="file-menu-item" role="menuitem" data-move-toggle="${id}" aria-haspopup="true" aria-expanded="${open ? 'true' : 'false'}"><span>${escapeHtml(translate('parsinegar.folders.moveTo'))}</span><span part="file-sub-indicator" aria-hidden="true">‹</span></button><div part="file-subdropdown" role="menu" data-flip="${flip === true}" ${open ? '' : 'hidden'}>${targets.join('')}</div></div>${entry('download', 'parsinegar.documents.download')}${entry('download-html', 'parsinegar.documents.downloadHtml')}${entry('properties', 'parsinegar.documents.properties')}${entry('delete', 'parsinegar.documents.delete')}
+      <div part="file-menu" role="menu">${entry('rename', 'parsinegar.documents.rename')}<div part="file-submenu-wrap"><button type="button" part="file-menu-item" role="menuitem" data-move-toggle="${id}" aria-haspopup="true" aria-expanded="${open ? 'true' : 'false'}"><span>${escapeHtml(translate('parsinegar.folders.moveTo'))}</span><span part="file-sub-indicator" aria-hidden="true">‹</span></button><div part="file-submenu" role="menu" ${open ? '' : 'hidden'}>${targets.join('')}</div></div>${entry('download', 'parsinegar.documents.download')}${entry('download-html', 'parsinegar.documents.downloadHtml')}${entry('properties', 'parsinegar.documents.properties')}${entry('delete', 'parsinegar.documents.delete')}
       </div>`;
 }
 
