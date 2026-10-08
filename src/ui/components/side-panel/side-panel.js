@@ -49,6 +49,7 @@ class ParsiSidePanel extends PeyElement {
   #filesSort = DEFAULT_FILES_SORT;
   #collapsedLines = new Set();
   #applied = null;
+  #hideItemMenu = false;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -92,7 +93,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode } = {}) {
+  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, hideItemMenu } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -117,6 +118,9 @@ class ParsiSidePanel extends PeyElement {
     if (FILES_SORT_MODES.includes(sortMode)) {
       this.#filesSort = sortMode;
     }
+    if (typeof hideItemMenu === 'boolean') {
+      this.#hideItemMenu = hideItemMenu;
+    }
     return {
       activeView: this.#activeView,
       items: this.#items,
@@ -129,6 +133,7 @@ class ParsiSidePanel extends PeyElement {
       editingId: this.#editingId,
       renameError: this.#renameError,
       filesSort: this.#filesSort,
+      hideItemMenu: this.#hideItemMenu,
       collapsed: [...this.#collapsedLines].sort((left, right) => left - right).join(','),
       signature: outlineSignature(this.#documentText),
     };
@@ -178,10 +183,11 @@ class ParsiSidePanel extends PeyElement {
    * @param {number|null} [data.activeLine] Highlighted outline heading line.
    * @param {string|null} [data.renameError] Translation key for a rename failure.
    * @param {string} [data.sortMode] Files ordering (one of `FILES_SORT_MODES`).
+   * @param {boolean} [data.hideItemMenu] Hide the per-item ⋯ menu (device entries have no rename/download/delete).
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode });
+  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, hideItemMenu } = {}) {
+    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, hideItemMenu });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -200,6 +206,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
       && prev.filesSort === next.filesSort
+      && prev.hideItemMenu === next.hideItemMenu
       && prev.collapsed === next.collapsed
       && prev.signature === next.signature;
     if (!same) {
@@ -371,7 +378,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, hideItemMenu: this.#hideItemMenu })}</div>
       </aside>`;
   }
 }

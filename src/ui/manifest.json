@@ -8,7 +8,8 @@
       "pey.router.service",
       "parsinegar.documents.service",
       "parsinegar.settings.service",
-      "parsinegar.export.service"
+      "parsinegar.export.service",
+      "pey.filesystem.service"
     ],
     "optional": []
   },

@@ -186,3 +186,9 @@ test('should_tolerate_missing_fields_when_sorting', () => {
   assert.deepEqual(sortDocuments(null, 'name'), []);
   assert.deepEqual(sortDocuments('nope', 'name'), []);
 });
+
+test('should_hide_item_menus_when_hide_item_menu_is_set', () => {
+  const html = renderFilesView({ t: translate, items: [{ id: 'disk:a.md', title: 'a.md' }], currentId: null, hideItemMenu: true });
+  assert.ok(html.includes('data-doc-id="disk:a.md"'), 'expected the open button');
+  assert.ok(!html.includes('data-doc-menu'), 'expected no item menu buttons');
+});

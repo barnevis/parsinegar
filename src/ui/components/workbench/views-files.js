@@ -102,9 +102,10 @@ export function sortDocuments(items, mode) {
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
  * @param {string} [options.sortMode] Active ordering for the sort menu (defaults to `updated-desc`).
  * @param {boolean} [options.sortMenuOpen] Whether the sort menu renders open.
+ * @param {boolean} [options.hideItemMenu] Whether to hide the per-item ⋯ menu (device entries have no rename/download/delete).
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, currentId, openMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen }) {
+export function renderFilesView({ t, items, currentId, openMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, hideItemMenu = false }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const activeSort = FILES_SORT_MODES.includes(sortMode) ? sortMode : DEFAULT_FILES_SORT;
   const rows = (Array.isArray(items) ? items : []).map((item) => {
@@ -120,7 +121,7 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
     return `
     <li part="docs-item"${item.id === currentId ? ' data-current="true"' : ''}>
       <button type="button" part="docs-open" data-doc-id="${id}" ${item.id === currentId ? 'aria-current="true"' : ''}>${title}</button>
-      <button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋯</button>
+      ${hideItemMenu === true ? '' : `<button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋯</button>`}
       ${openMenuId === item.id ? renderFileMenu(translate, id) : ''}
     </li>`;
   }).join('');

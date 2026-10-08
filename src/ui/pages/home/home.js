@@ -26,6 +26,11 @@ const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
 const EXPORT_SERVICE = 'parsinegar.export.service';
+const FILESYSTEM_SERVICE = 'pey.filesystem.service';
+// Side-panel ids for device entries: the service owns paths, the panel only
+// needs opaque strings, so disk ids are namespaced and never collide.
+const DISK_ID_PREFIX = 'disk:';
+const FILESYSTEM_METHODS = ['getCapabilities', 'pickDirectory', 'pickFile', 'listDirectory', 'collectEntries', 'readEntry', 'writeEntry'];
 const INSERT_ACTION_PREFIX = 'insert-';
 const INSERT_MARK_KINDS = [
   'heading',
@@ -94,6 +99,8 @@ class ParsiPageHome extends PeyElement {
   #searchSpec = null;
   #builtIn = null;
   #guides = null;
+  #filesystem = null;
+  #disk = null;
   #railEl = null;
   #sideEl = null;
   #statusEl = null;
@@ -146,6 +153,10 @@ class ParsiPageHome extends PeyElement {
     }
     const exporter = refs.services?.[EXPORT_SERVICE] ?? null;
     this.#exporter = exporter && typeof exporter.exportHtml === 'function' ? exporter : null;
+    const filesystem = refs.services?.[FILESYSTEM_SERVICE] ?? null;
+    this.#filesystem = filesystem && FILESYSTEM_METHODS.every((method) => typeof filesystem[method] === 'function')
+      ? filesystem
+      : null;
     if (!this.#guides) {
       this.#guides = createBuiltinDocs({ t: this.#t, isLive: () => this.isConnected });
     }
@@ -202,6 +213,16 @@ class ParsiPageHome extends PeyElement {
         }
         return;
       }
+      // Explicit disk save (v1 has no autosave to disk): claims Ctrl+S only
+      // while a device entry is open, so the browser keeps its own save
+      // dialog everywhere else.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyS') {
+        if (this.#disk?.currentPath != null && this.#editor) {
+          event.preventDefault();
+          void this.#saveDisk();
+        }
+        return;
+      }
       if (event.key === 'Escape' && this.#docs) {
         const { confirmDeleteId, propsRecord } = this.#docs.getState();
         if (confirmDeleteId !== null || propsRecord !== null) {
@@ -255,7 +276,11 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'document-open' && typeof event.detail?.id === 'string') {
-        void this.#switchDocument(event.detail.id);
+        if (event.detail.id.startsWith(DISK_ID_PREFIX)) {
+          void this.#switchDiskEntry(event.detail.id.slice(DISK_ID_PREFIX.length));
+        } else {
+          void this.#switchDocument(event.detail.id);
+        }
         return;
       }
       if (event.type === 'document-create') {
@@ -428,6 +453,18 @@ class ParsiPageHome extends PeyElement {
         case 'import-document':
           await this.#importDocument();
           return;
+        case 'open-file':
+          await this.#openDiskFile();
+          return;
+        case 'open-folder':
+          await this.#openDiskFolder();
+          return;
+        case 'close-disk':
+          this.#closeDisk();
+          return;
+        case 'save-disk':
+          await this.#saveDisk();
+          return;
         case 'about':
           await this.#openBuiltin('about');
           return;
@@ -444,7 +481,7 @@ class ParsiPageHome extends PeyElement {
           await this.#toggleLock();
           return;
         case 'download-markdown': {
-          if (!this.#builtIn) {
+          if (!this.#builtIn && !this.#disk) {
             const { currentId = null } = this.#docs?.getState() ?? {};
             if (currentId) {
               await this.#downloadDocument(currentId);
@@ -453,7 +490,7 @@ class ParsiPageHome extends PeyElement {
           return;
         }
         case 'download-html': {
-          if (!this.#builtIn) {
+          if (!this.#builtIn && !this.#disk) {
             const { currentId = null } = this.#docs?.getState() ?? {};
             if (currentId) {
               await this.#downloadHtmlDocument(currentId);
@@ -510,7 +547,7 @@ class ParsiPageHome extends PeyElement {
    */
   #openSearch(focus) {
     const { currentId = null } = this.#docs?.getState() ?? {};
-    if (currentId === null || !this.#editor) {
+    if ((currentId === null && this.#disk?.currentPath == null) || !this.#editor) {
       return false;
     }
     this.#searchOpen = true;
@@ -647,7 +684,7 @@ class ParsiPageHome extends PeyElement {
     if (!opened || !this.isConnected || !this.#editor) {
       return;
     }
-    this.#docs?.setDraft(this.#editor.getValue());
+    this.#parkEditorDraft();
     this.#builtIn = opened;
     this.#editor.setDocument(opened.content);
     this.#editor.setReadOnly(true);
@@ -665,8 +702,13 @@ class ParsiPageHome extends PeyElement {
     }
     this.#builtIn = null;
     if (this.#editor) {
-      this.#editor.setDocument(this.#docs?.getDraft() ?? SAMPLE_DOCUMENT);
-      this.#editor.setReadOnly(this.#currentLocked());
+      if (this.#disk) {
+        this.#editor.setDocument(this.#diskContent() ?? SAMPLE_DOCUMENT);
+        this.#editor.setReadOnly(false);
+      } else {
+        this.#editor.setDocument(this.#docs?.getDraft() ?? SAMPLE_DOCUMENT);
+        this.#editor.setReadOnly(this.#currentLocked());
+      }
     }
     this.#refreshChrome();
   }
@@ -686,7 +728,7 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #toggleLock() {
-    if (this.#builtIn) {
+    if (this.#builtIn || this.#disk) {
       return;
     }
     const { currentId = null } = this.#docs?.getState() ?? {};
@@ -704,7 +746,7 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #setLockState(locked) {
-    if (this.#builtIn) {
+    if (this.#builtIn || this.#disk) {
       return;
     }
     const { currentId = null } = this.#docs?.getState() ?? {};
@@ -726,12 +768,15 @@ class ParsiPageHome extends PeyElement {
    * @returns {void}
    */
   #refreshChrome() {
+    const disk = this.#disk !== null;
     const { currentId = null } = this.#docs?.getState() ?? {};
-    const locked = this.#builtIn !== null || this.#currentLocked();
+    const shownId = disk ? this.#diskCurrentId() : currentId;
+    const locked = this.#builtIn !== null || (!disk && this.#currentLocked());
     this.#menuEl?.configure({
-      hasDocument: currentId !== null,
+      hasDocument: shownId !== null,
       readOnly: locked,
       builtInOpen: this.#builtIn !== null,
+      diskOpen: disk,
     });
     this.#pushLiveUpdates();
   }
@@ -748,6 +793,9 @@ class ParsiPageHome extends PeyElement {
     }
     const infrastructure = { events: this.#events };
     const { items = [], currentId = null } = this.#docs?.getState() ?? {};
+    const disk = this.#disk !== null;
+    const shownItems = disk ? this.#diskItems() : items;
+    const shownId = disk ? this.#diskCurrentId() : currentId;
     this.#menuEl = mountComponent({
       shadowRoot: this.shadowRoot,
       slot: '[data-slot="menubar"]',
@@ -755,14 +803,15 @@ class ParsiPageHome extends PeyElement {
       infrastructure,
       refs: {
         t: this.#t,
-        hasDocument: currentId !== null,
+        hasDocument: shownId !== null,
         formatNumber: (value) => this.#formatNumber(value),
         assetBaseUrl: this.#assetBaseUrl,
       },
       configure: (element) => element.configure({
-        hasDocument: currentId !== null,
-        readOnly: this.#builtIn !== null || this.#currentLocked(),
+        hasDocument: shownId !== null,
+        readOnly: this.#builtIn !== null || (!disk && this.#currentLocked()),
         builtInOpen: this.#builtIn !== null,
+        diskOpen: disk,
       }),
     });
     this.#railEl = mountComponent({
@@ -788,21 +837,23 @@ class ParsiPageHome extends PeyElement {
           t: this.#t,
           assetBaseUrl: this.#assetBaseUrl,
           activeView: this.#activeView,
-          items,
-          currentId,
+          items: shownItems,
+          currentId: shownId,
           documentText: this.value,
           settings: this.#prefs?.getState().settings ?? null,
           formatNumber: (value) => this.#formatNumber(value),
           sortMode: this.#filesSort,
+          hideItemMenu: disk,
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
-          items,
-          currentId,
+          items: shownItems,
+          currentId: shownId,
           documentText: this.value,
           settings: this.#prefs?.getState().settings ?? null,
           activeLine: this.#spy.getActiveLine(),
           sortMode: this.#filesSort,
+          hideItemMenu: disk,
         }),
       });
     } else {
@@ -902,6 +953,344 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
+   * Returns the bound environment picker for files or folders, or null when
+   * the browser has none (the caller then falls back to a hidden input).
+   * @param {string} kind 'file' or 'directory'.
+   * @returns {Function|null} Bound picker or null.
+   */
+  #envPicker(kind) {
+    const scope = typeof window !== 'undefined' ? window : globalThis;
+    const picker = kind === 'directory' ? scope?.showDirectoryPicker : scope?.showOpenFilePicker;
+    return typeof picker === 'function' ? picker.bind(scope) : null;
+  }
+
+  /**
+   * Returns the open device entry, or null outside disk mode.
+   * @returns {object|null} Current `{ name, path, handle?, file?, draft? }`.
+   */
+  #diskCurrent() {
+    if (!this.#disk || this.#disk.currentPath == null) {
+      return null;
+    }
+    return this.#disk.entries.find((entry) => entry?.path === this.#disk.currentPath) ?? null;
+  }
+
+  /**
+   * Returns the open device content for mounting (adopt pre-reads, so the
+   * draft is always set while a current path exists).
+   * @returns {string|null} Current disk text or null.
+   */
+  #diskContent() {
+    return this.#diskCurrent()?.draft ?? null;
+  }
+
+  /**
+   * Maps disk entries to side-panel items (opaque `disk:` ids, relative
+   * paths as titles).
+   * @returns {Array<object>|null} Panel items or null outside disk mode.
+   */
+  #diskItems() {
+    if (!this.#disk) {
+      return null;
+    }
+    return this.#disk.entries.map((entry) => ({ id: `${DISK_ID_PREFIX}${entry.path}`, title: entry.path }));
+  }
+
+  /**
+   * Returns the side-panel id of the open device entry.
+   * @returns {string|null} `disk:<path>` or null.
+   */
+  #diskCurrentId() {
+    if (!this.#disk || this.#disk.currentPath == null) {
+      return null;
+    }
+    return `${DISK_ID_PREFIX}${this.#disk.currentPath}`;
+  }
+
+  /**
+   * Parks the mounted editor content: into the open disk entry in disk
+   * mode, into the documents draft otherwise.
+   * @returns {void}
+   */
+  #parkEditorDraft() {
+    if (!this.#editor) {
+      return;
+    }
+    if (this.#disk) {
+      const current = this.#diskCurrent();
+      if (current) {
+        current.draft = this.#editor.getValue();
+      }
+      return;
+    }
+    this.#docs?.setDraft(this.#editor.getValue());
+  }
+
+  /**
+   * Opens a single device file for live editing: picker first, hidden
+   * input fallback (Firefox has no file picker) second.
+   * @returns {Promise<void>}
+   */
+  async #openDiskFile() {
+    const filesystem = this.#filesystem;
+    if (!filesystem) {
+      return;
+    }
+    try {
+      const capabilities = await filesystem.getCapabilities();
+      if (!this.isConnected) {
+        return;
+      }
+      if (capabilities.filePicker === true) {
+        const entry = await filesystem.pickFile(this.#envPicker('file'));
+        if (!this.isConnected || !entry) {
+          return;
+        }
+        await this.#adoptDiskEntries([entry], entry.path, entry.name);
+        return;
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] disk file open failed');
+      return;
+    }
+    this.#diskFallbackInput(false);
+  }
+
+  /**
+   * Opens a device folder for live editing: picker first, hidden
+   * webkitdirectory input fallback (Firefox has no directory picker)
+   * second. Empty (Markdown-less) folders refuse cleanly.
+   * @returns {Promise<void>}
+   */
+  async #openDiskFolder() {
+    const filesystem = this.#filesystem;
+    if (!filesystem) {
+      return;
+    }
+    try {
+      const capabilities = await filesystem.getCapabilities();
+      if (!this.isConnected) {
+        return;
+      }
+      if (capabilities.directoryPicker === true) {
+        const picked = await filesystem.pickDirectory(this.#envPicker('directory'));
+        if (!this.isConnected || !picked?.handle) {
+          return;
+        }
+        const entries = await filesystem.listDirectory(picked.handle);
+        if (!this.isConnected) {
+          return;
+        }
+        if (entries.length === 0) {
+          console.error('[parsi-page-home] disk folder has no markdown files');
+          return;
+        }
+        await this.#adoptDiskEntries(entries, entries[0].path, picked.name);
+        return;
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] disk folder open failed');
+      return;
+    }
+    this.#diskFallbackInput(true);
+  }
+
+  /**
+   * Fallback file input for browsers without pickers: single file, or a
+   * whole folder via `webkitdirectory` (its File list carries relative
+   * paths, so the service filters it like a walk).
+   * @param {boolean} directory True for folder input, false for single file.
+   * @returns {void}
+   */
+  #diskFallbackInput(directory) {
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+      return;
+    }
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    if (directory === true) {
+      picker.setAttribute('webkitdirectory', '');
+    } else {
+      picker.accept = '.md,.markdown,.mdown,.txt';
+    }
+    picker.style.display = 'none';
+    this.shadowRoot.append(picker);
+    const cleanup = () => picker.remove();
+    picker.addEventListener('cancel', cleanup, { once: true });
+    picker.addEventListener('change', async () => {
+      try {
+        const entries = await this.#filesystem?.collectEntries([...(picker.files ?? [])]) ?? [];
+        if (!this.isConnected) {
+          return;
+        }
+        if (entries.length === 0) {
+          console.error('[parsi-page-home] disk fallback found no markdown files');
+          return;
+        }
+        const root = directory === true ? (entries[0].path.split('/')[0] ?? '') : entries[0].name;
+        await this.#adoptDiskEntries(entries, entries[0].path, root);
+      } catch (error) {
+        console.error('[parsi-page-home] disk fallback failed');
+      } finally {
+        cleanup();
+      }
+    }, { once: true });
+    picker.click();
+  }
+
+  /**
+   * Adopts device entries into disk mode: reads the target, parks the
+   * previous draft, and mounts the content unlocked. IndexedDB drafts stay
+   * untouched; explicit save is the only way disk bytes change.
+   * @param {Array} entries Service entries to adopt.
+   * @param {string} currentPath Path to open.
+   * @param {string} rootName Folder/file label for the session.
+   * @returns {Promise<void>}
+   */
+  async #adoptDiskEntries(entries, currentPath, rootName) {
+    const filesystem = this.#filesystem;
+    if (!filesystem || !this.isConnected || !Array.isArray(entries) || entries.length === 0) {
+      return;
+    }
+    const target = entries.find((entry) => entry?.path === currentPath) ?? null;
+    if (!target) {
+      return;
+    }
+    try {
+      const content = await filesystem.readEntry(target);
+      if (!this.isConnected) {
+        return;
+      }
+      this.#parkEditorDraft();
+      target.draft = content;
+      this.#disk = { entries, currentPath: target.path, rootName: typeof rootName === 'string' ? rootName : '' };
+      this.#builtIn = null;
+      this.#searchOpen = false;
+      this.#searchSpec = null;
+      this.#menuEl?.configure({ searchOpen: false, search: null });
+      if (this.#editor) {
+        this.#editor.setDocument(content);
+        this.#editor.setReadOnly(false);
+      }
+      this.#spy.reset();
+      this.#refreshChrome();
+    } catch (error) {
+      console.error('[parsi-page-home] disk open failed');
+    }
+  }
+
+  /**
+   * Switches the open device entry: the previous draft stays parked on its
+   * entry (in-session lossless), the target loads from its draft or disk.
+   * @param {string} path Entry path to open.
+   * @returns {Promise<void>}
+   */
+  async #switchDiskEntry(path) {
+    const filesystem = this.#filesystem;
+    if (!filesystem || !this.#disk || typeof path !== 'string' || path === this.#disk.currentPath) {
+      return;
+    }
+    const target = this.#disk.entries.find((entry) => entry?.path === path) ?? null;
+    if (!target) {
+      return;
+    }
+    try {
+      const content = target.draft ?? await filesystem.readEntry(target);
+      if (!this.isConnected || !this.#disk) {
+        return;
+      }
+      this.#parkEditorDraft();
+      target.draft = content;
+      this.#disk.currentPath = target.path;
+      this.#builtIn = null;
+      if (this.#editor) {
+        this.#editor.setDocument(content);
+        this.#editor.setReadOnly(false);
+      }
+      this.#spy.reset();
+      this.#refreshChrome();
+    } catch (error) {
+      console.error('[parsi-page-home] disk switch failed');
+    }
+  }
+
+  /**
+   * Saves the open device entry explicitly (v1 has no disk autosave):
+   * write-through on handles, download fallback otherwise (Firefox entries
+   * carry no handle) or on failure — clean degradation, never data loss.
+   * @returns {Promise<string|null>} 'saved', 'downloaded', or null.
+   */
+  async #saveDisk() {
+    const filesystem = this.#filesystem;
+    const entry = this.#diskCurrent();
+    if (!filesystem || !entry || !this.#editor || !this.isConnected) {
+      return null;
+    }
+    const content = this.#editor.getValue();
+    try {
+      const result = await filesystem.writeEntry(entry, content);
+      if (!this.isConnected) {
+        return null;
+      }
+      if (result) {
+        entry.draft = content;
+        return 'saved';
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] disk save failed');
+    }
+    return this.#downloadDiskFallback(entry, content);
+  }
+
+  /**
+   * Downloads device content through a temporary anchor (the save fallback
+   * for handle-less entries and write failures).
+   * @param {object} entry Device entry (supplies the filename).
+   * @param {string} content Text to deliver.
+   * @returns {string|null} 'downloaded' or null when unsupported.
+   */
+  #downloadDiskFallback(entry, content) {
+    if (typeof URL.createObjectURL !== 'function') {
+      console.error('[parsi-page-home] disk download is unsupported here');
+      return null;
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown' }));
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = entry?.name ?? 'document.md';
+        this.shadowRoot.append(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      return 'downloaded';
+    } catch (error) {
+      console.error('[parsi-page-home] disk download failed');
+      return null;
+    }
+  }
+
+  /**
+   * Closes disk mode and returns to the IndexedDB working set, whose draft
+   * was never touched while a device entry was open.
+   * @returns {void}
+   */
+  #closeDisk() {
+    if (!this.#disk) {
+      return;
+    }
+    this.#disk = null;
+    if (this.#editor) {
+      this.#editor.setDocument(this.#docs?.getDraft() ?? SAMPLE_DOCUMENT);
+      this.#editor.setReadOnly(this.#currentLocked());
+    }
+    this.#refreshChrome();
+  }
+
+  /**
    * Renames a document through the service, keeping the inline editor open
    * with an error when the title is taken. Empty titles cancel silently.
    * @param {unknown} id Document id from the event detail.
@@ -909,7 +1298,10 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #renameDocument(id, title) {
-    const outcome = await this.#docs?.renameDocument(id, title);
+    // Device entries have no rename in v1 (their ⋯ menu stays hidden).
+    if (typeof id === 'string' && id.startsWith(DISK_ID_PREFIX)) {
+      return;
+    }    const outcome = await this.#docs?.renameDocument(id, title);
     if (outcome === 'renamed' || outcome === 'empty' || outcome === 'failed') {
       this.#sideEl?.cancelRename();
     }
@@ -928,6 +1320,9 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #downloadDocument(id) {
+    if (typeof id === 'string' && id.startsWith(DISK_ID_PREFIX)) {
+      return;
+    }
     if (typeof URL.createObjectURL !== 'function') {
       console.error('[parsi-page-home] download is unsupported here');
       return;
@@ -961,6 +1356,9 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #downloadHtmlDocument(id) {
+    if (typeof id === 'string' && id.startsWith(DISK_ID_PREFIX)) {
+      return;
+    }
     if (typeof URL.createObjectURL !== 'function') {
       console.error('[parsi-page-home] download is unsupported here');
       return;
@@ -1002,6 +1400,9 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #showProperties(id) {
+    if (typeof id === 'string' && id.startsWith(DISK_ID_PREFIX)) {
+      return;
+    }
     const record = await this.#docs?.showProperties(id);
     if (record) {
       this.#requestEditor();
@@ -1066,6 +1467,9 @@ class ParsiPageHome extends PeyElement {
       // Any opened document leaves a built-in doc behind; the fresh mount
       // below picks the adopted record content and its stored lock.
       this.#builtIn = null;
+      // Adopting an IndexedDB record always returns to the IndexedDB
+      // working set: disk mode ends, its in-session drafts go with it.
+      this.#disk = null;
       // A new document owns a new search: drop the old query and form.
       this.#searchOpen = false;
       this.#searchSpec = null;
@@ -1104,21 +1508,23 @@ class ParsiPageHome extends PeyElement {
     if (!this.isConnected) {
       return;
     }
+    const disk = this.#disk !== null;
     const stats = countStats(this.value);
     this.#statusEl?.configure({
       stats,
       formatNumber: (value) => this.#formatNumber(value),
-      readOnly: this.#builtIn !== null || this.#currentLocked(),
+      readOnly: this.#builtIn !== null || (!disk && this.#currentLocked()),
     });
     const { items = [], currentId = null } = this.#docs?.getState() ?? {};
     const { settings = null } = this.#prefs?.getState() ?? {};
     this.#sideEl?.configure({
       activeView: this.#activeView,
-      items,
-      currentId,
+      items: disk ? this.#diskItems() : items,
+      currentId: disk ? this.#diskCurrentId() : currentId,
       documentText: this.value,
       settings,
       sortMode: this.#filesSort,
+      hideItemMenu: disk,
     });
   }
 
@@ -1131,13 +1537,14 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     try {
+      const disk = this.#disk !== null;
       this.#editor = createMarkdownView(host, {
-        document: this.#builtIn?.content ?? this.#docs?.getDraft() ?? SAMPLE_DOCUMENT,
+        document: this.#builtIn?.content ?? this.#diskContent() ?? this.#docs?.getDraft() ?? SAMPLE_DOCUMENT,
         label: this.#t('parsinegar.editor.label'),
         direction: this.#prefs?.getState().direction ?? 'rtl',
         fontSize: this.#prefs?.getState().fontSize ?? 16,
         colorScheme: this.#resolveColorScheme(),
-        readOnly: this.#builtIn !== null || this.#currentLocked(),
+        readOnly: this.#builtIn !== null || (!disk && this.#currentLocked()),
         t: this.#t,
         assetBaseUrl: this.#assetBaseUrl,
         onChange: (value) => {
@@ -1146,6 +1553,17 @@ class ParsiPageHome extends PeyElement {
           // the lock refuses every user edit anyway.
           if (this.#builtIn) {
             this.#pushLiveUpdates();
+            return;
+          }
+          // Disk mode keeps edits on the entry draft only: v1 has no disk
+          // autosave, and IndexedDB drafts stay untouched behind it.
+          if (this.#disk) {
+            const current = this.#diskCurrent();
+            if (current) {
+              current.draft = value;
+            }
+            this.#pushLiveUpdates();
+            this.#recountSearch();
             return;
           }
           this.#docs?.setDraft(value);
@@ -1172,7 +1590,7 @@ class ParsiPageHome extends PeyElement {
 
   #unmountEditor() {
     if (this.#editor) {
-      this.#docs?.setDraft(this.#editor.getValue());
+      this.#parkEditorDraft();
       this.#editor.destroy();
       this.#editor = null;
     }

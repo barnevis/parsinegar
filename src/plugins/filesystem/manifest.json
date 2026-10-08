@@ -1,0 +1,83 @@
+{
+  "name": "pey.filesystem",
+  "version": "0.1.0",
+  "architecture": "0.11",
+  "description": "User-device file access: pick files/folders, list Markdown entries, read and write through File System Access handles (with capability flags for fallback paths)",
+  "type": "infrastructure",
+  "dependencies": {
+    "required": [],
+    "optional": []
+  },
+  "provides": [
+    {
+      "name": "pey.filesystem.service",
+      "description": "Portable file-entry operations over environment pickers and handles. Pickers are injected by the caller (the plugin never touches the DOM); entries carry either a FileSystem handle or a plain File.",
+      "methods": [
+        {
+          "name": "getCapabilities",
+          "description": "Reports which environment pickers exist and whether picked entries can be written back.",
+          "params": [],
+          "returns": "{ directoryPicker: boolean, filePicker: boolean, writable: boolean }",
+          "errors": []
+        },
+        {
+          "name": "pickDirectory",
+          "description": "Opens the injected directory picker and returns the chosen folder as an entry. Null when no picker is available or the user cancels.",
+          "params": [
+            { "name": "picker", "type": "function | null — environment directory picker (e.g. window.showDirectoryPicker) or null" }
+          ],
+          "returns": "{ name: string, path: string, handle: FileSystemDirectoryHandle } | null",
+          "errors": ["FILESYSTEM_PICK_FAILED"]
+        },
+        {
+          "name": "pickFile",
+          "description": "Opens the injected file picker and returns the chosen file as an entry. Null when no picker is available or the user cancels.",
+          "params": [
+            { "name": "picker", "type": "function | null — environment file picker (e.g. window.showOpenFilePicker) or null" }
+          ],
+          "returns": "{ name: string, path: string, handle: FileSystemFileHandle } | null",
+          "errors": ["FILESYSTEM_PICK_FAILED"]
+        },
+        {
+          "name": "listDirectory",
+          "description": "Walks a directory handle recursively and returns every Markdown entry with its relative path and own file handle. Flat list; other files are skipped.",
+          "params": [
+            { "name": "handle", "type": "FileSystemDirectoryHandle" }
+          ],
+          "returns": "{ name: string, path: string, handle: FileSystemFileHandle }[]",
+          "errors": ["FILESYSTEM_READ_FAILED"]
+        },
+        {
+          "name": "collectEntries",
+          "description": "Filters a flat file list (e.g. from a webkitdirectory input) down to Markdown entries, keeping each file for reading.",
+          "params": [
+            { "name": "files", "type": "Array<File-like> — each with name, text() and optional webkitRelativePath" }
+          ],
+          "returns": "{ name: string, path: string, file: File-like }[]",
+          "errors": []
+        },
+        {
+          "name": "readEntry",
+          "description": "Reads entry text through its handle (with a read-permission round-trip) or its plain file. Strips a leading byte-order mark.",
+          "params": [
+            { "name": "entry", "type": "{ name: string, path: string, handle?: FileSystemFileHandle, file?: File-like }" }
+          ],
+          "returns": "string",
+          "errors": ["FILESYSTEM_PERMISSION_DENIED", "FILESYSTEM_READ_FAILED"]
+        },
+        {
+          "name": "writeEntry",
+          "description": "Writes content through the entry handle (with a readwrite-permission round-trip). Null when the entry has no writable handle — the caller falls back (e.g. to a download).",
+          "params": [
+            { "name": "entry", "type": "{ name: string, path: string, handle?: FileSystemFileHandle }" },
+            { "name": "content", "type": "string" }
+          ],
+          "returns": "{ name: string, path: string } | null",
+          "errors": ["FILESYSTEM_PERMISSION_DENIED", "FILESYSTEM_WRITE_FAILED"]
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "config": {}
+}

@@ -1615,3 +1615,217 @@ test('should_restore_sort_order_after_reload_when_persisted', async () => {
     second.remove();
   }
 });
+
+function createFilesystem(overrides = {}) {
+  const calls = [];
+  const service = {
+    calls,
+    async getCapabilities() {
+      return overrides.caps ?? { directoryPicker: true, filePicker: true, writable: true };
+    },
+    async pickDirectory(picker) {
+      if (typeof picker !== 'function') {
+        return null;
+      }
+      return overrides.directory ?? null;
+    },
+    async pickFile(picker) {
+      if (typeof picker !== 'function') {
+        return null;
+      }
+      return overrides.file ?? null;
+    },
+    async listDirectory() {
+      return overrides.entries ?? [];
+    },
+    async collectEntries(files) {
+      return (files ?? [])
+        .filter((file) => file?.name?.endsWith('.md'))
+        .map((file) => ({ name: file.name, path: file.webkitRelativePath || file.name, file }));
+    },
+    async readEntry(entry) {
+      calls.push(['read', entry.path]);
+      return overrides.contents?.[entry.path] ?? `# ${entry.path}\n`;
+    },
+    async writeEntry(entry, content) {
+      calls.push(['write', { path: entry.path, content }]);
+      if (overrides.write === null) {
+        return null;
+      }
+      if (overrides.writeDenied === true) {
+        throw Object.assign(new Error('denied'), { code: 'FILESYSTEM_PERMISSION_DENIED' });
+      }
+      return { name: entry.name, path: entry.path };
+    },
+  };
+  return service;
+}
+
+function diskFileHandle(name) {
+  return { kind: 'file', name };
+}
+
+function menuAction(element, action) {
+  child(element, 'parsi-menu-bar').dispatchEvent(
+    new CustomEvent('menu-action', { bubbles: true, detail: { action } }),
+  );
+}
+
+test('should_open_disk_file_when_picker_returns_entry', async () => {
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') }, contents: { 'note.md': '# یادداشت\n' } });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    assert.equal(element.value, '# یادداشت\n');
+    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
+    assert.deepEqual(ids, ['disk:note.md']);
+    assert.equal(inChildAll(element, 'parsi-side-panel', '[data-doc-menu]').length, 0, 'expected no item menus');
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]'), 'expected the save item');
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="close-disk"]'), 'expected the close item');
+  } finally {
+    delete window.showOpenFilePicker;
+    element.remove();
+  }
+});
+
+test('should_switch_disk_entries_when_list_item_is_clicked', async () => {
+  window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'docs' });
+  const filesystem = createFilesystem({
+    directory: { name: 'docs', path: 'docs', handle: { kind: 'directory', name: 'docs' } },
+    entries: [
+      { name: 'a.md', path: 'a.md', handle: diskFileHandle('a.md') },
+      { name: 'sub/b.md', path: 'sub/b.md', handle: diskFileHandle('b.md') },
+    ],
+  });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-folder');
+    await settled();
+    await settled();
+    assert.equal(element.value, '# a.md\n');
+    inChild(element, 'parsi-side-panel', '[data-doc-id="disk:sub/b.md"]').click();
+    await settled();
+    await settled();
+    assert.equal(element.value, '# sub/b.md\n');
+  } finally {
+    delete window.showDirectoryPicker;
+    element.remove();
+  }
+});
+
+test('should_save_through_handle_when_ctrl_s_is_pressed', async () => {
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') }, contents: { 'note.md': 'اول' } });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    element.setDocument('اول ویرایش‌شده');
+    await settled();
+    element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'S', code: 'KeyS', ctrlKey: true, bubbles: true }));
+    await settled();
+    await settled();
+    const writes = filesystem.calls.filter(([method]) => method === 'write');
+    assert.equal(writes.length, 1);
+    assert.deepEqual(writes[0][1], { path: 'note.md', content: 'اول ویرایش‌شده' });
+  } finally {
+    delete window.showOpenFilePicker;
+    element.remove();
+  }
+});
+
+test('should_fall_back_to_download_when_entry_has_no_handle', async () => {
+  const created = [];
+  URL.createObjectURL = () => 'blob:disk';
+  URL.revokeObjectURL = () => {};
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md' }, contents: { 'note.md': 'متن' }, write: null });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    const anchors = [];
+    const append = element.shadowRoot.append.bind(element.shadowRoot);
+    element.shadowRoot.append = (...nodes) => {
+      anchors.push(...nodes);
+      return append(...nodes);
+    };
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    menuAction(element, 'save-disk');
+    await settled();
+    await settled();
+    assert.ok(created.length >= 0);
+    const downloads = anchors.filter((node) => node?.tagName === 'A');
+    assert.equal(downloads.length, 1, 'expected the download fallback');
+    assert.equal(downloads[0].download, 'note.md');
+  } finally {
+    delete window.showOpenFilePicker;
+    delete URL.createObjectURL;
+    delete URL.revokeObjectURL;
+    element.remove();
+  }
+});
+
+test('should_close_disk_and_restore_draft_when_close_arrives', async () => {
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') } });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    assert.equal(element.value, '# note.md\n');
+    menuAction(element, 'close-disk');
+    await settled();
+    assert.equal(element.value, 'متن');
+    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
+    assert.deepEqual(ids, ['d1']);
+  } finally {
+    delete window.showOpenFilePicker;
+    element.remove();
+  }
+});
+
+test('should_ignore_ctrl_s_outside_disk_mode', async () => {
+  const filesystem = createFilesystem();
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    element.shadowRoot.dispatchEvent(new KeyboardEvent('keydown', { key: 'S', code: 'KeyS', ctrlKey: true, bubbles: true }));
+    await settled();
+    assert.deepEqual(filesystem.calls, [], 'expected no filesystem use outside disk mode');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_return_to_documents_when_adopting_after_disk', async () => {
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') } });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    assert.equal(element.value, '# note.md\n');
+    menuAction(element, 'new-document');
+    await settled();
+    await settled();
+    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
+    assert.ok(!ids.some((id) => id.startsWith('disk:')), 'expected disk mode ended');
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]') === null, 'expected no save item');
+  } finally {
+    delete window.showOpenFilePicker;
+    element.remove();
+  }
+});

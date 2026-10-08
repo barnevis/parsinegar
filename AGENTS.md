@@ -16,7 +16,13 @@ Requirements: Node >= 20. The server must serve the repo root so that `node_modu
 
 - Domain logic lives in **plugins** (`src/plugins/`); the UI (`src/ui/` on `pey.webui`) talks to them **only through services** —   never around them.
 - `bootstrap.json` (schemaVersion 2) is the only place adapters, plugins and UI routes are declared. `index.html` owns the importmap.
-- Pey packages and `parsneshan` are installed straight from GitHub and **pinned** — do not upgrade them casually: `@pey/core#v0.2.2`, `pey.webui#v1.0.0`, `pey.router#v1.0.0`, `pey.storage#v0.4.0`, `pey.markdown#v1.0.0`, `parsneshan#v0.2.0`.
+- Pey packages and `parsneshan` are installed straight from GitHub and
+  **pinned** — do not upgrade them casually:
+  `@pey/core#v0.2.2`, `pey.webui#v1.0.0`, `pey.router#v1.0.0`,
+  `pey.storage#v0.4.0`, `pey.markdown#v1.0.0`, `parsneshan#v0.2.0`.
+  Exception: `pey.filesystem` incubates locally in `src/plugins/filesystem/`
+  (future independent Pey plugin; see `docs/decisions.md` §24) — it is
+  versioned and bootstrap-registered like the other local plugins.
 - Sources of truth: `docs/architecture.md` (boundaries), `docs/decisions.md` (recorded decisions, referenced as §N).
   **Record every new architectural decision there (in Persian)** before or with the code — do not let behavior live only in chat history.
 

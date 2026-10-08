@@ -174,3 +174,29 @@ test('should_toggle_mode_items_when_read_only_changes', () => {
   assert.equal(bareView.items.find(({ id }) => id === 'read-mode').disabled, true);
   assert.equal(bareView.items.find(({ id }) => id === 'write-mode').disabled, true);
 });
+
+test('should_offer_disk_items_when_file_menu_is_read', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true });
+  const file = menus.find(({ id }) => id === 'file');
+  const actions = file.items.map(({ action }) => action);
+  assert.ok(actions.includes('open-file'), 'expected the open-file item');
+  assert.ok(actions.includes('open-folder'), 'expected the open-folder item');
+  assert.ok(!actions.includes('save-disk'), 'expected no save item outside disk mode');
+  assert.ok(!actions.includes('close-disk'), 'expected no close item outside disk mode');
+});
+
+test('should_offer_save_and_close_when_disk_is_open', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true, diskOpen: true });
+  const file = menus.find(({ id }) => id === 'file');
+  const save = file.items.find(({ id }) => id === 'save-disk');
+  const close = file.items.find(({ id }) => id === 'close-disk');
+  assert.ok(save, 'expected the save item in disk mode');
+  assert.equal(save.disabled, false);
+  assert.equal(save.shortcut, 'Ctrl+S');
+  assert.ok(close, 'expected the close item in disk mode');
+  assert.equal(file.items.find(({ id }) => id === 'delete-document').disabled, true);
+  assert.equal(file.items.find(({ id }) => id === 'toggle-lock').disabled, true);
+  const view = menus.find(({ id }) => id === 'view');
+  assert.equal(view.items.find(({ id }) => id === 'read-mode').disabled, true);
+  assert.equal(view.items.find(({ id }) => id === 'write-mode').disabled, true);
+});

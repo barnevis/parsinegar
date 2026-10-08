@@ -30,6 +30,7 @@ class ParsiMenuBar extends PeyElement {
   #hasDocument = false;
   #readOnly = false;
   #builtInOpen = false;
+  #diskOpen = false;
   #openMenu = null;
   #searchOpen = false;
   #downloadOpen = false;
@@ -105,6 +106,7 @@ class ParsiMenuBar extends PeyElement {
    * form to its defaults.
    * @param {object} data New data.
    * @param {boolean} [data.hasDocument] Whether a document is open.
+   * @param {boolean} [data.diskOpen] Whether a device file/folder is open.
    * @param {boolean} [data.searchOpen] Whether the search dropdown is open.
    * @param {object|null} [data.search] Search form state to display, or null to reset.
    * @param {string} [data.searchFocus] When opening, 'replace' focuses the
@@ -112,9 +114,12 @@ class ParsiMenuBar extends PeyElement {
    * @param {Function} [data.formatNumber] Number formatter.
    * @returns {void}
    */
-  configure({ hasDocument, searchOpen, search, searchFocus, formatNumber, readOnly, builtInOpen } = {}) {
+  configure({ hasDocument, searchOpen, search, searchFocus, formatNumber, readOnly, builtInOpen, diskOpen } = {}) {
     if (typeof hasDocument === 'boolean') {
       this.#hasDocument = hasDocument;
+    }
+    if (typeof diskOpen === 'boolean') {
+      this.#diskOpen = diskOpen;
     }
     if (typeof readOnly === 'boolean') {
       this.#readOnly = readOnly;
@@ -346,6 +351,7 @@ class ParsiMenuBar extends PeyElement {
       hasDocument: this.#hasDocument,
       readOnly: this.#readOnly,
       builtInOpen: this.#builtInOpen,
+      diskOpen: this.#diskOpen,
     });
     // The mode toggle mirrors the file-menu mode item: it shows the current
     // state (reading/writing) and its label names the switch it performs.

@@ -31,7 +31,8 @@ test('should_wire_router_adapter_and_plugins_when_loaded', async () => {
   assert.ok(names.includes('parsinegar.settings'));
   assert.ok(names.includes('pey.markdown'));
   assert.ok(names.includes('parsinegar.export'));
-  assert.equal(bootstrap.plugins.length, 7);
+  assert.ok(names.includes('pey.filesystem'));
+  assert.equal(bootstrap.plugins.length, 8);
 });
 
 test('should_configure_documents_store_when_loaded', async () => {

@@ -11,20 +11,30 @@
  * @param {boolean} options.hasDocument Whether a document is open.
  * @param {boolean} [options.readOnly] Whether the open view is locked for reading.
  * @param {boolean} [options.builtInOpen] Whether a built-in doc is showing.
+ * @param {boolean} [options.diskOpen] Whether a device file/folder is open.
  * @returns {Array<object>} Menus with `{ id, label, items: [{ id, label, action, disabled, shortcut }] }`.
  * Insert items carry their keyboard shortcut display (`shortcut` is absent elsewhere).
  * The admonition item carries `children` (one per kind) instead of an action:
  * the first submenu of the project.
  */
-export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen = false } = {}) {
+export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen = false, diskOpen = false } = {}) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const locked = readOnly === true;
   const builtIn = builtInOpen === true;
+  const disk = diskOpen === true;
   const fileItems = [
     { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
     { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
-    { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument },
+    { id: 'open-file', label: translate('parsinegar.disk.openFile'), action: 'open-file', disabled: false },
+    { id: 'open-folder', label: translate('parsinegar.disk.openFolder'), action: 'open-folder', disabled: false },
+    { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument || disk },
   ];
+  if (disk) {
+    fileItems.push(
+      { id: 'save-disk', label: translate('parsinegar.disk.save'), action: 'save-disk', shortcut: 'Ctrl+S', disabled: !hasDocument },
+      { id: 'close-disk', label: translate('parsinegar.disk.close'), action: 'close-disk', disabled: false },
+    );
+  }
   if (builtIn) {
     fileItems.push({ id: 'back-to-documents', label: translate('parsinegar.builtin.back'), action: 'back-to-documents', disabled: false });
   }
@@ -32,7 +42,7 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
     id: 'toggle-lock',
     label: translate(locked ? 'parsinegar.view.write' : 'parsinegar.view.read'),
     action: 'toggle-lock',
-    disabled: !hasDocument || builtIn,
+    disabled: !hasDocument || builtIn || disk,
   });
   const helpItems = [
     { id: 'open-help', label: translate('parsinegar.builtin.help'), action: 'open-help', disabled: false },
@@ -42,7 +52,7 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
   if (builtIn) {
     helpItems.push({ id: 'back-to-documents', label: translate('parsinegar.builtin.back'), action: 'back-to-documents', disabled: false });
   }
-  const modeDisabled = !hasDocument || builtIn;
+  const modeDisabled = !hasDocument || builtIn || disk;
   return [
     {
       id: 'file',

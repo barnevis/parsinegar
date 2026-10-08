@@ -46,6 +46,11 @@
       "name": "parsinegar.export",
       "version": "0.1.0",
       "path": "./src/plugins/export"
+    },
+    {
+      "name": "pey.filesystem",
+      "version": "0.1.0",
+      "path": "./src/plugins/filesystem"
     }
   ],
   "config": {
