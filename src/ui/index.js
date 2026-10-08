@@ -11,6 +11,7 @@ import appCatalog from './i18n/catalog.js';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
 const EXPORT_SERVICE = 'parsinegar.export.service';
+const FILESYSTEM_SERVICE = 'pey.filesystem.service';
 const SETTINGS_CHANGED_EVENT = 'settings:changed';
 const THEMES = ['light', 'dark', 'device', 'sepia'];
 
@@ -57,7 +58,7 @@ function queueThemeApply(resources) {
  */
 export const setup = createApplicationSetup({
   assetBaseUrlBase: import.meta.url,
-  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE, SETTINGS_SERVICE, EXPORT_SERVICE],
+  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE, SETTINGS_SERVICE, EXPORT_SERVICE, FILESYSTEM_SERVICE],
   optionalServices: [],
   mountShell(resources) {
     const sharedState = createSharedState();

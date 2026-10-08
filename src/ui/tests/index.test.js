@@ -2,6 +2,7 @@
 import './setup-dom.js';
 import './setup-styles.js';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { PEY_ROUTER_SERVICE } from 'pey.webui/contracts';
 import { setup } from '../index.js';
@@ -46,13 +47,14 @@ function createDocuments(initial = []) {
   };
 }
 
-function createContext({ router, documents, settings, exporter } = {}) {
+function createContext({ router, documents, settings, exporter, filesystem } = {}) {
   return {
     services: {
       [PEY_ROUTER_SERVICE]: router ?? createRouter(),
       'parsinegar.documents.service': documents ?? createDocuments(),
       'parsinegar.settings.service': settings ?? createSettings(),
       'parsinegar.export.service': exporter ?? createExporter(),
+      'pey.filesystem.service': filesystem ?? createFilesystem(),
     },
     events: createEvents(),
     config: { theme: 'system', language: 'fa', direction: 'rtl', fallbackPath: '/', assetBaseUrl: './assets' },
@@ -77,6 +79,32 @@ function createExporter() {
   return {
     async exportHtml() {
       return { html: '<!DOCTYPE html>', filename: 'x.html', mime: 'text/html' };
+    },
+  };
+}
+
+function createFilesystem() {
+  return {
+    async getCapabilities() {
+      return { directoryPicker: false, filePicker: false, writable: false };
+    },
+    async pickDirectory() {
+      return null;
+    },
+    async pickFile() {
+      return null;
+    },
+    async listDirectory() {
+      return [];
+    },
+    async collectEntries() {
+      return [];
+    },
+    async readEntry() {
+      throw Object.assign(new Error('unreadable'), { code: 'FILESYSTEM_READ_FAILED' });
+    },
+    async writeEntry() {
+      return null;
     },
   };
 }
@@ -204,4 +232,17 @@ test('should_clear_document_theme_when_shutdown_runs', async () => {
     document.querySelector('parsi-page-home')?.remove();
   }
   assert.equal(document.documentElement.dataset.theme, undefined);
+});
+
+test('should_require_every_manifest_service_when_started', async () => {
+  // The manifest alone does not deliver services to pages: setup mirrors
+  // its required list into requiredServices. A missing mirror fails silently
+  // in the page (null service guard), so every manifest entry must fail here.
+  const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
+  for (const name of manifest.dependencies.required) {
+    const context = createContext();
+    delete context.services[name];
+    await assert.rejects(setup(context), new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    context.onShutdown?.();
+  }
 });
