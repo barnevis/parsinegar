@@ -51,7 +51,12 @@ test('should_configure_settings_store_when_loaded', async () => {
   assert.equal(settings.keyPath, 'id');
   // Version 2 migrates pre-settings databases: the upgrade creates the
   // missing store while preserving existing documents.
-  assert.equal(bootstrap.config['pey.storage'].schemaVersion, 2);
+  // Version 3 adds the disk-drafts store (browser shadows for device
+  // entries) the same upgrade way.
+  assert.equal(bootstrap.config['pey.storage'].schemaVersion, 3);
+  const drafts = stores.find((store) => store.name === 'disk-drafts');
+  assert.ok(drafts, 'expected a disk-drafts store');
+  assert.equal(drafts.keyPath, 'key');
 });
 
 test('should_carry_persian_ui_config_when_loaded', async () => {

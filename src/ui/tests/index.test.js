@@ -106,6 +106,13 @@ function createFilesystem() {
     async writeEntry() {
       return null;
     },
+    async saveShadow() {
+      return { root: '', path: '', updatedAt: 0 };
+    },
+    async readShadow() {
+      return null;
+    },
+    async clearShadow() {},
   };
 }
 

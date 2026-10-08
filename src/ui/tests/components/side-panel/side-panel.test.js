@@ -522,3 +522,20 @@ test('should_match_menubar_type_size_when_file_menu_is_rendered', async () => {
     element.remove();
   }
 });
+
+test('should_toggle_disk_branches_when_toggle_is_clicked', async () => {
+  const disk = {
+    rootName: 'docs',
+    items: [{ id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' }],
+  };
+  const element = mount({ items: [], currentId: null, disk });
+  try {
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]'), 'expected the nested entry');
+    element.shadowRoot.querySelector('[data-disk-toggle="sub"]').click();
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]'), null, 'expected the branch collapsed');
+  } finally {
+    element.remove();
+  }
+});

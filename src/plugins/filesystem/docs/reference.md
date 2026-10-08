@@ -23,7 +23,9 @@
 - `listDirectory(handle)` — پیمایش بازگشتی؛ فقط Markdown؛ لیست تخت با مسیر نسبی.
 - `collectEntries(files)` — فیلتر لیست تخت؛ خالص.
 - `readEntry(entry)` — از handle (با round-trip اجازهٔ `read`) یا فایل ساده؛ BOM ابتدایی حذف می‌شود.
-- `writeEntry(entry, content)` — از handle (با round-trip اجازهٔ `readwrite`)؛ وقتی ورودی handle نوشتنی ندارد `null` برمی‌گرداند تا فراخوان fallback کند (مثلاً دانلود)؛ `{ name, path }` در موفقیت.
+- `writeEntry(entry, content)` — از handle (با round-trip اجازهٔ `readwrite`)؛ وقتی ورودی handle نوشتنی ندارد ‏`null` برمی‌گرداند تا فراخوان fallback کند (مثلاً دانلود)؛ ‏`{ name, path }` در موفقیت.
+- `saveShadow(root, path, base, draft)` — ذخیرهٔ پیش‌نویس سایه در مرورگر (انبار `disk-drafts`): مبنای دیسک + draft جاری؛ ‏`{ root, path, updatedAt }` برمی‌گرداند.
+- `readShadow(root, path)` — خواندن سایه یا ‏`null`؛ `clearShadow(root, path)` — حذف سایه (مثلاً بعد از ذخیرهٔ صریح روی دیسک).
 
 ## خطاها (ساختار استاندارد بنیان)
 
@@ -31,7 +33,8 @@
 - `FILESYSTEM_READ_FAILED` — پیمایش/خواندن ناممکن (یا ورودی چیزی برای خواندن ندارد).
 - `FILESYSTEM_WRITE_FAILED` — نوشتن ناممکن (یا محتوا متن نیست).
 - `FILESYSTEM_PERMISSION_DENIED` — کاربر اجازه را نداد.
+- `FILESYSTEM_STORAGE_UNAVAILABLE` — سرویس ذخیره در دسترس نیست (سایه‌ها).
 
 ## وابستگی‌ها
 
-- **لازم:** هیچ‌کدام. **اختیاری:** هیچ‌کدام. بدون `adapterType` (تکنولوژی بیرونیِ آداپتری مصرف نمی‌کند).
+- **لازم:** `pey.storage.service` — پیش‌نویس‌های سایه. **اختیاری:** هیچ‌کدام. بدون `adapterType` (تکنولوژی بیرونیِ آداپتری مصرف نمی‌کند).

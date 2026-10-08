@@ -49,7 +49,7 @@
     },
     {
       "name": "pey.filesystem",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "path": "./src/plugins/filesystem"
     }
   ],
@@ -60,7 +60,7 @@
     },
     "pey.storage": {
       "databaseName": "parsinegar-db",
-      "schemaVersion": 2,
+      "schemaVersion": 3,
       "stores": [
         {
           "name": "documents",
@@ -70,6 +70,11 @@
         {
           "name": "settings",
           "keyPath": "id",
+          "indexes": []
+        },
+        {
+          "name": "disk-drafts",
+          "keyPath": "key",
           "indexes": []
         }
       ]

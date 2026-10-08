@@ -1,11 +1,11 @@
 {
   "name": "pey.filesystem",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "architecture": "0.11",
-  "description": "User-device file access: pick files/folders, list Markdown entries, read and write through File System Access handles (with capability flags for fallback paths)",
+  "description": "User-device file access: pick files/folders, list Markdown entries, read and write through File System Access handles (with capability flags for fallback paths); browser-side shadow drafts for unsaved device edits",
   "type": "infrastructure",
   "dependencies": {
-    "required": [],
+    "required": ["pey.storage.service"],
     "optional": []
   },
   "provides": [
@@ -74,6 +74,38 @@
           ],
           "returns": "{ name: string, path: string } | null",
           "errors": ["FILESYSTEM_PERMISSION_DENIED", "FILESYSTEM_WRITE_FAILED"]
+        },
+        {
+          "name": "saveShadow",
+          "description": "Persists a browser-side working copy of a device entry (disk bytes untouched): the disk content at open (base) plus the current draft.",
+          "params": [
+            { "name": "root", "type": "string — folder label the entry was opened from" },
+            { "name": "path", "type": "string — entry relative path" },
+            { "name": "base", "type": "string — disk content the draft started from" },
+            { "name": "draft", "type": "string — current unsaved text" }
+          ],
+          "returns": "{ root: string, path: string, updatedAt: number }",
+          "errors": ["FILESYSTEM_STORAGE_UNAVAILABLE"]
+        },
+        {
+          "name": "readShadow",
+          "description": "Reads the stored working copy for an entry, or null when none exists.",
+          "params": [
+            { "name": "root", "type": "string — folder label the entry was opened from" },
+            { "name": "path", "type": "string — entry relative path" }
+          ],
+          "returns": "{ root: string, path: string, base: string, draft: string, updatedAt: number } | null",
+          "errors": ["FILESYSTEM_STORAGE_UNAVAILABLE"]
+        },
+        {
+          "name": "clearShadow",
+          "description": "Deletes the stored working copy (e.g. after an explicit disk save made it redundant).",
+          "params": [
+            { "name": "root", "type": "string — folder label the entry was opened from" },
+            { "name": "path", "type": "string — entry relative path" }
+          ],
+          "returns": "void",
+          "errors": ["FILESYSTEM_STORAGE_UNAVAILABLE"]
         }
       ]
     }

@@ -1647,6 +1647,16 @@ function createFilesystem(overrides = {}) {
       calls.push(['read', entry.path]);
       return overrides.contents?.[entry.path] ?? `# ${entry.path}\n`;
     },
+    async saveShadow(root, path, base, draft) {
+      calls.push(['shadow-save', { root, path, base, draft }]);
+      return { root, path, updatedAt: Date.now() };
+    },
+    async readShadow(root, path) {
+      return overrides.shadows?.[`${root}\n${path}`] ?? null;
+    },
+    async clearShadow(root, path) {
+      calls.push(['shadow-clear', { root, path }]);
+    },
     async writeEntry(entry, content) {
       calls.push(['write', { path: entry.path, content }]);
       if (overrides.write === null) {
@@ -1682,8 +1692,8 @@ test('should_open_disk_file_when_picker_returns_entry', async () => {
     await settled();
     assert.equal(element.value, '# یادداشت\n');
     const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
-    assert.deepEqual(ids, ['disk:note.md']);
-    assert.equal(inChildAll(element, 'parsi-side-panel', '[data-doc-menu]').length, 0, 'expected no item menus');
+    assert.deepEqual(ids, ['d1', 'disk:note.md']);
+    assert.equal(inChildAll(element, 'parsi-side-panel', '[data-doc-menu]').length, 1, 'expected the menu only on indexed documents');
     assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]'), 'expected the save item');
     assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="close-disk"]'), 'expected the close item');
   } finally {
@@ -1708,6 +1718,8 @@ test('should_switch_disk_entries_when_list_item_is_clicked', async () => {
     await settled();
     await settled();
     assert.equal(element.value, '# a.md\n');
+    const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
+    assert.deepEqual(ids, ['d1', 'disk:sub/b.md', 'disk:a.md'], 'expected directories before files in tree order');
     inChild(element, 'parsi-side-panel', '[data-doc-id="disk:sub/b.md"]').click();
     await settled();
     await settled();
@@ -1808,7 +1820,7 @@ test('should_ignore_ctrl_s_outside_disk_mode', async () => {
   }
 });
 
-test('should_return_to_documents_when_adopting_after_disk', async () => {
+test('should_keep_folder_listed_when_adopting_after_disk', async () => {
   window.showOpenFilePicker = async () => diskFileHandle('note.md');
   const filesystem = createFilesystem({ file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') } });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
@@ -1822,10 +1834,83 @@ test('should_return_to_documents_when_adopting_after_disk', async () => {
     await settled();
     await settled();
     const ids = inChildAll(element, 'parsi-side-panel', '[data-doc-id]').map((button) => button.getAttribute('data-doc-id'));
-    assert.ok(!ids.some((id) => id.startsWith('disk:')), 'expected disk mode ended');
-    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]') === null, 'expected no save item');
+    assert.ok(ids.includes('disk:note.md'), 'expected the folder still listed');
+    const save = inChild(element, 'parsi-menu-bar', '[data-action="save-disk"]');
+    assert.ok(save, 'expected the save item while listed');
+    assert.equal(save.hasAttribute('disabled'), true, 'expected save disabled on indexed documents');
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="close-disk"]'), 'expected the close item while listed');
   } finally {
     delete window.showOpenFilePicker;
+    element.remove();
+  }
+});
+
+test('should_restore_shadow_when_disk_is_unchanged', async () => {
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({
+    file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') },
+    contents: { 'note.md': 'روی دیسک' },
+    shadows: { 'note.md\nnote.md': { root: 'note.md', path: 'note.md', base: 'روی دیسک', draft: 'پیش‌نویس' } },
+  });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    assert.equal(element.value, 'پیش‌نویس');
+  } finally {
+    delete window.showOpenFilePicker;
+    element.remove();
+  }
+});
+
+test('should_prefer_disk_when_shadow_base_is_stale', async () => {
+  window.showOpenFilePicker = async () => diskFileHandle('note.md');
+  const filesystem = createFilesystem({
+    file: { name: 'note.md', path: 'note.md', handle: diskFileHandle('note.md') },
+    contents: { 'note.md': 'تازه روی دیسک' },
+    shadows: { 'note.md\nnote.md': { root: 'note.md', path: 'note.md', base: 'قدیمی', draft: 'کهنه' } },
+  });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-file');
+    await settled();
+    await settled();
+    assert.equal(element.value, 'تازه روی دیسک');
+    assert.ok(filesystem.calls.some(([method]) => method === 'shadow-clear'), 'expected the stale shadow dropped');
+  } finally {
+    delete window.showOpenFilePicker;
+    element.remove();
+  }
+});
+
+test('should_persist_shadow_when_switching_entries', async () => {
+  window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'docs' });
+  const filesystem = createFilesystem({
+    directory: { name: 'docs', path: 'docs', handle: { kind: 'directory', name: 'docs' } },
+    entries: [
+      { name: 'a.md', path: 'a.md', handle: diskFileHandle('a.md') },
+      { name: 'b.md', path: 'b.md', handle: diskFileHandle('b.md') },
+    ],
+  });
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    menuAction(element, 'open-folder');
+    await settled();
+    await settled();
+    element.setDocument('ویرایش a');
+    await settled();
+    inChild(element, 'parsi-side-panel', '[data-doc-id="disk:b.md"]').click();
+    await settled();
+    await settled();
+    const saves = filesystem.calls.filter(([method]) => method === 'shadow-save');
+    assert.ok(saves.some(([, record]) => record.path === 'a.md' && record.draft === 'ویرایش a'), 'expected the parked draft persisted');
+    assert.equal(element.value, '# b.md\n');
+  } finally {
+    delete window.showDirectoryPicker;
     element.remove();
   }
 });

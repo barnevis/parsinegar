@@ -6,6 +6,8 @@
 // the caller which path is available so it can fall back (e.g. to a
 // webkitdirectory input or a download) without probing globals itself.
 export const SERVICE_NAME = 'pey.filesystem.service';
+const STORAGE_SERVICE = 'pey.storage.service';
+const SHADOW_COLLECTION = 'disk-drafts';
 
 const MARKDOWN_EXTENSIONS = ['.md', '.markdown', '.mdown', '.txt'];
 
@@ -59,6 +61,32 @@ function isAbort(error) {
 }
 
 /**
+ * Returns the bound storage service or fails clearly before activation.
+ * @param {object} state References bound in prepare/activate ({ storage }).
+ * @returns {object} Bound pey.storage.service.
+ */
+function requireStorage(state) {
+  if (!state.storage) {
+    throw filesystemError(
+      'FILESYSTEM_STORAGE_UNAVAILABLE',
+      `Required service is unavailable: ${STORAGE_SERVICE}`,
+      { service: STORAGE_SERVICE },
+    );
+  }
+  return state.storage;
+}
+
+/**
+ * Builds the shadow key for an entry (folder label plus relative path).
+ * @param {string} root Folder label the entry was opened from.
+ * @param {string} path Entry relative path.
+ * @returns {string} Storage key.
+ */
+function shadowKey(root, path) {
+  return `${root}\n${path}`;
+}
+
+/**
  * Runs the handle permission round-trip: granted stays silent, otherwise
  * one request goes out and anything but granted counts as denied.
  * @param {object} handle File System Access handle.
@@ -75,13 +103,12 @@ async function ensurePermission(handle, mode) {
 }
 
 /**
- * Creates the filesystem service. Stateless across calls: handles and
- * permissions live with the caller, so deactivation needs no guard.
- * @param {object} state Plugin state (events bus holder).
+ * Creates the filesystem service. Shadow methods need the bound storage;
+ * handle/file methods are stateless across calls.
+ * @param {object} state Plugin state ({ storage, events }).
  * @returns {object} Service implementation.
  */
 export function createService(state) {
-  void state;
   return {
     /**
      * Reports which environment pickers exist and whether picked entries
@@ -244,5 +271,74 @@ export function createService(state) {
         throw filesystemError('FILESYSTEM_WRITE_FAILED', 'Entry write failed');
       }
     },
+
+    /**
+     * Persists a browser-side working copy of a device entry (disk bytes
+     * untouched): the disk content at open (base) plus the current draft.
+     * @param {string} root Folder label the entry was opened from.
+     * @param {string} path Entry relative path.
+     * @param {string} base Disk content the draft started from.
+     * @param {string} draft Current unsaved text.
+     * @returns {Promise<object>} `{ root, path, updatedAt }`.
+     */
+    async saveShadow(root, path, base, draft) {
+      try {
+        const record = {
+          key: shadowKey(root, path),
+          root,
+          path,
+          base: typeof base === 'string' ? base : '',
+          draft: typeof draft === 'string' ? draft : '',
+          updatedAt: Date.now(),
+        };
+        await requireStorage(state).write(SHADOW_COLLECTION, record);
+        return { root, path, updatedAt: record.updatedAt };
+      } catch (error) {
+        if (error?.code === 'FILESYSTEM_STORAGE_UNAVAILABLE') {
+          throw error;
+        }
+        throw filesystemError('FILESYSTEM_STORAGE_UNAVAILABLE', 'Shadow save failed');
+      }
+    },
+
+    /**
+     * Reads the stored working copy for an entry, or null when none exists.
+     * @param {string} root Folder label the entry was opened from.
+     * @param {string} path Entry relative path.
+     * @returns {Promise<object|null>} Shadow record or null.
+     */
+    async readShadow(root, path) {
+      try {
+        return await requireStorage(state).read(SHADOW_COLLECTION, shadowKey(root, path));
+      } catch (error) {
+        if (error?.code === 'RECORD_NOT_FOUND') {
+          return null;
+        }
+        if (error?.code === 'FILESYSTEM_STORAGE_UNAVAILABLE') {
+          throw error;
+        }
+        throw filesystemError('FILESYSTEM_STORAGE_UNAVAILABLE', 'Shadow read failed');
+      }
+    },
+
+    /**
+     * Deletes the stored working copy (e.g. after an explicit disk save
+     * made it redundant).
+     * @param {string} root Folder label the entry was opened from.
+     * @param {string} path Entry relative path.
+     * @returns {Promise<void>}
+     */
+    async clearShadow(root, path) {
+      try {
+        await requireStorage(state).delete(SHADOW_COLLECTION, shadowKey(root, path));
+      } catch (error) {
+        if (error?.code === 'FILESYSTEM_STORAGE_UNAVAILABLE') {
+          throw error;
+        }
+        throw filesystemError('FILESYSTEM_STORAGE_UNAVAILABLE', 'Shadow clear failed');
+      }
+    },
   };
 }
+
+export { STORAGE_SERVICE };

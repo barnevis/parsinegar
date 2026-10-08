@@ -186,7 +186,7 @@ test('should_offer_disk_items_when_file_menu_is_read', () => {
 });
 
 test('should_offer_save_and_close_when_disk_is_open', () => {
-  const menus = buildMenuModel({ t: translate, hasDocument: true, diskOpen: true });
+  const menus = buildMenuModel({ t: translate, hasDocument: true, diskOpen: true, diskActive: true });
   const file = menus.find(({ id }) => id === 'file');
   const save = file.items.find(({ id }) => id === 'save-disk');
   const close = file.items.find(({ id }) => id === 'close-disk');
@@ -199,4 +199,12 @@ test('should_offer_save_and_close_when_disk_is_open', () => {
   const view = menus.find(({ id }) => id === 'view');
   assert.equal(view.items.find(({ id }) => id === 'read-mode').disabled, true);
   assert.equal(view.items.find(({ id }) => id === 'write-mode').disabled, true);
+});
+
+test('should_disable_save_when_folder_is_listed_without_active_entry', () => {
+  const menus = buildMenuModel({ t: translate, hasDocument: true, diskOpen: true, diskActive: false });
+  const file = menus.find(({ id }) => id === 'file');
+  assert.equal(file.items.find(({ id }) => id === 'save-disk').disabled, true);
+  assert.equal(file.items.find(({ id }) => id === 'close-disk').disabled, false);
+  assert.equal(file.items.find(({ id }) => id === 'delete-document').disabled, false);
 });

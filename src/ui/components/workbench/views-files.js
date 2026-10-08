@@ -91,6 +91,64 @@ export function sortDocuments(items, mode) {
 }
 
 /**
+ * Builds a nested directory tree from flat device entries. Intermediate
+ * directories are derived from relative paths; directories sort before
+ * files, each alphabetically (Persian-aware).
+ * @param {Array<object>} entries Flat entries with `{ id, title, path }`.
+ * @returns {Array<object>} Tree nodes: `{ kind: 'dir', key, label, children }`
+ *   or `{ kind: 'file', key, label, id, path }`.
+ */
+export function buildDiskTree(entries) {
+  const root = { kind: 'dir', key: '', label: '', children: [], directories: new Map() };
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (!entry || typeof entry.path !== 'string') {
+      continue;
+    }
+    const segments = entry.path.split('/').filter((segment) => segment.length > 0);
+    if (segments.length === 0) {
+      continue;
+    }
+    let node = root;
+    let prefix = '';
+    for (const segment of segments.slice(0, -1)) {
+      prefix = prefix ? `${prefix}/${segment}` : segment;
+      let child = node.directories.get(prefix);
+      if (!child) {
+        child = { kind: 'dir', key: prefix, label: segment, children: [], directories: new Map() };
+        node.directories.set(prefix, child);
+        node.children.push(child);
+      }
+      node = child;
+    }
+    node.children.push({
+      kind: 'file',
+      key: entry.path,
+      label: segments[segments.length - 1],
+      id: entry.id,
+      path: entry.path,
+    });
+  }
+  const order = (nodes) => {
+    for (const node of nodes) {
+      if (node.kind === 'dir') {
+        order(node.children);
+      }
+    }
+    nodes.sort((left, right) => {
+      if (left.kind !== right.kind) {
+        return left.kind === 'dir' ? -1 : 1;
+      }
+      return compareTitles(left.label, right.label);
+    });
+  };
+  const strip = (nodes) => nodes.map(({ directories, ...node }) => (
+    node.kind === 'dir' ? { ...node, children: strip(node.children) } : node
+  ));
+  order(root.children);
+  return strip(root.children);
+}
+
+/**
  * Renders the document list with management actions. The `openMenuId`
  * document (if any) renders its action menu open.
  * @param {object} options Render options.
@@ -102,10 +160,10 @@ export function sortDocuments(items, mode) {
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
  * @param {string} [options.sortMode] Active ordering for the sort menu (defaults to `updated-desc`).
  * @param {boolean} [options.sortMenuOpen] Whether the sort menu renders open.
- * @param {boolean} [options.hideItemMenu] Whether to hide the per-item ⋯ menu (device entries have no rename/download/delete).
+ * @param {object|null} [options.disk] Open device folder: `{ root, entries, collapsed }` (highlight via `currentId`).
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, currentId, openMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, hideItemMenu = false }) {
+export function renderFilesView({ t, items, currentId, openMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, disk = null }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const activeSort = FILES_SORT_MODES.includes(sortMode) ? sortMode : DEFAULT_FILES_SORT;
   const rows = (Array.isArray(items) ? items : []).map((item) => {
@@ -121,7 +179,7 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
     return `
     <li part="docs-item"${item.id === currentId ? ' data-current="true"' : ''}>
       <button type="button" part="docs-open" data-doc-id="${id}" ${item.id === currentId ? 'aria-current="true"' : ''}>${title}</button>
-      ${hideItemMenu === true ? '' : `<button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋯</button>`}
+      <button type="button" part="docs-menu" data-doc-menu="${id}" aria-haspopup="true" aria-expanded="${openMenuId === item.id}" aria-label="${escapeHtml(translate('parsinegar.documents.menu'))}">⋯</button>
       ${openMenuId === item.id ? renderFileMenu(translate, id) : ''}
     </li>`;
   }).join('');
@@ -131,6 +189,7 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
   const importIcon = iconMarkup(assetBaseUrl, 'upload') || importLabel;
   const sortLabel = escapeHtml(translate('parsinegar.documents.sort'));
   const sortIcon = iconMarkup(assetBaseUrl, 'sort') || sortLabel;
+  const fileIcon = iconMarkup(assetBaseUrl, 'file-copy') || '';
   return `
     <div part="files-view">
       <div part="files-bar">
@@ -142,7 +201,57 @@ export function renderFilesView({ t, items, currentId, openMenuId, editing, asse
         </div>
       </div>
       <ul part="docs-list">${rows}</ul>
+      ${renderDiskGroup(translate, fileIcon, disk, currentId)}
     </div>`;
+}
+
+/**
+ * Renders one device-tree node: a directory toggle with a nested list, or
+ * a file row (marked with the files glyph, no ⋯ menu — device entries have
+ * no rename/download/delete).
+ * @param {Function} translate Translation function.
+ * @param {string|null} fileIcon Files glyph markup.
+ * @param {object} node Tree node from `buildDiskTree`.
+ * @param {string|null} currentId Open document id.
+ * @param {Array<string>} collapsed Collapsed directory paths.
+ * @returns {string} Node markup.
+ */
+function renderDiskNode(translate, fileIcon, node, currentId, collapsed) {
+  if (node.kind === 'dir') {
+    const shut = collapsed.includes(node.key);
+    const toggle = escapeHtml(node.key);
+    return `
+    <li part="docs-item" data-disk-dir="true">
+      <button type="button" part="docs-toggle" data-disk-toggle="${toggle}" aria-expanded="${shut ? 'false' : 'true'}"><span part="docs-toggle-icon"${shut ? ' data-collapsed="true"' : ''}></span><span>${escapeHtml(node.label)}</span></button>
+      ${shut ? '' : `<ul part="docs-list">${node.children.map((child) => renderDiskNode(translate, fileIcon, child, currentId, collapsed)).join('')}</ul>`}
+    </li>`;
+  }
+  const id = escapeHtml(node.id);
+  return `
+    <li part="docs-item"${node.id === currentId ? ' data-current="true"' : ''} data-disk="true" title="${escapeHtml(node.path)}">
+      <button type="button" part="docs-open" data-doc-id="${id}" ${node.id === currentId ? 'aria-current="true"' : ''}>${fileIcon}<span>${escapeHtml(node.label)}</span></button>
+    </li>`;
+}
+
+/**
+ * Renders the open device folder as a second group below the documents:
+ * a header with the folder label plus the collapsible file tree. The open
+ * row highlights through the shared `currentId` (`disk:<path>` ids).
+ * @param {Function} translate Translation function.
+ * @param {string|null} fileIcon Files glyph markup.
+ * @param {object} disk `{ root, entries, collapsed }`.
+ * @param {string|null} currentId Open document id.
+ * @returns {string} Group markup (empty when no folder is open).
+ */
+function renderDiskGroup(translate, fileIcon, disk, currentId) {
+  if (!disk || !Array.isArray(disk.entries) || disk.entries.length === 0) {
+    return '';
+  }
+  const collapsed = Array.isArray(disk.collapsed) ? disk.collapsed : [];
+  const tree = buildDiskTree(disk.entries);
+  return `
+      <p part="docs-group">${fileIcon}<span>${escapeHtml(disk.root ?? '')}</span></p>
+      <ul part="docs-list">${tree.map((node) => renderDiskNode(translate, fileIcon, node, currentId, collapsed)).join('')}</ul>`;
 }
 
 /**

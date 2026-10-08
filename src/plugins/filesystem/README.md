@@ -8,14 +8,14 @@
 
 - `manifest.json` — قرارداد معتبر افزونه.
 - `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی؛ بدون وابستگی).
-- `lib/filesystem-service.js` — پیاده‌سازی سرویس (بدون DOM؛ pickerها تزریق می‌شوند).
-- `tests/filesystem.test.js` + `tests/filesystem-service.test.js` — تست‌های افزونه با picker/handle/فایل فیک.
+- `lib/filesystem-service.js` — پیاده‌سازی سرویس (بدون DOM؛ pickerها تزریق می‌شوند؛ پیش‌نویس‌های سایه روی `pey.storage.service`).
+- `tests/filesystem.test.js` + `tests/filesystem-service.test.js` — تست‌های افزونه با picker/handle/فایل/استورج فیک.
 - `docs/reference.md` — مرجع کامل خودکفا.
 - `CHANGELOG.md` — تاریخچه نسخه‌های این افزونه.
 
 ## وابستگی‌ها
 
-- **لازم:** هیچ‌کدام.
+- **لازم:** `pey.storage.service` — پیش‌نویس‌های سایه (انبار `disk-drafts`).
 - **اختیاری:** هیچ‌کدام.
 
 ## همچنین ببینید

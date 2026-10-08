@@ -48,8 +48,10 @@ class ParsiSidePanel extends PeyElement {
   #renameError = null;
   #filesSort = DEFAULT_FILES_SORT;
   #collapsedLines = new Set();
+  #diskCollapsed = new Set();
+  #diskRoot = null;
+  #disk = null;
   #applied = null;
-  #hideItemMenu = false;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -93,7 +95,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, hideItemMenu } = {}) {
+  #store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, disk } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -118,8 +120,13 @@ class ParsiSidePanel extends PeyElement {
     if (FILES_SORT_MODES.includes(sortMode)) {
       this.#filesSort = sortMode;
     }
-    if (typeof hideItemMenu === 'boolean') {
-      this.#hideItemMenu = hideItemMenu;
+    if (disk !== undefined) {
+      // A new folder root invalidates stale collapse paths.
+      if ((disk?.rootName ?? null) !== this.#diskRoot) {
+        this.#diskCollapsed.clear();
+        this.#diskRoot = disk?.rootName ?? null;
+      }
+      this.#disk = disk;
     }
     return {
       activeView: this.#activeView,
@@ -133,7 +140,7 @@ class ParsiSidePanel extends PeyElement {
       editingId: this.#editingId,
       renameError: this.#renameError,
       filesSort: this.#filesSort,
-      hideItemMenu: this.#hideItemMenu,
+      disk: this.#disk,
       collapsed: [...this.#collapsedLines].sort((left, right) => left - right).join(','),
       signature: outlineSignature(this.#documentText),
     };
@@ -183,11 +190,11 @@ class ParsiSidePanel extends PeyElement {
    * @param {number|null} [data.activeLine] Highlighted outline heading line.
    * @param {string|null} [data.renameError] Translation key for a rename failure.
    * @param {string} [data.sortMode] Files ordering (one of `FILES_SORT_MODES`).
-   * @param {boolean} [data.hideItemMenu] Hide the per-item ⋯ menu (device entries have no rename/download/delete).
+   * @param {object|null} [data.disk] Open device folder (`{ rootName, items }`, items pre-mapped with `{ id, title, path }`).
    * @returns {void}
    */
-  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, hideItemMenu } = {}) {
-    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, hideItemMenu });
+  configure({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, disk } = {}) {
+    const next = this.#store({ activeView, items, currentId, documentText, settings, activeLine, renameError, sortMode, disk });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -206,7 +213,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
       && prev.filesSort === next.filesSort
-      && prev.hideItemMenu === next.hideItemMenu
+      && prev.disk === next.disk
       && prev.collapsed === next.collapsed
       && prev.signature === next.signature;
     if (!same) {
@@ -307,6 +314,17 @@ class ParsiSidePanel extends PeyElement {
       );
       return;
     }
+    const diskToggle = event.target?.closest?.('[data-disk-toggle]');
+    if (diskToggle) {
+      const key = diskToggle.getAttribute('data-disk-toggle') ?? '';
+      if (this.#diskCollapsed.has(key)) {
+        this.#diskCollapsed.delete(key);
+      } else {
+        this.#diskCollapsed.add(key);
+      }
+      this.requestRender();
+      return;
+    }
     if (event.target?.closest?.('[part="docs-new"]')) {
       this.dispatchEvent(new CustomEvent('document-create', { bubbles: true, composed: true }));
       return;
@@ -378,7 +396,7 @@ class ParsiSidePanel extends PeyElement {
           <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, hideItemMenu: this.#hideItemMenu })}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, disk: this.#disk ? { root: this.#disk.rootName, entries: this.#disk.items, collapsed: [...this.#diskCollapsed] } : null })}</div>
       </aside>`;
   }
 }

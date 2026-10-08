@@ -240,3 +240,56 @@ test('should_fail_structured_when_content_is_not_text', async () => {
     'FILESYSTEM_WRITE_FAILED',
   );
 });
+
+function createStorage() {
+  const records = new Map();
+  return {
+    records,
+    async read(collection, key) {
+      if (collection !== 'disk-drafts' || !records.has(key)) {
+        throw Object.assign(new Error('missing'), { code: 'RECORD_NOT_FOUND' });
+      }
+      return records.get(key);
+    },
+    async write(collection, record) {
+      if (collection !== 'disk-drafts') {
+        throw new Error('unknown collection');
+      }
+      records.set(record.key, record);
+    },
+    async delete(collection, key) {
+      records.delete(key);
+    },
+  };
+}
+
+test('should_save_and_read_shadow_when_storage_is_bound', async () => {
+  const service = createService({ storage: createStorage() });
+  const saved = await service.saveShadow('docs', 'a.md', 'base', 'draft');
+  assert.equal(saved.root, 'docs');
+  assert.equal(saved.path, 'a.md');
+  assert.equal(typeof saved.updatedAt, 'number');
+  const shadow = await service.readShadow('docs', 'a.md');
+  assert.equal(shadow.base, 'base');
+  assert.equal(shadow.draft, 'draft');
+});
+
+test('should_return_null_when_shadow_is_missing', async () => {
+  const service = createService({ storage: createStorage() });
+  assert.equal(await service.readShadow('docs', 'nope.md'), null);
+});
+
+test('should_clear_shadow_when_asked', async () => {
+  const storage = createStorage();
+  const service = createService({ storage });
+  await service.saveShadow('docs', 'a.md', 'base', 'draft');
+  await service.clearShadow('docs', 'a.md');
+  assert.equal(await service.readShadow('docs', 'a.md'), null);
+});
+
+test('should_fail_storage_unavailable_when_unbound', async () => {
+  const service = createService({});
+  await rejectsWithCode(service.saveShadow('docs', 'a.md', 'b', 'd'), 'FILESYSTEM_STORAGE_UNAVAILABLE');
+  await rejectsWithCode(service.readShadow('docs', 'a.md'), 'FILESYSTEM_STORAGE_UNAVAILABLE');
+  await rejectsWithCode(service.clearShadow('docs', 'a.md'), 'FILESYSTEM_STORAGE_UNAVAILABLE');
+});

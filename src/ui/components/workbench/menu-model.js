@@ -11,17 +11,19 @@
  * @param {boolean} options.hasDocument Whether a document is open.
  * @param {boolean} [options.readOnly] Whether the open view is locked for reading.
  * @param {boolean} [options.builtInOpen] Whether a built-in doc is showing.
- * @param {boolean} [options.diskOpen] Whether a device file/folder is open.
+ * @param {boolean} [options.diskOpen] Whether a device folder is listed.
+ * @param {boolean} [options.diskActive] Whether a device entry is open in the editor.
  * @returns {Array<object>} Menus with `{ id, label, items: [{ id, label, action, disabled, shortcut }] }`.
  * Insert items carry their keyboard shortcut display (`shortcut` is absent elsewhere).
  * The admonition item carries `children` (one per kind) instead of an action:
  * the first submenu of the project.
  */
-export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen = false, diskOpen = false } = {}) {
+export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen = false, diskOpen = false, diskActive = false } = {}) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const locked = readOnly === true;
   const builtIn = builtInOpen === true;
-  const disk = diskOpen === true;
+  const diskList = diskOpen === true;
+  const disk = diskActive === true;
   const fileItems = [
     { id: 'new-document', label: translate('parsinegar.documents.new'), action: 'new-document', disabled: false },
     { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
@@ -29,9 +31,9 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
     { id: 'open-folder', label: translate('parsinegar.disk.openFolder'), action: 'open-folder', disabled: false },
     { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument || disk },
   ];
-  if (disk) {
+  if (diskList) {
     fileItems.push(
-      { id: 'save-disk', label: translate('parsinegar.disk.save'), action: 'save-disk', shortcut: 'Ctrl+S', disabled: !hasDocument },
+      { id: 'save-disk', label: translate('parsinegar.disk.save'), action: 'save-disk', shortcut: 'Ctrl+S', disabled: !disk },
       { id: 'close-disk', label: translate('parsinegar.disk.close'), action: 'close-disk', disabled: false },
     );
   }
