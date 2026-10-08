@@ -802,7 +802,6 @@ class ParsiPageHome extends PeyElement {
     const diskList = this.#disk !== null;
     const diskActive = this.#diskActive();
     const shownId = diskActive ? `${DISK_ID_PREFIX}${this.#disk.currentPath}` : currentId;
-    const diskView = this.#disk ? { rootName: this.#disk.rootName, items: this.#disk.items } : null;
     this.#menuEl = mountComponent({
       shadowRoot: this.shadowRoot,
       slot: '[data-slot="menubar"]',
@@ -851,7 +850,7 @@ class ParsiPageHome extends PeyElement {
           settings: this.#prefs?.getState().settings ?? null,
           formatNumber: (value) => this.#formatNumber(value),
           sortMode: this.#filesSort,
-          disk: diskView,
+          disk: this.#disk,
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
@@ -861,7 +860,7 @@ class ParsiPageHome extends PeyElement {
           settings: this.#prefs?.getState().settings ?? null,
           activeLine: this.#spy.getActiveLine(),
           sortMode: this.#filesSort,
-          disk: diskView,
+          disk: this.#disk,
         }),
       });
     } else {
@@ -1659,7 +1658,7 @@ class ParsiPageHome extends PeyElement {
       documentText: this.value,
       settings,
       sortMode: this.#filesSort,
-      disk: this.#disk ? { rootName: this.#disk.rootName, items: this.#disk.items } : null,
+      disk: this.#disk,
     });
   }
 

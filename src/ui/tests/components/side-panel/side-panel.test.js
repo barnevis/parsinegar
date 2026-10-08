@@ -539,3 +539,22 @@ test('should_toggle_disk_branches_when_toggle_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_keep_dom_nodes_when_snapshot_is_stable', async () => {
+  const disk = {
+    rootName: 'docs',
+    items: [{ id: 'disk:sub/a.md', title: 'sub/a.md', path: 'sub/a.md' }],
+  };
+  const element = mount({ items: [], currentId: null, disk });
+  try {
+    await flush();
+    const before = element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]');
+    assert.ok(before, 'expected the disk row');
+    element.configure({ disk });
+    await flush();
+    const after = element.shadowRoot.querySelector('[data-doc-id="disk:sub/a.md"]');
+    assert.equal(after, before, 'expected no re-render on a stable snapshot');
+  } finally {
+    element.remove();
+  }
+});

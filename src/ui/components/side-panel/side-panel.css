@@ -119,6 +119,7 @@
 [part="docs-list"] [part="docs-list"] {
   padding-inline-start: 1.1rem;
   flex-basis: 100%;
+  border-inline-start: 1px solid var(--pey-color-border, #e2e2e8);
 }
 [part="docs-group"] {
   display: flex;
@@ -137,6 +138,19 @@
 [part="docs-item"][data-disk="true"] {
   border-inline-start: 2px solid var(--pey-color-accent, #5eead4);
   padding-inline-start: 0.4rem;
+}
+[part="docs-item"][data-disk="true"] [part="docs-open"] {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  min-inline-size: 0;
+}
+[part="docs-item"][data-disk="true"] [part="docs-open"] > span:last-child {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 [part="docs-open"] svg {
   inline-size: 16px;
