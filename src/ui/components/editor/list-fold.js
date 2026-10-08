@@ -91,35 +91,6 @@ export function isFoldedRange(state, from, to) {
 }
 
 /**
- * Builds the chevron gutter: a fixed-width box centering the triangle, so
- * parent rows align exactly with the plain gutter below.
- * @returns {Element} Chevron element.
- */
-export function createFoldChevron() {
-  const gutter = document.createElement('span');
-  gutter.className = 'parsi-list-chevron';
-  gutter.setAttribute('aria-hidden', 'true');
-  const triangle = document.createElement('span');
-  triangle.className = 'parsi-list-triangle';
-  triangle.setAttribute('aria-hidden', 'true');
-  gutter.append(triangle);
-  return gutter;
-}
-
-/**
- * Builds the plain gutter reserving the chevron column on rows without
- * children, so every list row starts its glyph in one column (like the
- * outline spacer).
- * @returns {Element} Gutter element.
- */
-export function createFoldGutter() {
-  const gutter = document.createElement('span');
-  gutter.className = 'parsi-list-gutter';
-  gutter.setAttribute('aria-hidden', 'true');
-  return gutter;
-}
-
-/**
  * Reports whether an update toggled any fold (fold effects change neither
  * the document, the viewport nor the selection, so decoration plugins must
  * watch for them explicitly).
@@ -162,33 +133,44 @@ const foldTheme = EditorView.theme({
     margin: '0',
     color: 'inherit',
   },
-  // Fixed gutter column for the chevron (and its plain placeholder), so
-  // parent rows never sit ahead of plain rows — the outline-spacer idea.
-  '& .parsi-list-chevron': {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    inlineSize: '1em',
-  },
-  '& .parsi-list-gutter': { display: 'inline-block', inlineSize: '1em' },
-  // The chevron stays out of the way until needed: hovered line, or the
-  // cursor sitting anywhere inside the parent item (which pins
-  // `parsi-list-active` on the parent row). Touch users get it through the
-  // cursor, since tapping parks it there.
-  '& .parsi-list-marker .parsi-list-chevron, & .parsi-task-marker .parsi-list-chevron': { display: 'none' },
-  '& .cm-line:hover .parsi-list-chevron': { display: 'inline-flex' },
-  '& .cm-line.parsi-list-active .parsi-list-chevron': { display: 'inline-flex' },
-  '& .parsi-list-triangle': {
-    display: 'inline-block',
+  // List chevrons overlay the row's inline-start padding instead of taking
+  // flow space: the marker glyph never moves, in any state (widget or raw,
+  // hovered or not). That keeps parent rows pixel-aligned with plain rows.
+  '& .parsi-list-marker': { position: 'relative' },
+  '& .parsi-list-marker .parsi-list-chevron': { display: 'none' },
+  '& .cm-line:hover .parsi-list-marker .parsi-list-chevron': { display: 'block' },
+  '& .cm-line.parsi-list-active .parsi-list-marker .parsi-list-chevron': { display: 'block' },
+  '& .parsi-list-marker .parsi-list-chevron': {
+    position: 'absolute',
+    insetInlineStart: '-1em',
+    top: '50%',
     inlineSize: '0.3em',
     blockSize: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    // Expanded points down like the outline; collapsed points left in rtl.
+    transform: 'translateY(-50%) rotate(45deg)',
+    cursor: 'pointer',
+  },
+  '& .parsi-list-marker.parsi-list-collapsed .parsi-list-chevron': {
+    transform: 'translateY(-50%) rotate(135deg)',
+  },
+  // Task boxes sit mid-row with no padding zone of their own, so their
+  // chevron trails inline — visible on hover/active only, leaving idle rows
+  // exactly as before.
+  '& .parsi-task-marker .parsi-list-chevron': { display: 'none' },
+  '& .cm-line:hover .parsi-task-marker .parsi-list-chevron': { display: 'inline-block' },
+  '& .cm-line.parsi-list-active .parsi-task-marker .parsi-list-chevron': { display: 'inline-block' },
+  '& .parsi-task-marker .parsi-list-chevron': {
+    display: 'inline-block',
+    inlineSize: '0.3em',
+    blockSize: '0.3em',
+    marginInlineEnd: '0.3em',
+    borderRight: '2px solid currentColor',
+    borderBottom: '2px solid currentColor',
     transform: 'rotate(45deg)',
     cursor: 'pointer',
   },
-  '& .parsi-list-marker.parsi-list-collapsed .parsi-list-triangle, & .parsi-task-marker.parsi-list-collapsed .parsi-list-triangle': {
+  '& .parsi-task-marker.parsi-list-collapsed .parsi-list-chevron': {
     transform: 'rotate(135deg)',
   },
 });

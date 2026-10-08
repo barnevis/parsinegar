@@ -13,7 +13,7 @@ import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 import { highlightTree } from '@lezer/highlight';
 import { tags } from '@lezer/highlight';
 import { TASK_LINE_PATTERN } from './task-list.js';
-import { collectListParents, createFoldChevron, createFoldGutter, hasFoldEffects, isFoldedRange } from './list-fold.js';
+import { collectListParents, hasFoldEffects, isFoldedRange } from './list-fold.js';
 
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const MONO_FONT = "'Vazirmatn', ui-monospace, monospace";
@@ -152,16 +152,17 @@ class ListMarkerWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
     span.className = this.folded ? 'parsi-list-marker parsi-list-collapsed' : 'parsi-list-marker';
-    // Leading chevron like the outline gutter (not trailing): the marker
-    // glyph stays glued to its text while the toggle keeps a fixed column.
+    span.textContent = this.label;
     if (Number.isInteger(this.foldFrom) && Number.isInteger(this.foldTo)) {
       span.dataset.foldFrom = String(this.foldFrom);
       span.dataset.foldTo = String(this.foldTo);
-      span.append(createFoldChevron());
-    } else {
-      span.append(createFoldGutter());
+      // Overlay chevron (absolute, zero layout impact): the marker glyph
+      // never moves whatever the chevron does.
+      const chevron = document.createElement('span');
+      chevron.className = 'parsi-list-chevron';
+      chevron.setAttribute('aria-hidden', 'true');
+      span.prepend(chevron);
     }
-    span.append(document.createTextNode(this.label));
     return span;
   }
 

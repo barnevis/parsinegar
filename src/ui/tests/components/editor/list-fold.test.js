@@ -145,12 +145,12 @@ test('should_ignore_fenced_lists_when_collecting', () => {
   }
 });
 
-test('should_align_plain_markers_with_gutter_when_rendered', () => {
+test('should_leave_plain_markers_bare_when_rendered', () => {
   const mounted = createEditor('متن\n\n- تنها\n');
   try {
     const marker = mounted.host.querySelector('.parsi-list-marker');
-    assert.ok(marker.querySelector('.parsi-list-gutter'), 'expected the gutter column');
-    assert.equal(marker.querySelector('.parsi-list-chevron'), null, 'expected no chevron without children');
+    assert.ok(marker, 'expected a marker');
+    assert.equal(marker.querySelector('span'), null, 'expected no adornment spans on plain markers');
   } finally {
     destroy(mounted);
   }
@@ -168,8 +168,9 @@ test('should_point_chevron_by_state_when_themed', () => {
         return false;
       }
     });
-    assert.ok(has('.parsi-list-triangle', 'transform', 'rotate(45deg)'), 'expected the expanded chevron down');
-    assert.ok(has('.parsi-list-collapsed .parsi-list-triangle', 'transform', 'rotate(135deg)'), 'expected the collapsed chevron sideways');
+    assert.ok(has('.parsi-list-marker .parsi-list-chevron', 'position', 'absolute'), 'expected the overlay chevron');
+    assert.ok(has('.parsi-list-marker .parsi-list-chevron', 'transform', 'rotate(45deg)'), 'expected the expanded chevron down');
+    assert.ok(has('.parsi-list-collapsed .parsi-list-chevron', 'transform', 'rotate(135deg)'), 'expected the collapsed chevron sideways');
     assert.ok(has('.cm-foldPlaceholder', 'background-color', 'transparent'), 'expected the invisible fold placeholder');
   } finally {
     destroy(mounted);
