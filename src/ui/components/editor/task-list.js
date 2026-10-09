@@ -80,10 +80,12 @@ class TaskBoxWidget extends WidgetType {
     if (this.fold) {
       span.dataset.foldFrom = String(this.fold.from);
       span.dataset.foldTo = String(this.fold.to);
+      // Leading chevron (before the box, mirroring bullet markers): the
+      // existing marginInlineEnd lands between chevron and box in rtl.
       const chevron = document.createElement('span');
       chevron.className = 'parsi-list-chevron';
       chevron.setAttribute('aria-hidden', 'true');
-      span.append(chevron);
+      span.prepend(chevron);
     }
     return span;
   }
@@ -117,14 +119,20 @@ function buildTaskDecorations(view) {
 }
 
 /**
- * Reports the fold of the parent list item containing a position, if any.
+ * Reports the fold of the parent list item starting on a position's own
+ * line, if any. Descendant lines inside an ancestor's range read null: only
+ * the item owning the nested list carries the toggle (mirroring how bullet
+ * markers match their own line exactly).
  * @param {object} view Active editor view.
  * @param {number} position Document position.
- * @returns {object|null} `{ from, to, folded }` or null outside parents.
+ * @returns {object|null} `{ from, to, folded }` or null outside own-line parents.
  */
 function foldOf(view, position) {
   const line = view.state.doc.lineAt(position);
   for (const parent of collectListParents(view, line.from, line.to)) {
+    if (view.state.doc.lineAt(parent.itemFrom).number !== line.number) {
+      continue;
+    }
     if (position >= parent.itemFrom && position <= parent.itemTo) {
       return {
         from: parent.foldFrom,

@@ -89,3 +89,47 @@ test('should_freeze_task_when_editor_is_locked', () => {
     host.remove();
   }
 });
+
+test('should_lead_box_when_parent_task_carries_chevron', () => {
+  const mounted = createEditor('متن\n\n- [ ] والد\n\t- [ ] فرزند');
+  try {
+    const parent = mounted.host.querySelector('.parsi-task-marker[data-fold-from]');
+    assert.ok(parent, 'expected the parent box to carry fold data');
+    assert.equal(parent.firstElementChild?.className, 'parsi-list-chevron');
+    assert.equal(parent.textContent, '☐');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_hide_chevron_on_child_tasks_when_nested_under_parent', () => {
+  const mounted = createEditor('متن\n\n- [ ] والد\n\t- [ ] فرزند');
+  try {
+    const boxes = [...mounted.host.querySelectorAll('.parsi-task-marker')];
+    assert.equal(boxes.length, 2);
+    assert.equal(boxes[1].querySelector('.parsi-list-chevron'), null);
+    assert.equal(boxes[1].hasAttribute('data-fold-from'), false);
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_fold_children_when_parent_task_chevron_is_clicked', () => {
+  const mounted = createEditor('متن\n\n- [ ] والد\n\t- [ ] فرزند');
+  try {
+    const linesBefore = mounted.host.querySelectorAll('.cm-line').length;
+    assert.equal(linesBefore, 4);
+    const parent = mounted.host.querySelector('.parsi-task-marker[data-fold-from]');
+    parent.querySelector('.parsi-list-chevron').dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }),
+    );
+    assert.ok(
+      mounted.host.querySelector('.parsi-task-marker.parsi-list-collapsed'),
+      'expected the collapsed task color',
+    );
+    assert.equal(mounted.host.querySelectorAll('.cm-line').length, 3);
+    assert.equal(parent.textContent, '☐', 'expected no checkbox toggle on chevron click');
+  } finally {
+    destroy(mounted);
+  }
+});
