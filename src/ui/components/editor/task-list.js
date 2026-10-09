@@ -80,8 +80,9 @@ class TaskBoxWidget extends WidgetType {
     if (this.fold) {
       span.dataset.foldFrom = String(this.fold.from);
       span.dataset.foldTo = String(this.fold.to);
-      // Leading chevron (before the box, mirroring bullet markers): the
-      // existing marginInlineEnd lands between chevron and box in rtl.
+      // Leading chevron (before the box, mirroring bullet markers). It is
+      // an absolute overlay (see list-fold.js), so it never takes flow
+      // space and parent rows align with leaf rows in every state.
       const chevron = document.createElement('span');
       chevron.className = 'parsi-list-chevron';
       chevron.setAttribute('aria-hidden', 'true');

@@ -154,24 +154,27 @@ const foldTheme = EditorView.theme({
   '& .parsi-list-marker.parsi-list-collapsed .parsi-list-chevron': {
     transform: 'translateY(-50%) rotate(135deg)',
   },
-  // Task boxes sit mid-row with no padding zone of their own, so their
-  // chevron trails inline — visible on hover/active only, leaving idle rows
-  // exactly as before.
+  // Task chevrons overlay like bullet chevrons instead of taking flow
+  // space: behind the box sits only the gap, the zero-size hidden dash and
+  // blank indent, so nothing visible is ever covered, and parent task rows
+  // stay pixel-aligned with leaf task rows in every state.
+  '& .parsi-task-marker': { position: 'relative' },
   '& .parsi-task-marker .parsi-list-chevron': { display: 'none' },
-  '& .cm-line:hover .parsi-task-marker .parsi-list-chevron': { display: 'inline-block' },
-  '& .cm-line.parsi-list-active .parsi-task-marker .parsi-list-chevron': { display: 'inline-block' },
+  '& .cm-line:hover .parsi-task-marker .parsi-list-chevron': { display: 'block' },
+  '& .cm-line.parsi-list-active .parsi-task-marker .parsi-list-chevron': { display: 'block' },
   '& .parsi-task-marker .parsi-list-chevron': {
-    display: 'inline-block',
+    position: 'absolute',
+    insetInlineStart: '-1em',
+    top: '50%',
     inlineSize: '0.3em',
     blockSize: '0.3em',
-    marginInlineEnd: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    transform: 'rotate(45deg)',
+    transform: 'translateY(-50%) rotate(45deg)',
     cursor: 'pointer',
   },
   '& .parsi-task-marker.parsi-list-collapsed .parsi-list-chevron': {
-    transform: 'rotate(135deg)',
+    transform: 'translateY(-50%) rotate(135deg)',
   },
 });
 
