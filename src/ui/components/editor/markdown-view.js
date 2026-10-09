@@ -20,6 +20,7 @@ import { lineDirectionExtensions } from './line-direction.js';
 import { listFoldExtensions } from './list-fold.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList, indentListItem, listResequenceExtension } from './list-continue.js';
+import { indentNormalizeExtensions } from './indent-normalize.js';
 import { deletePair, pairInput } from './quote-pairs.js';
 import { hrViewExtensions } from './hr-view.js';
 import { admonitionViewExtensions } from './admonition-view.js';
@@ -188,8 +189,9 @@ export function createMarkdownView(host, options = {}) {
       ...imageViewExtensions(),
       ...linkFollowExtensions(),
       ...tableViewExtensions(),
-      ...listFoldExtensions(),
-      ...taskListExtensions(),
+       ...listFoldExtensions(),
+       ...indentNormalizeExtensions(),
+       ...taskListExtensions(),
       ...textHighlightExtensions(),
       ...codeHighlightExtensions(),
       ...codeCopyExtensions({ t: options.t, assetBaseUrl: options.assetBaseUrl ?? null }),

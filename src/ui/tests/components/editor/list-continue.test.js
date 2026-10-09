@@ -173,6 +173,28 @@ test('should_outdent_tabbed_list_when_shift_tab_is_pressed', () => {
   }
 });
 
+test('should_append_tab_stop_when_tab_on_spaced_list', () => {
+  const mounted = createWired('  - item');
+  try {
+    press(mounted.host, { key: 'Tab', code: 'Tab' });
+    assert.equal(mounted.editor.getValue(), '  \t- item');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_indent_task_when_tab_is_pressed', () => {
+  const mounted = createWired('- [ ] کار');
+  try {
+    press(mounted.host, { key: 'Tab', code: 'Tab' });
+    assert.equal(mounted.editor.getValue(), '\t- [ ] کار');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
 test('should_keep_line_when_alt_arrow_has_nowhere_to_move', () => {
   // Pristine cursor sits on the single line: Alt+ArrowUp is a no-op that must
   // pass through without disturbing the document.

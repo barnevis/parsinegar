@@ -206,8 +206,8 @@ export function computeNumbers(lines) {
  * Shift-Tab outdents) and resequences the contiguous ordered block, so a
  * `3.` nested under `2.` becomes `1.` there and the outer run closes its
  * gap — all in one undoable transaction with the cursor mapped along.
- * Unordered content lines indent/outdent by one tab stop the same way (no
- * resequencing there to keep); task lines keep falling through. Nested
+ * Unordered and task content lines indent/outdent by one tab stop the same way (no
+ * resequencing there to keep). Nested
  * levels everywhere measure one tab stop, pinned to eight columns.
  * Non-list lines, selections and modified keys fall through (false);
  * the locked state swallows the key (true) so nothing edits.
@@ -225,17 +225,20 @@ export function indentListItem(view, outdent) {
     return false;
   }
   const line = state.doc.lineAt(selection.from);
-  if (!inFencedCode(state, line.number)
-    && !TASK_EMPTY_PATTERN.test(line.text)
-    && !TASK_CONTENT_PATTERN.test(line.text)) {
+  if (!inFencedCode(state, line.number)) {
+    // Unordered and task content lines indent by one tab stop appended to
+    // whatever indent exists (spaces stay: the stop width carries the level,
+    // so mixed runs measure exactly one level like ordered ones). Shift-Tab
+    // strips one trailing stop, falling through to the default for spaces.
     const unordered = UNORDERED_CONTENT_PATTERN.exec(line.text);
     if (unordered) {
+      const stopAt = line.from + unordered[1].length;
       if (!outdent) {
-        view.dispatch({ changes: { from: line.from, insert: '\t' }, scrollIntoView: true });
+        view.dispatch({ changes: { from: stopAt, insert: '\t' }, scrollIntoView: true });
         return true;
       }
-      if (unordered[1].startsWith('\t')) {
-        view.dispatch({ changes: { from: line.from, to: line.from + 1, insert: '' }, scrollIntoView: true });
+      if (unordered[1].endsWith('\t')) {
+        view.dispatch({ changes: { from: stopAt - 1, to: stopAt, insert: '' }, scrollIntoView: true });
         return true;
       }
       return false;
