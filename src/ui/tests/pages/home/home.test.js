@@ -1625,6 +1625,45 @@ test('should_download_current_html_when_menu_action_requests_it', async () => {
   }
 });
 
+test('should_download_library_zip_with_folder_paths_when_menu_action_requests_it', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'ریشه', content: 'c1', updatedAt: 2 },
+    { id: 'd2', title: 'تودرتو', content: 'c2', updatedAt: 1 },
+  ]);
+  const folder = await documents.createFolder('آموزش');
+  await documents.moveDocument('d2', folder.id);
+  const calls = [];
+  const element = await mountWithDocuments(documents, {
+    'parsinegar.export.service': {
+      async exportHtml() {
+        throw new Error('unexpected html export');
+      },
+      async exportZip(input) {
+        calls.push(input);
+        return { blob: new Blob(['zip']), filename: 'parsinegar-documents.zip', mime: 'application/zip' };
+      },
+    },
+  });
+  const realCreateObjectURL = URL.createObjectURL;
+  const realRevokeObjectURL = URL.revokeObjectURL;
+  URL.createObjectURL = () => 'blob:zip';
+  URL.revokeObjectURL = () => {};
+  try {
+    child(element, 'parsi-menu-bar').dispatchEvent(new CustomEvent('menu-action', { bubbles: true, detail: { action: 'download-zip' } }));
+    await settled();
+    await settled();
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].documents, [
+      { markdown: 'c2', title: 'تودرتو', path: 'آموزش' },
+      { markdown: 'c1', title: 'ریشه', path: '' },
+    ]);
+  } finally {
+    URL.createObjectURL = realCreateObjectURL;
+    URL.revokeObjectURL = realRevokeObjectURL;
+    element.remove();
+  }
+});
+
 test('should_restore_sort_order_after_reload_when_persisted', async () => {
   const documents = createDocuments([
     { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 300 },

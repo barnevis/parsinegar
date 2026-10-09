@@ -1,6 +1,8 @@
 // HTML export service: Persian Markdown over pey.markdown.service,
 // assembled as a standalone themed RTL document.
 import { assembleDocument, outputThemes } from './assemble-document.js';
+import { ARCHIVE_FILENAME, MIME_ZIP, createZipBlob } from './export-zip.js';
+import { DEFAULT_TITLE, sanitizeFileName } from './file-names.js';
 import { highlight, highlightHtml } from './mark-extension.js';
 import {
   persianFootnoteOptionsForRender,
@@ -11,7 +13,6 @@ import {
 const MARKDOWN_SERVICE = 'pey.markdown.service';
 const SERVICE_NAME = 'parsinegar.export.service';
 const DEFAULT_THEME = 'light';
-const DEFAULT_TITLE = 'بدون عنوان';
 const MIME_HTML = 'text/html';
 
 /**
@@ -46,17 +47,6 @@ function requireMarkdown(state) {
     );
   }
   return state.markdown;
-}
-
-/**
- * Sanitizes a document title for use as a file name (mirrors the download
- * menu rule: path separators become dashes).
- * @param {string} title Document title.
- * @returns {string} File-safe base name.
- */
-function sanitizeFileName(title) {
-  const base = title.replace(/[\\/]/g, '-').trim();
-  return base.length > 0 ? base : DEFAULT_TITLE;
 }
 
 /**
@@ -95,6 +85,23 @@ function createService(state) {
       }
       const html = assembleDocument({ title, bodyHtml: fragment?.html ?? '', theme });
       return { html, filename: `${sanitizeFileName(title)}.html`, mime: MIME_HTML };
+    },
+    async exportZip(input = {}) {
+      const source = input && typeof input === 'object' ? input : {};
+      if (!Array.isArray(source.documents)) {
+        throw exportError('EXPORT_INVALID_INPUT', 'Zip export requires a documents array', {
+          field: 'documents',
+        });
+      }
+      let blob;
+      try {
+        blob = await createZipBlob(source.documents);
+      } catch (error) {
+        throw exportError('EXPORT_ZIP_FAILED', 'Zip archive build failed', {
+          cause: error?.code ?? 'UNKNOWN',
+        });
+      }
+      return { blob, filename: ARCHIVE_FILENAME, mime: MIME_ZIP };
     },
   };
   return service;

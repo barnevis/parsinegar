@@ -1,8 +1,8 @@
 {
   "name": "parsinegar.export",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "architecture": "0.11",
-  "description": "Parsinegar HTML export: Persian Markdown (Parsneshan) over pey.markdown.service, assembled as a standalone themed document",
+  "description": "Parsinegar export: standalone themed HTML documents and multi-document Markdown zip archives over Persian Markdown (Parsneshan)",
   "type": "feature",
   "dependencies": {
     "required": ["pey.markdown.service"],
@@ -11,7 +11,7 @@
   "provides": [
     {
       "name": "parsinegar.export.service",
-      "description": "Exports one Markdown document as a standalone themed RTL HTML file.",
+      "description": "Exports Markdown documents as standalone themed RTL HTML files and as Markdown zip archives.",
       "methods": [
         {
           "name": "exportHtml",
@@ -23,6 +23,15 @@
           ],
           "returns": "{ html: string, filename: string, mime: 'text/html' }",
           "errors": ["EXPORT_INVALID_THEME", "EXPORT_MARKDOWN_UNAVAILABLE", "EXPORT_RENDER_FAILED"]
+        },
+        {
+          "name": "exportZip",
+          "description": "Packs Markdown documents (with folder paths) into one zip archive of .md files.",
+          "params": [
+            { "name": "documents", "type": "Array of { markdown: string, title: string (optional), path: string (optional folder path, '' for root) }" }
+          ],
+          "returns": "{ blob: Blob, filename: string, mime: 'application/zip' }",
+          "errors": ["EXPORT_INVALID_INPUT", "EXPORT_ZIP_FAILED"]
         }
       ]
     }

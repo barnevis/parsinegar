@@ -500,6 +500,12 @@ class ParsiPageHome extends PeyElement {
           }
           return;
         }
+        case 'download-zip': {
+          if (!this.#builtIn) {
+            await this.#downloadZipLibrary();
+          }
+          return;
+        }
         case 'read-mode':
           await this.#setLockState(true);
           return;
@@ -1180,6 +1186,44 @@ class ParsiPageHome extends PeyElement {
       }
     } catch (error) {
       console.error('[parsi-page-home] html download failed');
+    }
+  }
+
+  /**
+   * Downloads the whole library as a Markdown zip archive: every document
+   * with its folder path goes through the export service, the page only
+   * delivers the resulting bytes through a temporary anchor.
+   * @returns {Promise<void>}
+   */
+  async #downloadZipLibrary() {
+    if (typeof URL.createObjectURL !== 'function') {
+      console.error('[parsi-page-home] download is unsupported here');
+      return;
+    }
+    try {
+      const exporter = this.#exporter;
+      if (!this.isConnected || !exporter || typeof exporter.exportZip !== 'function') {
+        return;
+      }
+      const result = await exporter.exportZip({
+        documents: this.#docs?.collectLibraryDocuments() ?? [],
+      });
+      if (!this.isConnected || !result) {
+        return;
+      }
+      const url = URL.createObjectURL(result.blob);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = result.filename ?? 'parsinegar-documents.zip';
+        this.shadowRoot.append(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('[parsi-page-home] zip download failed');
     }
   }
 

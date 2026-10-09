@@ -287,11 +287,19 @@ class ParsiMenuBar extends PeyElement {
       // Same road as the file-menu download items: the parent maps the
       // action to the open document and runs the matching download.
       const format = downloadOption.getAttribute('data-download-option');
-      if (format === 'markdown' || format === 'html') {
+      let action = null;
+      if (format === 'markdown') {
+        action = 'download-markdown';
+      } else if (format === 'html') {
+        action = 'download-html';
+      } else if (format === 'zip') {
+        action = 'download-zip';
+      }
+      if (action) {
         this.#downloadOpen = false;
         this.requestRender();
         this.dispatchEvent(
-          new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action: format === 'html' ? 'download-html' : 'download-markdown' } }),
+          new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action } }),
         );
       }
       return;
@@ -383,6 +391,7 @@ class ParsiMenuBar extends PeyElement {
           <div part="download-dropdown" role="menu" ${this.#downloadOpen ? '' : 'hidden'}>
             <button type="button" part="download-option" role="menuitem" data-download-option="markdown"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.download'))}</span></button>
             <button type="button" part="download-option" role="menuitem" data-download-option="html"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.downloadHtml'))}</span></button>
+            <button type="button" part="download-option" role="menuitem" data-download-option="zip"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.downloadZip'))}</span></button>
           </div>
         </div>
         <div part="search">

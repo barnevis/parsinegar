@@ -1,5 +1,12 @@
 # Changelog — parsinegar.export
 
+## [0.2.0]
+
+### Added
+
+- `exportZip({ documents })` packs `{ markdown, title?, path? }` records into one Markdown zip archive (`{ blob, filename: 'parsinegar-documents.zip', mime: 'application/zip' }`) via `@zip.js/zip.js` (native CompressionStream, no workers). Folder paths survive per-segment sanitizing, `..` segments collapse, repeat full paths take a ` (2)` suffix. Structured errors `EXPORT_INVALID_INPUT` and `EXPORT_ZIP_FAILED`.
+- Shared `lib/file-names.js` for the file-name rule (used by both exports).
+
 ## [0.1.0]
 
 ### Added

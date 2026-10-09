@@ -470,7 +470,7 @@ test('should_render_download_toggle_with_icon_when_mounted', async () => {
     assert.ok(toggle.innerHTML.includes('#download'));
     assert.equal(element.shadowRoot.querySelector('[part="download-dropdown"]').hasAttribute('hidden'), true);
     const options = [...element.shadowRoot.querySelectorAll('[data-download-option]')];
-    assert.deepEqual(options.map((option) => option.getAttribute('data-download-option')), ['markdown', 'html']);
+    assert.deepEqual(options.map((option) => option.getAttribute('data-download-option')), ['markdown', 'html', 'zip']);
   } finally {
     element.remove();
   }
@@ -530,6 +530,23 @@ test('should_emit_download_html_when_option_is_clicked', async () => {
     element.shadowRoot.querySelector('[data-download-option="html"]').click();
     await flush();
     assert.deepEqual(seen, [{ action: 'download-html' }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_download_zip_when_option_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('menu-action', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-download-toggle]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-download-option="zip"]').click();
+    await flush();
+    assert.deepEqual(seen, [{ action: 'download-zip' }]);
+    assert.equal(element.shadowRoot.querySelector('[part="download-dropdown"]').hasAttribute('hidden'), true);
   } finally {
     element.remove();
   }

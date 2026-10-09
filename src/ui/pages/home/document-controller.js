@@ -110,6 +110,29 @@ export function createDocumentController({
     return items.filter((item) => inside.has(item.folderId ?? null)).length;
   }
 
+  /**
+   * Builds the slash-separated folder path for a folder id from a snapshot
+   * (`''` for the root). Cycle-safe: repeats stop the walk.
+   * @param {Map} byId Folders by id.
+   * @param {string|null} folderId Starting folder id.
+   * @returns {string} Display path like `a/b`, or '' at the root.
+   */
+  function folderDisplayPath(byId, folderId) {
+    const names = [];
+    const seen = new Set();
+    let current = folderId;
+    while (typeof current === 'string' && current.length > 0 && !seen.has(current)) {
+      seen.add(current);
+      const folder = byId.get(current);
+      if (!folder) {
+        break;
+      }
+      names.unshift(folder.name ?? '');
+      current = folder.parentId ?? null;
+    }
+    return names.filter((name) => name.length > 0).join('/');
+  }
+
   async function saveNow() {
     clearSaveTimer();
     if (!service || !currentId || !isLive()) {
@@ -911,6 +934,19 @@ export function createDocumentController({
         console.error('[parsi-document-controller] document download failed');
         return null;
       }
+    },
+
+    /**
+     * Collects every document with its folder path for library export.
+     * @returns {Array} `{ markdown, title, path }` records in list order.
+     */
+    collectLibraryDocuments() {
+      const byId = new Map(folders.map((folder) => [folder.id, folder]));
+      return items.map((item) => ({
+        markdown: item.content ?? '',
+        title: item.title ?? '',
+        path: folderDisplayPath(byId, item.folderId ?? null),
+      }));
     },
 
     /**

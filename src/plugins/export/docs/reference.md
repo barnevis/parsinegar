@@ -2,13 +2,15 @@
 
 ## هدف
 
-افزونه اپلیکیشن پارسی‌نگار: خروجی HTML فارسی — رندر Markdown (استاندارد + GFM + پارس‌نشان) روی `pey.markdown.service` و اسمبل سند مستقل راست‌به‌چپ با تم.
+افزونه اپلیکیشن پارسی‌نگار: خروجی فارسی — رندر Markdown (استاندارد + GFM + پارس‌نشان) روی `pey.markdown.service` و اسمبل سند مستقل راست‌به‌چپ با تم، به‌علاوه بسته zip چندسندی مارک‌داون.
 
 ## ساختار
 
 - `manifest.json` — قرارداد معتبر افزونه.
 - `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
 - `lib/export-service.js` — پیاده‌سازی سرویس.
+- `lib/file-names.js` — قاعده مشترک نام فایل (جداکننده‌های مسیر به `-`، عنوان پیش‌فرض).
+- `lib/export-zip.js` — ساخت آرشیو zip از سندهای متنی (`@zip.js/zip.js`، بدون worker با CompressionStream بومی).
 - `lib/persian-extensions.js` — ساخت افزونه‌های micromark پارس‌نشان (اندرزها، لیست فارسی، شعر) و آپشن پاورقی فارسی؛ تنها نقطه تماس با پکیج `parsneshan`.
 - `lib/mark-extension.js` — اکستنشن محلی `==هایلایت==` به `<mark>` (نه CommonMark، نه GFM، نه پارس‌نشان) با مکانیزم attention؛ واگرایی‌های شناخته‌شده: ران سه‌تایی کاملاً literal می‌ماند و فاصله چسبیده به جداکننده تابع flanking است.
 - `lib/assemble-document.js` — اسمبل خالص سند کامل (`lang="fa" dir="rtl"`) با CSS inline سه تم؛ fragment ورودی از قبل sanitizeشده و خام جاسازی می‌شود، فقط عنوان escape می‌شود.
@@ -32,6 +34,15 @@ Markdown را با افزونه‌های فارسی رندر و سند مستق�
 ```js
 const { html, filename } = await service.exportHtml({ markdown: '# سلام', title: 'یادداشت', theme: 'dark' });
 // => { html: '<!DOCTYPE html>…', filename: 'یادداشت.html', mime: 'text/html' }
+```
+
+### `exportZip({ documents })`
+
+سندهای متنی را با مسیر پوشه‌شان در یک آرشیو `.md` می‌بندد: `{ blob, filename, mime: 'application/zip' }`. هر رکورد `{ markdown, title?, path? }` است (`path` خالی یعنی ریشه)؛ عنوان گمشده/خالی می‌شود `بدون عنوان` و هر سگمنت مسیر با همان قاعده نام فایل sanitize می‌شود (سگمنت‌های `..` خنثی می‌شوند)؛ مسیر کامل تکراری پسوند شمارشی `(2)` می‌گیرد. `documents` نا-آرایه با `EXPORT_INVALID_INPUT` و خرابی ساخت با `EXPORT_ZIP_FAILED` رد می‌شود. نام آرشیو ثابت است: `parsinegar-documents.zip`.
+
+```js
+const { blob, filename } = await service.exportZip({ documents: [{ markdown: '# سلام', title: 'یادداشت', path: 'آموزش' }] });
+// => { blob: Blob(application/zip), filename: 'parsinegar-documents.zip', mime: 'application/zip' }
 ```
 
 ## ایونت‌ها
