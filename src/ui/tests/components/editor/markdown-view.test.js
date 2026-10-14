@@ -244,7 +244,7 @@ test('should_clamp_line_when_goto_line_is_out_of_range', () => {
 test('should_set_relaxed_line_height_when_themed', async () => {
   const source = await readFile(new URL('../../../components/editor/markdown-view.js', import.meta.url), 'utf8');
   assert.ok(source.includes('lineHeight'));
-  assert.ok(source.includes("'1.5'"));
+  assert.ok(source.includes("'1.8'"));
 });
 
 test('should_detect_line_direction_when_themed', () => {

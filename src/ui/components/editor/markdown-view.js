@@ -296,7 +296,7 @@ export function createMarkdownView(host, options = {}) {
           fontFamily: PERSIAN_FONT,
         },
         '& .cm-content': {
-          lineHeight: '1.5',
+          lineHeight: '1.8',
         },
       }),
       ...editorColorScheme(options.colorScheme),
