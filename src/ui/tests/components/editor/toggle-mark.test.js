@@ -170,20 +170,94 @@ test('should_toggle_quote_per_line_when_called', () => {
   }
 });
 
-test('should_toggle_unordered_list_per_line_when_called', () => {
-  const first = createView('- a\nb', 0, 5);
+test('should_convert_plain_lines_when_unordered_toggles', () => {
+  const plain = createView('a\nb', 0, 3);
   try {
-    toggleUnorderedList(first.view);
-    assert.equal(docOf(first.view), 'a\n- b');
+    toggleUnorderedList(plain.view);
+    assert.equal(docOf(plain.view), '- a\n- b');
   } finally {
-    first.destroy();
+    plain.destroy();
   }
-  const second = createView('a\n- b', 0, 5);
+});
+
+test('should_strip_uniform_bullets_when_unordered_toggles', () => {
+  const listed = createView('- a\n- b', 0, 7);
   try {
-    toggleUnorderedList(second.view);
-    assert.equal(docOf(second.view), '- a\nb');
+    toggleUnorderedList(listed.view);
+    assert.equal(docOf(listed.view), 'a\nb');
   } finally {
-    second.destroy();
+    listed.destroy();
+  }
+});
+
+test('should_join_plain_lines_when_selection_is_mixed', () => {
+  const mixed = createView('- a\nb', 0, 5);
+  try {
+    toggleUnorderedList(mixed.view);
+    assert.equal(docOf(mixed.view), '- a\n- b');
+  } finally {
+    mixed.destroy();
+  }
+});
+
+test('should_convert_ordered_to_unordered_when_toggling', () => {
+  const ordered = createView('1. a\n2. b', 0, 8);
+  try {
+    toggleUnorderedList(ordered.view);
+    assert.equal(docOf(ordered.view), '- a\n- b');
+  } finally {
+    ordered.destroy();
+  }
+});
+
+test('should_keep_task_boxes_when_converting_to_unordered', () => {
+  const tasks = createView('1. [ ] a\n2. [x] b', 0, 15);
+  try {
+    toggleUnorderedList(tasks.view);
+    assert.equal(docOf(tasks.view), '- [ ] a\n- [x] b');
+  } finally {
+    tasks.destroy();
+  }
+});
+
+test('should_strip_task_markers_when_unordered_toggles_tasks', () => {
+  const tasks = createView('- [ ] a\n- [x] b', 0, 15);
+  try {
+    toggleUnorderedList(tasks.view);
+    assert.equal(docOf(tasks.view), 'a\nb');
+  } finally {
+    tasks.destroy();
+  }
+});
+
+test('should_strip_ordered_tasks_when_ordered_toggles', () => {
+  const tasks = createView('1. [ ] a\n2. b', 0, 13);
+  try {
+    toggleOrderedList(tasks.view);
+    assert.equal(docOf(tasks.view), 'a\nb');
+  } finally {
+    tasks.destroy();
+  }
+});
+
+test('should_convert_tasks_to_ordered_when_toggling', () => {
+  const tasks = createView('- [ ] a\n- [x] b', 0, 15);
+  try {
+    toggleOrderedList(tasks.view);
+    assert.equal(docOf(tasks.view), '1. [ ] a\n2. [x] b');
+    assert.equal(tasks.view.state.selection.main.head, 3);
+  } finally {
+    tasks.destroy();
+  }
+});
+
+test('should_convert_unordered_to_ordered_when_toggling', () => {
+  const listed = createView('- a\n- b', 0, 7);
+  try {
+    toggleOrderedList(listed.view);
+    assert.equal(docOf(listed.view), '1. a\n2. b');
+  } finally {
+    listed.destroy();
   }
 });
 

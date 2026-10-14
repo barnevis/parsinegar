@@ -422,6 +422,21 @@ test('should_reject_unknown_kind_when_insert_mark_is_called', () => {
   }
 });
 
+test('should_convert_lists_through_insert_mark_when_called', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: '1. a' });
+  try {
+    assert.equal(editor.insertMark('unordered-list'), true);
+    assert.equal(editor.getValue(), '- a');
+    assert.equal(editor.insertMark('ordered-list'), true);
+    assert.equal(editor.getValue(), '1. a');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 test('should_report_first_line_when_visible_line_is_read', () => {
   const host = document.createElement('div');
   document.body.append(host);

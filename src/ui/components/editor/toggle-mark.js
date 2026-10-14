@@ -44,6 +44,75 @@ function toggleInlineMark(view, mark) {
 }
 
 /**
+ * Collects the overlapped document lines for a list command, dropping a
+ * trailing edge that merely touches the next line start.
+ * @param {object} view Active editor view.
+ * @returns {Array<object>} CodeMirror line objects, ascending.
+ */
+function targetLines(view) {
+  const { state } = view;
+  const selection = state.selection.main;
+  const firstLine = state.doc.lineAt(selection.from).number;
+  let lastLine = state.doc.lineAt(selection.to).number;
+  if (selection.to > selection.from && state.doc.line(lastLine).from === selection.to) {
+    lastLine -= 1;
+  }
+  const lines = [];
+  for (let number = firstLine; number <= lastLine; number += 1) {
+    lines.push(state.doc.line(number));
+  }
+  return lines;
+}
+
+/**
+ * Classifies one line for list toggling: unordered/ordered bullets, with
+ * or without task boxes. Blank lines and anything else stay out so they
+ * break uniformity checks instead of joining either family.
+ * @param {string} text Line text.
+ * @returns {object} `{ family, blank, indent, headEnd, boxStart }` where
+ *   family is `'unordered'`, `'ordered'` or null, indent the leading
+ *   whitespace, headEnd the content offset, and boxStart the `[` offset
+ *   (or -1 without a box).
+ */
+function classifyListLine(text) {
+  const empty = { family: null, blank: true, indent: '', headEnd: 0, boxStart: -1 };
+  if (/^\s*$/.test(text)) {
+    return empty;
+  }
+  const indent = /^([ \t]*)/.exec(text)?.[1] ?? '';
+  const readBox = (offset) => {
+    const box = /^\[[ xX]\](\s+|$)/.exec(text.slice(offset));
+    return box ? { start: offset, end: offset + box[0].length } : null;
+  };
+  const ordered = parseOrderedLine(text);
+  if (ordered) {
+    const digitsEnd = ordered.indent.length + ordered.digitsLength + ordered.delimiter.length;
+    const gap = /^[ \t]*/.exec(text.slice(digitsEnd))?.[0] ?? '';
+    const box = readBox(digitsEnd + gap.length);
+    return {
+      family: 'ordered',
+      blank: false,
+      indent: ordered.indent,
+      headEnd: box ? box.end : digitsEnd + gap.length,
+      boxStart: box ? box.start : -1,
+    };
+  }
+  const bullet = /^([ \t]*)([*+-])(\s+)/.exec(text);
+  if (bullet) {
+    const markerEnd = bullet[1].length + bullet[2].length + bullet[3].length;
+    const box = readBox(markerEnd);
+    return {
+      family: 'unordered',
+      blank: false,
+      indent: bullet[1],
+      headEnd: box ? box.end : markerEnd,
+      boxStart: box ? box.start : -1,
+    };
+  }
+  return { family: null, blank: false, indent, headEnd: indent.length, boxStart: -1 };
+}
+
+/**
  * Toggles a line prefix (`# `, `> `, `- `, `1. `) on every overlapped line.
  * @param {object} view Active editor view.
  * @param {RegExp} pattern Matches an existing prefix with indent in group 1.
@@ -128,41 +197,70 @@ export function toggleQuote(view) {
 }
 
 /**
- * Toggles an unordered `- ` prefix on every overlapped line.
+ * Toggles an unordered list over the selection: a uniformly bulleted
+ * selection (tasks included, boxes and all) turns back into plain lines,
+ * otherwise every other line joins as `- ` (ordered markers are replaced,
+ * task boxes kept, indentation kept).
  * @param {object} view Active editor view.
  * @returns {boolean} Always true.
  */
 export function toggleUnorderedList(view) {
-  return toggleLinePrefix(view, /^(\s*)[*+-]\s+/, '- ');
+  const lines = targetLines(view);
+  const infos = lines.map((line) => classifyListLine(line.text));
+  const changes = [];
+  if (lines.length > 0 && infos.every((info) => info.family === 'unordered')) {
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      const info = infos[index];
+      changes.push({
+        from: line.from + info.indent.length,
+        to: line.from + info.headEnd,
+        insert: '',
+      });
+    }
+  } else {
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      const info = infos[index];
+      if (!info.blank && info.family === 'unordered') {
+        continue;
+      }
+      if (info.family === 'ordered') {
+        changes.push({
+          from: line.from + info.indent.length,
+          to: line.from + (info.boxStart >= 0 ? info.boxStart : info.headEnd),
+          insert: '- ',
+        });
+        continue;
+      }
+      changes.push({ from: line.from + info.indent.length, insert: '- ' });
+    }
+  }
+  view.dispatch({ changes, scrollIntoView: true });
+  return true;
 }
 
 /**
- * Toggles an ordered list over every overlapped line. When all lines are
- * already ordered their prefixes come off; otherwise the selection becomes
- * one sequential list per indent level (new lines start ASCII `N. `, every
- * line keeps its own digit style and delimiter). Blank lines join like the
- * existing per-line toggle always did.
+ * Toggles an ordered list over the selection. When every line is already
+ * ordered (tasks included, boxes and all) their prefixes come off;
+ * otherwise the selection becomes sequential lists per indent level, with
+ * unordered markers replaced (task boxes kept) and plain lines numbered.
+ * New lines start ASCII `N. `, every line keeps its own digit style and
+ * delimiter. Blank lines join like before.
  * @param {object} view Active editor view.
  * @returns {boolean} Always true.
  */
 export function toggleOrderedList(view) {
-  const { state } = view;
-  const selection = state.selection.main;
-  const firstLine = state.doc.lineAt(selection.from).number;
-  let lastLine = state.doc.lineAt(selection.to).number;
-  if (selection.to > selection.from && state.doc.line(lastLine).from === selection.to) {
-    lastLine -= 1;
-  }
-  const lines = [];
-  for (let number = firstLine; number <= lastLine; number += 1) {
-    lines.push(state.doc.line(number));
-  }
-  if (lines.every((line) => parseOrderedLine(line.text))) {
-    const changes = lines.map((line) => {
-      const parsed = parseOrderedLine(line.text);
-      const to = line.from + parsed.indent.length + parsed.digitsLength + parsed.delimiter.length;
-      const spaces = /^[ \t]*/.exec(line.text.slice(to - line.from))?.[0] ?? '';
-      return { from: line.from, to: to + spaces.length, insert: parsed.indent };
+  const lines = targetLines(view);
+  const infos = lines.map((line) => classifyListLine(line.text));
+  if (lines.length > 0 && infos.every((info) => info.family === 'ordered')) {
+    const changes = lines.map((line, index) => {
+      const info = infos[index];
+      return {
+        from: line.from + info.indent.length,
+        to: line.from + info.headEnd,
+        insert: '',
+      };
     });
     view.dispatch({ changes, scrollIntoView: true });
     return true;
@@ -181,12 +279,28 @@ export function toggleOrderedList(view) {
       };
     }
     const indent = /^(\s*)/.exec(line.text)?.[1] ?? '';
+    const info = infos[index];
+    if (info.family === 'unordered') {
+      // Replace the bullet in place (up to a task box, which stays), so
+      // markers never stack.
+      return {
+        from: line.from,
+        indent,
+        value: 0,
+        fa: false,
+        delimiter: '.',
+        digitsLength: 0,
+        replaceFrom: indent.length,
+        replaceTo: info.boxStart >= 0 ? info.boxStart : info.headEnd,
+        moved: true,
+      };
+    }
     return { from: line.from, indent, value: 0, fa: false, delimiter: '.', digitsLength: 0, moved: true };
   });
   const computed = computeNumbers(records);
   const changes = [];
   for (const entry of computed) {
-    const line = state.doc.lineAt(entry.from);
+    const line = view.state.doc.lineAt(entry.from);
     const original = parseOrderedLine(line.text);
     const core = `${entry.indent}${formatDigits(entry.value, entry.fa)}${entry.delimiter}`;
     if (original) {
@@ -194,6 +308,8 @@ export function toggleOrderedList(view) {
       if (core !== line.text.slice(0, prefixLength)) {
         changes.push({ from: entry.from, to: entry.from + prefixLength, insert: core });
       }
+    } else if (entry.replaceFrom !== undefined) {
+      changes.push({ from: entry.from + entry.replaceFrom, to: entry.from + entry.replaceTo, insert: `${core} ` });
     } else {
       changes.push({ from: entry.from, to: entry.from + entry.indent.length, insert: `${core} ` });
     }
@@ -202,7 +318,7 @@ export function toggleOrderedList(view) {
   // gap): the marker widget covers exactly that range, and a cursor inside
   // it paints on the wrong side of the number.
   const [head] = computed;
-  const headLine = state.doc.lineAt(head.from);
+  const headLine = view.state.doc.lineAt(head.from);
   const headParsed = parseOrderedLine(headLine.text);
   const headGap = headParsed
     ? (/^(\s*)/.exec(headLine.text.slice(headParsed.indent.length + headParsed.digitsLength + headParsed.delimiter.length))?.[1] ?? '')
