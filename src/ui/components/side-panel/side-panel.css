@@ -253,6 +253,7 @@
 [part="docs-new"],
 [part="docs-folder-new"],
 [part="docs-import"],
+[part="docs-mindmap-new"],
 [part="docs-sort"] {
   font: inherit;
   flex: 1;
@@ -267,6 +268,7 @@
 [part="docs-new"] svg,
 [part="docs-folder-new"] svg,
 [part="docs-import"] svg,
+[part="docs-mindmap-new"] svg,
 [part="docs-sort"] svg {
   inline-size: 20px;
   block-size: 20px;
@@ -275,6 +277,7 @@
 [part="docs-new"]:hover,
 [part="docs-folder-new"]:hover,
 [part="docs-import"]:hover,
+[part="docs-mindmap-new"]:hover,
 [part="docs-sort"]:hover {
   background-color: var(--pey-color-surface, #f1f1f5);
 }

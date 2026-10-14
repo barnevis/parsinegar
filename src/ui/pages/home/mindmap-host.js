@@ -7,7 +7,7 @@
 // destroy() releases it; its stylesheet is fetched once and injected into
 // the host's root (document styles never reach inside Shadow DOM).
 import { buildMindmapTree, isListOnlyDocument, mindmapSignature, parseMindmap } from '../../components/workbench/mindmap.js';
-import { lineOfNodeId, toMindElixirData } from '../../components/workbench/mindmap-adapter.js';
+import { generateSubBranch, lineOfNodeId, toMindElixirData } from '../../components/workbench/mindmap-adapter.js';
 
 const MINDMAP_CSS_PATH = './node_modules/mind-elixir/dist/MindElixir.css';
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
@@ -76,6 +76,7 @@ export function createMindmapHost(host, options = {}) {
   let destroyed = false;
   let signature = null;
   let selectedId = null;
+  let lastData = null;
 
   const showGuidance = () => {
     host.setAttribute('data-mindmap-root', '');
@@ -96,7 +97,28 @@ export function createMindmapHost(host, options = {}) {
       }
       mind = null;
     }
+    lastData = null;
   };
+
+  // Node boxes are measured at layout time: a late webfont arrival resizes
+  // them while link paths stay stale, so every finished font load replays
+  // the last render. The listener lives on the global set and is removed
+  // on destroy.
+  const healFonts = () => {
+    if (destroyed || !mind || !lastData) {
+      return;
+    }
+    try {
+      mind.refresh(lastData);
+      selectedId = null;
+    } catch {
+      // A later refresh heals; never break on a background relayout.
+    }
+  };
+  const fontSet = typeof document !== 'undefined' ? document.fonts : null;
+  if (fontSet && typeof fontSet.addEventListener === 'function') {
+    fontSet.addEventListener('loadingdone', healFonts);
+  }
 
   function handleDoubleClick() {
     if (destroyed || !mind) {
@@ -128,7 +150,8 @@ export function createMindmapHost(host, options = {}) {
       return false;
     }
     const root = host.getRootNode();
-    if (root && typeof root.querySelector === 'function' && !root.querySelector('style[data-mindmap-css]')) {
+    const styleScope = root && root.nodeType === 9 ? root.head ?? root : root;
+    if (styleScope && typeof styleScope.querySelector === 'function' && !styleScope.querySelector('style[data-mindmap-css]')) {
       let css = '';
       try {
         css = await mindmapCss();
@@ -138,10 +161,13 @@ export function createMindmapHost(host, options = {}) {
       const style = document.createElement('style');
       style.setAttribute('data-mindmap-css', '');
       style.textContent = css === '' ? FONT_OVERRIDE : `${css}\n${FONT_OVERRIDE}`;
-      root.append(style);
+      styleScope.append(style);
     }
     host.setAttribute('data-mindmap-root', '');
     host.textContent = '';
+    // The constructor option alone does not survive: changeTheme() during
+    // init re-reads the generator off the theme, so it rides along here.
+    const theme = { ...(dark ? MindElixir.DARK_THEME : MindElixir.THEME), generateSubBranch };
     mind = new MindElixir({
       el: host,
       direction: MindElixir.RIGHT,
@@ -151,14 +177,15 @@ export function createMindmapHost(host, options = {}) {
       toolBar: false,
       nodeMenu: false,
       keypress: false,
-      theme: dark ? MindElixir.DARK_THEME : MindElixir.THEME,
+      theme,
     });
     mind.bus.addListener('selectNodes', handleSelect);
     mind.bus.addListener('unselectNodes', () => {
       selectedId = null;
     });
     host.addEventListener('dblclick', handleDoubleClick);
-    mind.init(toMindElixirData(buildMindmapTree(parseMindmap(text))));
+    lastData = toMindElixirData(buildMindmapTree(parseMindmap(text)));
+    mind.init(lastData);
     return true;
   }
 
@@ -212,7 +239,8 @@ export function createMindmapHost(host, options = {}) {
           return;
         }
         if (await ensureInstance(text)) {
-          mind.refresh(toMindElixirData(buildMindmapTree(parseMindmap(text))));
+          lastData = toMindElixirData(buildMindmapTree(parseMindmap(text)));
+          mind.refresh(lastData);
           selectedId = null;
         }
       } catch {
@@ -229,6 +257,9 @@ export function createMindmapHost(host, options = {}) {
      */
     destroy() {
       destroyed = true;
+      if (fontSet && typeof fontSet.removeEventListener === 'function') {
+        fontSet.removeEventListener('loadingdone', healFonts);
+      }
       releaseInstance();
       host.textContent = '';
     },

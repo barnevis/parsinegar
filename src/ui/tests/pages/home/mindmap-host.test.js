@@ -55,3 +55,19 @@ test('should_return_to_guidance_when_text_leaves_lists', async () => {
     host.remove();
   }
 });
+
+test('should_inject_stylesheet_into_head_when_mounted_in_light_dom', async () => {
+  const host = mountHost();
+  const controller = createMindmapHost(host, { getText: () => '- الف\n  - ب' });
+  try {
+    await controller.ready;
+    assert.ok(
+      document.head.querySelector('style[data-mindmap-css]'),
+      'expected the library stylesheet in the document head, not appended to the document',
+    );
+  } finally {
+    controller.destroy();
+    host.remove();
+    document.head.querySelector('style[data-mindmap-css]')?.remove();
+  }
+});
