@@ -175,6 +175,19 @@ test('should_leave_plain_markers_bare_when_rendered', () => {
   }
 });
 
+test('should_flag_parent_markers_when_rendered', () => {
+  const mounted = createEditor('متن\n\n- والد\n\t- بچه');
+  try {
+    const markers = [...mounted.host.querySelectorAll('.parsi-list-marker')];
+    assert.equal(markers.length, 2);
+    assert.ok(markers[0].classList.contains('parsi-list-parent'), 'expected the toggle hint on parents');
+    assert.ok(markers[0].classList.contains('parsi-list-bullet'));
+    assert.ok(!markers[1].classList.contains('parsi-list-parent'), 'expected no hint on leaves');
+  } finally {
+    destroy(mounted);
+  }
+});
+
 test('should_point_chevron_by_state_when_themed', () => {
   const mounted = createEditor('- الف\n  - ب\n');
   try {
@@ -188,6 +201,8 @@ test('should_point_chevron_by_state_when_themed', () => {
       }
     });
     assert.ok(has('.parsi-list-marker .parsi-list-chevron', 'position', 'absolute'), 'expected the overlay chevron');
+    assert.ok(has('.parsi-list-marker.parsi-list-parent', 'cursor', 'pointer'), 'expected the pointer on parents');
+    assert.ok(has('.parsi-list-marker.parsi-list-parent::after', 'content', '""'), 'expected the gap hit pad');
     assert.ok(has('.parsi-list-marker .parsi-list-chevron', 'transform', 'rotate(45deg)'), 'expected the expanded chevron down');
     assert.ok(has('.parsi-list-collapsed .parsi-list-chevron', 'transform', 'rotate(135deg)'), 'expected the collapsed chevron sideways');
     assert.ok(has('.cm-foldPlaceholder', 'background-color', 'transparent'), 'expected the invisible fold placeholder');

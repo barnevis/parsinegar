@@ -133,10 +133,11 @@ export const FENCE_PATTERN = /^[ \t]*```/;
  * the marker while folded.
  */
 class ListMarkerWidget extends WidgetType {
-  constructor({ label, bullet = false, foldFrom = null, foldTo = null, folded = false }) {
+  constructor({ label, bullet = false, parent = false, foldFrom = null, foldTo = null, folded = false }) {
     super();
     this.label = label;
     this.bullet = bullet;
+    this.parent = parent;
     this.foldFrom = foldFrom;
     this.foldTo = foldTo;
     this.folded = folded;
@@ -146,6 +147,7 @@ class ListMarkerWidget extends WidgetType {
     return other instanceof ListMarkerWidget
       && other.label === this.label
       && other.bullet === this.bullet
+      && other.parent === this.parent
       && other.foldFrom === this.foldFrom
       && other.foldTo === this.foldTo
       && other.folded === this.folded;
@@ -153,9 +155,10 @@ class ListMarkerWidget extends WidgetType {
 
   toDOM() {
     const span = document.createElement('span');
-    const collapsed = this.folded ? ' parsi-list-collapsed' : '';
     const bullet = this.bullet ? ' parsi-list-bullet' : '';
-    span.className = `parsi-list-marker${bullet}${collapsed}`;
+    const parent = this.parent ? ' parsi-list-parent' : '';
+    const collapsed = this.folded ? ' parsi-list-collapsed' : '';
+    span.className = `parsi-list-marker${bullet}${parent}${collapsed}`;
     span.textContent = this.label;
     if (Number.isInteger(this.foldFrom) && Number.isInteger(this.foldTo)) {
       span.dataset.foldFrom = String(this.foldFrom);
@@ -296,6 +299,7 @@ function buildMarkerDecorations(view) {
                 widget: new ListMarkerWidget({
                   label,
                   bullet: match[1] !== undefined,
+                  parent: parent !== null,
                   foldFrom: parent?.foldFrom ?? null,
                   foldTo: parent?.foldTo ?? null,
                   folded,

@@ -177,6 +177,22 @@ const foldTheme = EditorView.theme({
   // flow space: the marker glyph never moves, in any state (widget or raw,
   // hovered or not). That keeps parent rows pixel-aligned with plain rows.
   '& .parsi-list-marker': { position: 'relative' },
+  // Parent markers toggle on click, so they signal it with a pointer. Leaf
+  // markers keep the text cursor.
+  '& .parsi-list-marker.parsi-list-parent': { cursor: 'pointer' },
+  // Transparent hit pad over the chevron zone (the padding the overlay
+  // leaves blank): gap clicks resolve through the marker itself, with zero
+  // layout impact, in every browser and every chevron state — unlike
+  // coordinate mapping. Anchored by start edge plus size (never by both
+  // edges, which over-constrains and drops a side under rtl).
+  '& .parsi-list-marker.parsi-list-parent::after': {
+    content: '""',
+    position: 'absolute',
+    insetInlineStart: '-1em',
+    inlineSize: '1em',
+    top: '0',
+    bottom: '0',
+  },
   // Bullets sit slightly below the line middle (near the text baseline,
   // where bullets read best); the relative shift is paint-only, so cursor
   // mapping, folding and selection never notice it.
