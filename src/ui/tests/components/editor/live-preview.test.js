@@ -116,6 +116,7 @@ test('should_replace_bullet_with_marker_when_rendered', () => {
     const marker = mounted.host.querySelector('.parsi-list-marker');
     assert.ok(marker, 'expected a list marker widget');
     assert.equal(marker.textContent, '• ');
+    assert.ok(marker.classList.contains('parsi-list-bullet'), 'expected the bullet alignment class');
   } finally {
     destroy(mounted);
   }
@@ -127,6 +128,7 @@ test('should_keep_number_in_marker_when_ordered', () => {
     const markers = [...mounted.host.querySelectorAll('.parsi-list-marker')];
     assert.ok(markers.length >= 1, 'expected marker widgets');
     assert.ok(markers[0].textContent.startsWith('۱'));
+    assert.equal(markers[0].classList.contains('parsi-list-bullet'), false);
   } finally {
     destroy(mounted);
   }

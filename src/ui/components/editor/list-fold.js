@@ -137,6 +137,10 @@ const foldTheme = EditorView.theme({
   // flow space: the marker glyph never moves, in any state (widget or raw,
   // hovered or not). That keeps parent rows pixel-aligned with plain rows.
   '& .parsi-list-marker': { position: 'relative' },
+  // Bullets sit slightly below the line middle (near the text baseline,
+  // where bullets read best); the relative shift is paint-only, so cursor
+  // mapping, folding and selection never notice it.
+  '& .parsi-list-marker.parsi-list-bullet': { top: '0.25em' },
   '& .parsi-list-marker .parsi-list-chevron': { display: 'none' },
   '& .cm-line:hover .parsi-list-marker .parsi-list-chevron': { display: 'block' },
   '& .cm-line.parsi-list-active .parsi-list-marker .parsi-list-chevron': { display: 'block' },
@@ -153,6 +157,21 @@ const foldTheme = EditorView.theme({
   },
   '& .parsi-list-marker.parsi-list-collapsed .parsi-list-chevron': {
     transform: 'translateY(-50%) rotate(135deg)',
+  },
+  // A collapsed (left-pointing) chevron carries its tip at the box middle,
+  // while the open one carries it below the box: the collapsed box drops by
+  // the same tip offset so both tips land on the bullet glyph. Ordered rows
+  // keep the shared position untouched.
+  '& .parsi-list-marker.parsi-list-bullet.parsi-list-collapsed .parsi-list-chevron': {
+    top: 'calc(50% - 0.25em + 0.28em)',
+    transform: 'translateY(-50%) rotate(135deg)',
+  },
+  // The chevron inherits the bullet nudge through its relative parent, so
+  // its own top cancels it back out: the open tip lands exactly where it
+  // always was — now on the lowered bullet. Ordered rows keep the shared
+  // rule untouched.
+  '& .parsi-list-marker.parsi-list-bullet .parsi-list-chevron': {
+    top: 'calc(50% - 0.25em)',
   },
   // Task chevrons overlay like bullet chevrons instead of taking flow
   // space: behind the box sits only the gap, the zero-size hidden dash and
