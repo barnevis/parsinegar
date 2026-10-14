@@ -38,6 +38,140 @@ export function lineOfNodeId(id) {
   return Number.isInteger(line) && line >= 1 ? line : null;
 }
 
+/**
+ * Converts a library node (sub)tree into plain records, keeping ids as
+ * opaque data for the caller to pair with placed lines.
+ * @param {Array<object>} objs Library node objects.
+ * @returns {Array<object>} `[{ id, topic, children }]`.
+ */
+export function plainSubtrees(objs) {
+  if (!Array.isArray(objs)) {
+    return [];
+  }
+  return objs
+    .filter((node) => node && typeof node === 'object')
+    .map((node) => ({
+      id: typeof node.id === 'string' ? node.id : null,
+      topic: typeof node.topic === 'string' ? node.topic : '',
+      children: plainSubtrees(node.children),
+    }));
+}
+
+/**
+ * Resolves a fresh sibling's reference: the id to anchor to and how.
+ * @param {object} parentNode Parent library node (with `children`).
+ * @param {string} newId Id of the inserted node.
+ * @param {string} type `'before'` or `'after'`.
+ * @returns {object|null} `{ refId, position }` with position `'before'`,
+ *   `'after'` or `'first'` (insert as first child), or null.
+ */
+export function siblingReference(parentNode, newId, type) {
+  const kids = parentNode && Array.isArray(parentNode.children) ? parentNode.children : null;
+  if (!kids || typeof newId !== 'string') {
+    return null;
+  }
+  const index = kids.findIndex((kid) => kid && kid.id === newId);
+  if (index < 0) {
+    return null;
+  }
+  if (type === 'before') {
+    const next = kids[index + 1];
+    return next && typeof next.id === 'string' ? { refId: next.id, position: 'before' } : null;
+  }
+  const prev = kids[index - 1];
+  if (prev && typeof prev.id === 'string') {
+    return { refId: prev.id, position: 'after' };
+  }
+  return typeof parentNode.id === 'string' ? { refId: parentNode.id, position: 'first' } : null;
+}
+
+/**
+ * Describes a library `operation` bus event for text translation. Shapes
+ * stay raw (ids unresolved): the caller maps ids to lines against current
+ * text plus its pending fresh-id table.
+ * @param {object} event Bus event `{ name, obj?, objs?, toObj?, type? }`.
+ * @returns {object|null} Described op, `{ kind: 'ignore' }` for transient
+ *   ones, or null for unknown names.
+ */
+export function describeOperation(event) {
+  if (!event || typeof event !== 'object' || typeof event.name !== 'string') {
+    return null;
+  }
+  switch (event.name) {
+    case 'beginEdit':
+      return { kind: 'ignore' };
+    case 'finishEdit': {
+      if (!event.obj || typeof event.obj !== 'object') {
+        return null;
+      }
+      return { kind: 'rename', id: event.obj.id ?? null, topic: event.obj.topic ?? '' };
+    }
+    case 'addChild': {
+      if (!event.obj || typeof event.obj !== 'object') {
+        return null;
+      }
+      return {
+        kind: 'add',
+        parentId: event.obj.parent?.id ?? null,
+        newId: typeof event.obj.id === 'string' ? event.obj.id : null,
+        topic: event.obj.topic ?? '',
+      };
+    }
+    case 'insertSibling': {
+      if (!event.obj || typeof event.obj !== 'object') {
+        return null;
+      }
+      const ref = siblingReference(event.obj.parent, event.obj.id, event.type);
+      if (!ref) {
+        return null;
+      }
+      return {
+        kind: 'sibling',
+        refId: ref.refId,
+        position: ref.position,
+        newId: typeof event.obj.id === 'string' ? event.obj.id : null,
+        topic: event.obj.topic ?? '',
+      };
+    }
+    case 'insertParent': {
+      if (!event.obj || typeof event.obj !== 'object') {
+        return null;
+      }
+      const wrapped = Array.isArray(event.obj.children) ? event.obj.children[0] : null;
+      return {
+        kind: 'parent',
+        wrappedId: wrapped && typeof wrapped === 'object' ? wrapped.id ?? null : null,
+        newId: typeof event.obj.id === 'string' ? event.obj.id : null,
+        topic: event.obj.topic ?? '',
+      };
+    }
+    case 'removeNodes': {
+      if (!Array.isArray(event.objs)) {
+        return null;
+      }
+      return { kind: 'remove', ids: event.objs.map((node) => (node && typeof node === 'object' ? node.id ?? null : null)) };
+    }
+    case 'moveNodeIn':
+    case 'moveNodeBefore':
+    case 'moveNodeAfter': {
+      if (!Array.isArray(event.objs) || event.objs.length !== 1) {
+        return null;
+      }
+      return {
+        kind: 'move',
+        fromId: event.objs[0] && typeof event.objs[0] === 'object' ? event.objs[0].id ?? null : null,
+        toId: event.toObj && typeof event.toObj === 'object' ? event.toObj.id ?? null : null,
+        position: event.name === 'moveNodeIn' ? 'inside' : event.name === 'moveNodeBefore' ? 'before' : 'after',
+      };
+    }
+    case 'copyNodes': {
+      return { kind: 'paste', nodes: plainSubtrees(event.objs) };
+    }
+    default:
+      return null;
+  }
+}
+
 const FALLBACK_NODE_GAP = 30;
 
 /**

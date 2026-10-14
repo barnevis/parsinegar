@@ -3,17 +3,39 @@
 // Plain controller factory (not a custom element), mirroring
 // markdown-view.js: the page renders the host node and mounts the
 // third-party view here. The library is lazy-imported on first mount so
-// non-mindmap loads never fetch it. MindElixir owns its DOM until
+// non-mindmap loads never fetch it. MindElixir owns its canvas DOM until
 // destroy() releases it; its stylesheet is fetched once and injected into
 // the host's root (document styles never reach inside Shadow DOM).
+//
+// Editing always flows through the bus: every library mutation is
+// translated to source text (single writer) and reported through onChange,
+// then the map rebuilds so node ids stay fresh. Native gestures stay
+// native (double-click/F2 edit, Tab/Enter/Delete, drag-move); the toolbar
+// only triggers the same public methods in Persian.
 import { buildMindmapTree, isListOnlyDocument, mindmapSignature, parseMindmap } from '../../components/workbench/mindmap.js';
-import { generateSubBranch, lineOfNodeId, toMindElixirData } from '../../components/workbench/mindmap-adapter.js';
+import { applyMapOperation, MAP_NEW_TOPIC } from '../../components/workbench/mindmap-edit.js';
+import { describeOperation, generateSubBranch, lineOfNodeId, toMindElixirData } from '../../components/workbench/mindmap-adapter.js';
 
 const MINDMAP_CSS_PATH = './node_modules/mind-elixir/dist/MindElixir.css';
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const FONT_OVERRIDE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc{direction:rtl;text-align:start;}`;
 
 let cachedCss = null;
+
+/**
+ * Fetches the library stylesheet once for style injection.
+ * @returns {Promise<string>} CSS text.
+ */
+async function mindmapCss() {
+  if (cachedCss === null) {
+    const response = await fetch(MINDMAP_CSS_PATH);
+    if (!response.ok) {
+      throw new Error(`mindmap stylesheet unavailable: ${MINDMAP_CSS_PATH}`);
+    }
+    cachedCss = await response.text();
+  }
+  return cachedCss;
+}
 
 /**
  * Reads a MindElixir node id from the shapes the library hands out: plain
@@ -37,31 +59,22 @@ function nodeIdOf(node) {
   return null;
 }
 
-/**
- * Fetches the library stylesheet once for style injection.
- * @returns {Promise<string>} CSS text.
- */
-async function mindmapCss() {
-  if (cachedCss === null) {
-    const response = await fetch(MINDMAP_CSS_PATH);
-    if (!response.ok) {
-      throw new Error(`mindmap stylesheet unavailable: ${MINDMAP_CSS_PATH}`);
-    }
-    cachedCss = await response.text();
-  }
-  return cachedCss;
-}
+const TOOLBAR_ACTIONS = ['addChild', 'addSibling', 'removeNode', 'jump'];
 
 /**
- * Creates a display-only mindmap in the given host element.
+ * Creates an editable mindmap in the given host element.
  * @param {HTMLElement} host Container rendered by the owning page.
- * @param {object} [options] View options.
+ * @param {object} options View options.
  * @param {Function} options.getText Reads the current Markdown text.
  * @param {Function} [options.t] Translation function (falls back to identity).
  * @param {boolean} [options.dark] Renders the dark theme instead of light.
- * @param {Function} [options.onJump] Called with a 1-based line on node double-click.
+ * @param {Function} options.onChange Called with the new text on every
+ *   committed map operation (required: without it the map would diverge
+ *   from the text it edits).
+ * @param {Function} [options.onJump] Called with a 1-based line when the
+ *   jump action runs.
  * @returns {object} Controller with `refresh()`, `destroy()`, `ready`.
- * @throws {Error} When host is not an element.
+ * @throws {Error} When host is not an element or onChange is missing.
  */
 export function createMindmapHost(host, options = {}) {
   const isElement = host !== null && typeof host === 'object' && typeof host.appendChild === 'function';
@@ -70,6 +83,10 @@ export function createMindmapHost(host, options = {}) {
   }
   const getText = typeof options.getText === 'function' ? options.getText : () => '';
   const translate = typeof options.t === 'function' ? options.t : (key) => key;
+  const onChange = typeof options.onChange === 'function' ? options.onChange : null;
+  if (!onChange) {
+    throw new Error('createMindmapHost requires an onChange callback');
+  }
   const onJump = typeof options.onJump === 'function' ? options.onJump : null;
   const dark = options.dark === true;
   let mind = null;
@@ -77,19 +94,42 @@ export function createMindmapHost(host, options = {}) {
   let signature = null;
   let selectedId = null;
   let lastData = null;
+  let canvas = null;
+  let bar = null;
+  const pendingFresh = new Map();
+
+  const labelFor = (action) => translate(`parsinegar.mindmap.${action}`);
+
+  const buildBar = () => {
+    const element = document.createElement('div');
+    element.setAttribute('data-mindmap-bar', '');
+    element.hidden = true;
+    for (const action of TOOLBAR_ACTIONS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('data-mind-btn', action);
+      button.textContent = labelFor(action);
+      element.append(button);
+    }
+    return element;
+  };
 
   const showGuidance = () => {
-    host.setAttribute('data-mindmap-root', '');
-    host.textContent = '';
+    if (bar) {
+      bar.hidden = true;
+    }
+    if (!canvas) {
+      return;
+    }
+    canvas.textContent = '';
     const note = document.createElement('p');
     note.setAttribute('part', 'mindmap-empty');
     note.textContent = translate('parsinegar.views.mindmap-empty');
-    host.append(note);
+    canvas.append(note);
   };
 
   const releaseInstance = () => {
     if (mind) {
-      host.removeEventListener('dblclick', handleDoubleClick);
       try {
         mind.destroy();
       } catch {
@@ -97,38 +137,61 @@ export function createMindmapHost(host, options = {}) {
       }
       mind = null;
     }
-    lastData = null;
   };
 
-  // Node boxes are measured at layout time: a late webfont arrival resizes
-  // them while link paths stay stale, so every finished font load replays
-  // the last render. The listener lives on the global set and is removed
-  // on destroy.
-  const healFonts = () => {
-    if (destroyed || !mind || !lastData) {
-      return;
+  const resolveLine = (id) => lineOfNodeId(id) ?? pendingFresh.get(id) ?? null;
+
+  const currentElement = () => {
+    if (!mind) {
+      return null;
+    }
+    const id = nodeIdOf(selectedId) ?? nodeIdOf(mind.currentNode);
+    if (id === null) {
+      return null;
     }
     try {
-      mind.refresh(lastData);
-      selectedId = null;
+      return mind.findEle(id);
     } catch {
-      // A later refresh heals; never break on a background relayout.
+      return null;
     }
   };
-  const fontSet = typeof document !== 'undefined' ? document.fonts : null;
-  if (fontSet && typeof fontSet.addEventListener === 'function') {
-    fontSet.addEventListener('loadingdone', healFonts);
-  }
 
-  function handleDoubleClick() {
+  const runToolbarAction = (action) => {
     if (destroyed || !mind) {
       return;
     }
-    const line = lineOfNodeId(nodeIdOf(selectedId) ?? nodeIdOf(mind.currentNode));
-    if (line !== null) {
-      onJump?.(line);
+    if (action === 'jump') {
+      const id = nodeIdOf(selectedId) ?? nodeIdOf(mind.currentNode);
+      const line = id === null ? null : resolveLine(id);
+      if (line !== null) {
+        onJump?.(line);
+      }
+      return;
     }
-  }
+    const element = currentElement();
+    if (!element) {
+      return;
+    }
+    try {
+      if (action === 'addChild') {
+        mind.addChild(element);
+      } else if (action === 'addSibling') {
+        mind.insertSibling('after', element);
+      } else if (action === 'removeNode') {
+        mind.removeNodes([element]);
+      }
+    } catch {
+      // Library refusals (root guards) stay silent; the map is untouched.
+    }
+  };
+
+  const handleBarClick = (event) => {
+    const button = event.target?.closest?.('[data-mind-btn]');
+    if (!button || !host.contains(button)) {
+      return;
+    }
+    runToolbarAction(button.getAttribute('data-mind-btn') ?? '');
+  };
 
   const handleSelect = (node) => {
     const single = Array.isArray(node) ? node[0] : node;
@@ -137,6 +200,67 @@ export function createMindmapHost(host, options = {}) {
       selectedId = id;
     }
   };
+
+  const healRefresh = async () => {
+    if (destroyed) {
+      return;
+    }
+    try {
+      await refresh();
+    } catch {
+      // Refresh heals through guidance; never break on it.
+    }
+  };
+
+  async function applyDescribed(described) {
+    if (destroyed) {
+      return;
+    }
+    try {
+      const current = getText() ?? '';
+      if (described.kind === 'paste' && described.targetLine === undefined) {
+        const targetId = nodeIdOf(selectedId) ?? nodeIdOf(mind?.currentNode);
+        described.targetLine = targetId === null ? null : resolveLine(targetId);
+      }
+      const outcome = applyMapOperation(current, described, resolveLine, pendingFresh);
+      if (outcome === null || outcome.text === null) {
+        await healRefresh();
+        return;
+      }
+      if (outcome.text !== current) {
+        try {
+          onChange(outcome.text);
+        } catch (error) {
+          console.error('[mindmap-host] map change failed');
+          await healRefresh();
+          return;
+        }
+      }
+      if (outcome.refresh) {
+        await refresh();
+      }
+    } catch {
+      if (!destroyed) {
+        await healRefresh();
+      }
+    }
+  }
+
+  const handleOperation = (event) => {
+    if (destroyed || !mind) {
+      return;
+    }
+    const described = describeOperation(event);
+    if (!described) {
+      console.error('[mindmap-host] unsupported map operation', event?.name);
+      void healRefresh();
+      return;
+    }
+    if (described.kind === 'ignore') {
+      return;
+    }
+    void applyDescribed(described);
+  }
 
   async function ensureInstance(text) {
     if (mind) {
@@ -164,29 +288,58 @@ export function createMindmapHost(host, options = {}) {
       styleScope.append(style);
     }
     host.setAttribute('data-mindmap-root', '');
-    host.textContent = '';
-    // The constructor option alone does not survive: changeTheme() during
-    // init re-reads the generator off the theme, so it rides along here.
-    const theme = { ...(dark ? MindElixir.DARK_THEME : MindElixir.THEME), generateSubBranch };
+    if (bar) {
+      bar.hidden = false;
+    }
+    canvas.textContent = '';
     mind = new MindElixir({
-      el: host,
+      el: canvas,
       direction: MindElixir.RIGHT,
-      editable: false,
-      draggable: false,
+      editable: true,
+      keypress: true,
+      draggable: true,
+      allowUndo: false,
       contextMenu: false,
       toolBar: false,
       nodeMenu: false,
-      keypress: false,
-      theme,
+      newTopicName: MAP_NEW_TOPIC,
+      theme: { ...(dark ? MindElixir.DARK_THEME : MindElixir.THEME), generateSubBranch },
     });
+    mind.bus.addListener('operation', handleOperation);
     mind.bus.addListener('selectNodes', handleSelect);
     mind.bus.addListener('unselectNodes', () => {
       selectedId = null;
     });
-    host.addEventListener('dblclick', handleDoubleClick);
-    lastData = toMindElixirData(buildMindmapTree(parseMindmap(text)));
-    mind.init(lastData);
+    mind.init(toMindElixirData(buildMindmapTree(parseMindmap(text))));
     return true;
+  }
+
+  // Node boxes are measured at layout time: a late webfont arrival resizes
+  // them while link paths stay stale, so every finished font load replays
+  // the current text. Skipped while an edit box is open (a rebuild would
+  // discard the text under edit). The listener lives on the global set and
+  // is removed on destroy.
+  const healFonts = () => {
+    if (destroyed || !mind || (canvas && canvas.querySelector('#input-box'))) {
+      return;
+    }
+    try {
+      const text = getText() ?? '';
+      if (!isListOnlyDocument(text)) {
+        return;
+      }
+      signature = mindmapSignature(text);
+      lastData = toMindElixirData(buildMindmapTree(parseMindmap(text)));
+      mind.refresh(lastData);
+      selectedId = null;
+      pendingFresh.clear();
+    } catch {
+      // A later refresh heals; never break on a background relayout.
+    }
+  };
+  const fontSet = typeof document !== 'undefined' ? document.fonts : null;
+  if (fontSet && typeof fontSet.addEventListener === 'function') {
+    fontSet.addEventListener('loadingdone', healFonts);
   }
 
   async function boot() {
@@ -201,6 +354,7 @@ export function createMindmapHost(host, options = {}) {
         return;
       }
       if (await ensureInstance(text)) {
+        lastData = toMindElixirData(buildMindmapTree(parseMindmap(getText() ?? '')));
         selectedId = null;
       }
     } catch {
@@ -210,12 +364,18 @@ export function createMindmapHost(host, options = {}) {
     }
   }
 
+  bar = buildBar();
+  canvas = document.createElement('div');
+  canvas.setAttribute('data-mindmap-canvas', '');
+  host.append(bar, canvas);
   const ready = boot();
+  host.addEventListener('click', handleBarClick);
 
   return {
     /**
      * Rebuilds the map when the text signature changed; shows guidance for
-     * non-list documents. No-op after destroy.
+     * non-list documents. Also clears the fresh-id table: rebuilt nodes
+     * carry source lines again. No-op after destroy.
      * @returns {Promise<void>}
      */
     async refresh() {
@@ -242,6 +402,7 @@ export function createMindmapHost(host, options = {}) {
           lastData = toMindElixirData(buildMindmapTree(parseMindmap(text)));
           mind.refresh(lastData);
           selectedId = null;
+          pendingFresh.clear();
         }
       } catch {
         if (!destroyed) {
@@ -257,11 +418,15 @@ export function createMindmapHost(host, options = {}) {
      */
     destroy() {
       destroyed = true;
+      host.removeEventListener('click', handleBarClick);
       if (fontSet && typeof fontSet.removeEventListener === 'function') {
         fontSet.removeEventListener('loadingdone', healFonts);
       }
       releaseInstance();
+      pendingFresh.clear();
       host.textContent = '';
+      bar = null;
+      canvas = null;
     },
     ready,
   };

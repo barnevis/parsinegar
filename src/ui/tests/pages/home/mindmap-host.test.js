@@ -3,7 +3,10 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import catalog from '../../../i18n/catalog.js';
 import { createMindmapHost } from '../../../pages/home/mindmap-host.js';
+
+const translate = (key) => catalog.fa[key] ?? key;
 
 function mountHost() {
   const host = document.createElement('div');
@@ -15,9 +18,21 @@ test('should_throw_when_host_is_missing', () => {
   assert.throws(() => createMindmapHost(null), /requires an element host/);
 });
 
+test('should_throw_when_onchange_is_missing', () => {
+  const host = mountHost();
+  try {
+    assert.throws(
+      () => createMindmapHost(host, { getText: () => '- الف' }),
+      /requires an onChange callback/,
+    );
+  } finally {
+    host.remove();
+  }
+});
+
 test('should_show_guidance_when_document_is_not_list', async () => {
   const host = mountHost();
-  const controller = createMindmapHost(host, { getText: () => 'متن ساده' });
+  const controller = createMindmapHost(host, { getText: () => 'متن ساده', onChange: () => {} });
   try {
     await controller.ready;
     assert.ok(host.querySelector('[part="mindmap-empty"]'), 'expected guidance markup');
@@ -29,7 +44,7 @@ test('should_show_guidance_when_document_is_not_list', async () => {
 
 test('should_mount_without_crashing_when_document_is_list', async () => {
   const host = mountHost();
-  const controller = createMindmapHost(host, { getText: () => '- الف\n  - ب' });
+  const controller = createMindmapHost(host, { getText: () => '- الف\n  - ب', onChange: () => {} });
   try {
     await controller.ready;
     assert.ok(host.childElementCount > 0, 'expected map nodes or guidance');
@@ -44,7 +59,7 @@ test('should_mount_without_crashing_when_document_is_list', async () => {
 test('should_return_to_guidance_when_text_leaves_lists', async () => {
   let text = '- الف\n  - ب';
   const host = mountHost();
-  const controller = createMindmapHost(host, { getText: () => text });
+  const controller = createMindmapHost(host, { getText: () => text, onChange: () => {} });
   try {
     await controller.ready;
     text = 'متن ساده';
@@ -58,7 +73,7 @@ test('should_return_to_guidance_when_text_leaves_lists', async () => {
 
 test('should_inject_stylesheet_into_head_when_mounted_in_light_dom', async () => {
   const host = mountHost();
-  const controller = createMindmapHost(host, { getText: () => '- الف\n  - ب' });
+  const controller = createMindmapHost(host, { getText: () => '- الف\n  - ب', onChange: () => {} });
   try {
     await controller.ready;
     assert.ok(
@@ -69,5 +84,31 @@ test('should_inject_stylesheet_into_head_when_mounted_in_light_dom', async () =>
     controller.destroy();
     host.remove();
     document.head.querySelector('style[data-mindmap-css]')?.remove();
+  }
+});
+
+test('should_render_persian_toolbar_when_mounted', async () => {
+  const host = mountHost();
+  const controller = createMindmapHost(host, { getText: () => '- الف', t: translate, onChange: () => {} });
+  try {
+    await controller.ready;
+    const labels = [...host.querySelectorAll('[data-mind-btn]')].map((button) => button.textContent);
+    assert.deepEqual(labels, ['فرزند', 'هم‌سطح', 'حذف', 'پرش به متن']);
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
+
+test('should_hide_bar_with_guidance_when_document_is_not_list', async () => {
+  const host = mountHost();
+  const controller = createMindmapHost(host, { getText: () => 'متن ساده', onChange: () => {} });
+  try {
+    await controller.ready;
+    assert.ok(host.querySelector('[part="mindmap-empty"]'), 'expected guidance markup');
+    assert.equal(host.querySelector('[data-mindmap-bar]').hidden, true);
+  } finally {
+    controller.destroy();
+    host.remove();
   }
 });

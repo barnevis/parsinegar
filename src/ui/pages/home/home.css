@@ -100,6 +100,27 @@ parsi-status-bar {
   color: var(--pey-color-text-muted, #55555f);
 }
 
+[data-mindmap-bar] {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 2.25rem 0;
+}
+
+[data-mindmap-bar] button {
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--pey-color-border, #b9b9c4);
+  border-radius: 8px;
+  background-color: transparent;
+  color: inherit;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+
+[data-mindmap-bar] button:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+
 [part="editor-host"][hidden] {
   display: none;
 }

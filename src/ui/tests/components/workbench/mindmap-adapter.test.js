@@ -1,7 +1,7 @@
 // Verifies the MindElixir adapter shape (no library, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateSubBranch, lineOfNodeId, nodeGapOf, subBranchPath, toMindElixirData } from '../../../components/workbench/mindmap-adapter.js';
+import { describeOperation, generateSubBranch, lineOfNodeId, nodeGapOf, plainSubtrees, siblingReference, subBranchPath, toMindElixirData } from '../../../components/workbench/mindmap-adapter.js';
 
 test('should_translate_tree_when_converting', () => {
   assert.deepEqual(
@@ -57,4 +57,72 @@ test('should_read_gap_off_the_instance_when_generating', () => {
   assert.equal(nodeGapOf(self), 30);
   assert.equal(nodeGapOf(null), 30);
   assert.equal(nodeGapOf({ container: { style: { getPropertyValue: () => 'wide' } } }), 30);
+});
+
+test('should_describe_edits_when_events_arrive', () => {
+  assert.deepEqual(
+    describeOperation({ name: 'finishEdit', obj: { id: 'm-2', topic: 'ج' } }),
+    { kind: 'rename', id: 'm-2', topic: 'ج' },
+  );
+  assert.deepEqual(
+    describeOperation({ name: 'addChild', obj: { id: 'fresh', topic: 'ب', parent: { id: 'm-1' } } }),
+    { kind: 'add', parentId: 'm-1', newId: 'fresh', topic: 'ب' },
+  );
+  assert.deepEqual(
+    describeOperation({
+      name: 'insertSibling',
+      type: 'after',
+      obj: {
+        id: 'fresh',
+        topic: 'ج',
+        parent: { id: 'm-1', children: [{ id: 'm-2' }, { id: 'fresh' }, { id: 'm-3' }] },
+      },
+    }),
+    { kind: 'sibling', refId: 'm-2', position: 'after', newId: 'fresh', topic: 'ج' },
+  );
+  assert.deepEqual(
+    describeOperation({
+      name: 'insertSibling',
+      type: 'before',
+      obj: { id: 'fresh', topic: 'ج', parent: { id: 'm-1', children: [{ id: 'fresh' }, { id: 'm-2' }] } },
+    }),
+    { kind: 'sibling', refId: 'm-2', position: 'before', newId: 'fresh', topic: 'ج' },
+  );
+  assert.deepEqual(
+    describeOperation({
+      name: 'insertSibling',
+      type: 'after',
+      obj: { id: 'fresh', topic: 'ج', parent: { id: 'm-1', children: [{ id: 'fresh' }] } },
+    }),
+    { kind: 'sibling', refId: 'm-1', position: 'first', newId: 'fresh', topic: 'ج' },
+  );
+  assert.deepEqual(
+    describeOperation({
+      name: 'insertParent',
+      obj: { id: 'fresh', topic: 'والد', children: [{ id: 'm-2', topic: 'ب' }] },
+    }),
+    { kind: 'parent', wrappedId: 'm-2', newId: 'fresh', topic: 'والد' },
+  );
+  assert.deepEqual(
+    describeOperation({ name: 'removeNodes', objs: [{ id: 'm-2' }, { id: 'm-3' }] }),
+    { kind: 'remove', ids: ['m-2', 'm-3'] },
+  );
+  assert.deepEqual(
+    describeOperation({ name: 'moveNodeAfter', objs: [{ id: 'm-2' }], toObj: { id: 'm-3' } }),
+    { kind: 'move', fromId: 'm-2', toId: 'm-3', position: 'after' },
+  );
+  assert.deepEqual(
+    describeOperation({
+      name: 'copyNodes',
+      objs: [{ id: 'fresh', topic: 'ب', children: [{ id: 'fresh2', topic: 'ج' }] }],
+    }),
+    { kind: 'paste', nodes: [{ id: 'fresh', topic: 'ب', children: [{ id: 'fresh2', topic: 'ج', children: [] }] }] },
+  );
+  assert.deepEqual(describeOperation({ name: 'beginEdit', obj: { id: 'm-2' } }), { kind: 'ignore' });
+  assert.equal(describeOperation({ name: 'reshapeNode' }), null);
+  assert.equal(describeOperation(null), null);
+  assert.equal(
+    describeOperation({ name: 'insertSibling', type: 'after', obj: { id: 'fresh', parent: { id: 'm-1', children: [] } } }),
+    null,
+  );
 });

@@ -1540,6 +1540,10 @@ class ParsiPageHome extends PeyElement {
         getText: () => this.value,
         t: this.#t,
         dark: this.#resolveColorScheme() === 'dark',
+        onChange: (text) => {
+          this.#docs?.setDraft(text);
+          this.#docs?.scheduleSave();
+        },
         onJump: (line) => {
           this.#exitMindmap(line);
           this.#requestEditor();
