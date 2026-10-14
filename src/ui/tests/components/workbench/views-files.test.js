@@ -1,7 +1,7 @@
 // Verifies the files view rendering (pure, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_FILES_SORT, FILES_SORT_MODES, buildFolderTree, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES, buildFolderTree, filterMindmapTree, renderFilesView, sortDocuments } from '../../../components/workbench/views-files.js';
 
 function translate(key, params) {
   const template = {
@@ -257,4 +257,35 @@ test('should_hide_collapsed_folders_when_collapsed', () => {
   });
   assert.ok(!html.includes('data-doc-id="d2"'), 'expected the collapsed folder hidden');
   assert.ok(html.includes('aria-expanded="false"'), 'expected the toggle state');
+});
+
+test('should_keep_only_mindmap_documents_when_filtering', () => {
+  const items = [
+    { id: 'd1', title: 'نقشه', folderId: null, content: '- الف\n  - ب' },
+    { id: 'd2', title: 'متن', folderId: null, content: 'متن ساده' },
+    { id: 'd3', title: 'تودرتو', folderId: 'f1', content: '1. اول' },
+  ];
+  const folders = [
+    { id: 'f1', name: 'کار', parentId: null },
+    { id: 'f2', name: 'خالی', parentId: null },
+  ];
+  assert.deepEqual(filterMindmapTree(items, folders), {
+    items: [items[0], items[2]],
+    folders: [folders[0]],
+  });
+});
+
+test('should_keep_ancestors_when_filtering_nested_folders', () => {
+  const items = [{ id: 'd1', title: 'نقشه', folderId: 'f2', content: '- الف' }];
+  const folders = [
+    { id: 'f1', name: 'ریشه', parentId: null },
+    { id: 'f2', name: 'زیر', parentId: 'f1' },
+  ];
+  assert.deepEqual(filterMindmapTree(items, folders).folders, folders);
+});
+
+test('should_ignore_orphan_folders_when_filtering', () => {
+  const items = [{ id: 'd1', title: 'نقشه', folderId: 'gone', content: '- الف' }];
+  assert.deepEqual(filterMindmapTree(items, []).items, items);
+  assert.deepEqual(filterMindmapTree(null, null), { items: [], folders: [] });
 });

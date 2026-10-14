@@ -780,7 +780,7 @@ test('should_render_rail_with_views_when_mounted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const rail = inChildAll(element, 'parsi-activity-rail', '[data-view]');
-    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'settings']);
+    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'mindmap', 'settings']);
     assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="files"]').getAttribute('aria-pressed'), 'true');
     assert.ok(child(element, 'parsi-side-panel'), 'expected the side panel');
   } finally {
@@ -1852,6 +1852,63 @@ test('should_create_folder_when_header_button_is_clicked', async () => {
     await settled();
     await settled();
     assert.ok(inChild(element, 'parsi-side-panel', '[data-folder-toggle]'), 'expected the created folder');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_swap_center_to_mindmap_when_rail_selects_it', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف\n  - ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the mindmap host');
+    assert.equal(element.shadowRoot.querySelector('[part="editor-host"]'), null);
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]'), 'expected the map document listed');
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]'), 'expected the editor back');
+    assert.equal(element.shadowRoot.querySelector('[part="mindmap-host"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_create_templated_document_when_mindmap_new_is_requested', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'ریشه', content: '- الف', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    inChild(element, 'parsi-side-panel', '[data-mindmap-new]').click();
+    await settled();
+    await settled();
+    // The editor is unmounted in mindmap mode, so value reads the draft the
+    // template landed in (persistence itself rides the covered autosave).
+    assert.ok(element.value.includes('- ایدهٔ اصلی'), 'expected the mindmap template draft');
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="docs-list"]').textContent.includes('سند تازه'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_return_to_editor_when_builtin_opens_from_mindmap', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected mindmap mode');
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('about-open', { bubbles: true, composed: true }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]'), 'expected the editor back');
+    assert.equal(element.shadowRoot.querySelector('[part="mindmap-host"]'), null);
   } finally {
     element.remove();
   }

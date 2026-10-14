@@ -7,11 +7,12 @@ import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
-import { FILES_VIEW, getView, listViews } from '../../components/workbench/views.js';
+import { FILES_VIEW, MINDMAP_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
 import { createDocumentController, deriveImportTitle } from './document-controller.js';
+import { createMindmapHost } from './mindmap-host.js';
 import { createBuiltinDocs } from './builtin-docs.js';
 import { createSettingsApplier } from './settings-applier.js';
 import { createScrollSpy } from './scroll-spy.js';
@@ -34,6 +35,7 @@ const FOLDER_ID_PREFIX = 'folder:';
 // for import; writing lives behind explicit download, never the service).
 const FILESYSTEM_METHODS = ['pickDirectory', 'listDirectory', 'collectEntries', 'readEntry'];
 const INSERT_ACTION_PREFIX = 'insert-';
+const MINDMAP_TEMPLATE = '- ایدهٔ اصلی\n  - شاخهٔ یک\n  - شاخهٔ دو';
 const INSERT_MARK_KINDS = [
   'heading',
   'bold',
@@ -89,6 +91,12 @@ class ParsiPageHome extends PeyElement {
     isLive: () => this.isConnected,
   });
   #editor = null;
+  #centerMode = 'editor';
+  #mind = null;
+  #mindmapHost = null;
+  #mindmapReturnLine = 1;
+  #pendingGotoLine = null;
+  #pendingBuiltin = null;
   #activeView = FILES_VIEW;
   #sideOpen = true;
   #filesSort = DEFAULT_FILES_SORT;
@@ -174,6 +182,7 @@ class ParsiPageHome extends PeyElement {
       'outline-jump',
       'document-open',
       'document-create',
+      'document-create-mindmap',
       'document-import',
       'document-delete',
       'document-rename',
@@ -278,6 +287,10 @@ class ParsiPageHome extends PeyElement {
         void this.#createDocument();
         return;
       }
+      if (event.type === 'document-create-mindmap') {
+        void this.#createMindmapDocument();
+        return;
+      }
       if (event.type === 'folder-create') {
         void this.#createFolder();
         return;
@@ -365,6 +378,7 @@ class ParsiPageHome extends PeyElement {
   disconnectedCallback() {
     this.#docs?.dispose();
     this.#unmountEditor();
+    this.#unmountMindmap();
     this.#prefs?.unwatchColorScheme();
     this.#spy.unwatch();
     this.#renderObserver?.disconnect();
@@ -373,11 +387,12 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Arms a one-purpose observer that mounts the editor as soon as a render
-   * produces its host node. Tracks host node identity (not just editor
-   * presence) because a full re-render detaches the previous view while the
-   * reference stays set. Stays armed across re-renders; CodeMirror's own DOM
-   * lives inside the host node, so it never retriggers itself.
+   * Arms one-purpose observers that mount the center content as soon as a
+   * render produces its host node. Tracks host node identity (not just
+   * presence) because a full re-render detaches the previous view while
+   * the reference stays set. Stays armed across re-renders; the mounted
+   * views' own DOM lives inside their host nodes, so they never retrigger
+   * themselves.
    * @returns {void}
    */
   #ensureRenderObserver() {
@@ -391,6 +406,14 @@ class ParsiPageHome extends PeyElement {
       const center = this.shadowRoot.querySelector('[part="center"]');
       if (center) {
         this.#spy.watch(center);
+      }
+      const mindHost = this.shadowRoot.querySelector('[part="mindmap-host"]');
+      if (!mindHost) {
+        this.#unmountMindmap();
+      } else if (this.#mindmapHost !== mindHost) {
+        this.#unmountMindmap();
+        this.#mindmapHost = mindHost;
+        void this.#mountMindmap();
       }
       const host = this.shadowRoot.querySelector('[part="editor-host"]');
       if (!host) {
@@ -650,17 +673,60 @@ class ParsiPageHome extends PeyElement {
   }
 
   #switchView(id) {
-    const view = getView(id);
-    if (!view) {
-      return;
-    }
-    if (id === this.#activeView) {
-      this.#sideOpen = !this.#sideOpen;
+    if (id === MINDMAP_VIEW) {
+      if (this.#centerMode === 'mindmap') {
+        this.#exitMindmap();
+      } else {
+        this.#enterMindmap();
+        return;
+      }
     } else {
-      this.#activeView = id;
-      this.#sideOpen = true;
+      const view = getView(id);
+      if (!view) {
+        return;
+      }
+      // Any side view exits the mindmap back to the editor first.
+      this.#exitMindmap();
+      if (id === this.#activeView) {
+        this.#sideOpen = !this.#sideOpen;
+      } else {
+        this.#activeView = id;
+        this.#sideOpen = true;
+      }
     }
     this.#requestEditor();
+  }
+
+  /**
+   * Enters the mindmap center mode: parks the editor draft and its visible
+   * line, then re-renders onto the mindmap host (the observer mounts it).
+   * No-op when already there or disconnected.
+   * @returns {void}
+   */
+  #enterMindmap() {
+    if (this.#centerMode === 'mindmap' || !this.isConnected) {
+      return;
+    }
+    this.#mindmapReturnLine = this.#editor?.visibleLine?.(0) ?? 1;
+    this.#centerMode = 'mindmap';
+    this.#sideOpen = true;
+    this.#requestEditor();
+  }
+
+  /**
+   * Returns to the editor center mode, landing on the given line (or the
+   * line parked on entry). The pending line is consumed by the fresh mount.
+   * Rendering stays with the caller. No-op outside mindmap mode.
+   * @param {number|null} [line] 1-based line to land on.
+   * @returns {void}
+   */
+  #exitMindmap(line = null) {
+    if (this.#centerMode !== 'mindmap') {
+      return;
+    }
+    this.#centerMode = 'editor';
+    this.#pendingGotoLine = line ?? this.#mindmapReturnLine;
+    this.#unmountMindmap();
   }
 
   render() {
@@ -671,7 +737,7 @@ class ParsiPageHome extends PeyElement {
         <div data-slot="rail"></div>
         ${this.#sideOpen ? '<div data-slot="side"></div>' : ''}
         <div part="center">
-          <div part="editor-host"></div>
+          ${this.#centerMode === 'mindmap' ? '<div part="mindmap-host"></div>' : '<div part="editor-host"></div>'}
         </div>
         ${this.#bottomOpen ? '<div data-slot="status"></div>' : ''}
       </div>
@@ -688,6 +754,13 @@ class ParsiPageHome extends PeyElement {
    * @returns {Promise<void>}
    */
   async #openBuiltin(id) {
+    if (this.#centerMode === 'mindmap') {
+      // Remounts the editor asynchronously; the pending id opens on mount.
+      this.#exitMindmap();
+      this.#pendingBuiltin = id;
+      this.#requestEditor();
+      return;
+    }
     const opened = await this.#guides?.open(id);
     if (!opened || !this.isConnected || !this.#editor) {
       return;
@@ -819,9 +892,9 @@ class ParsiPageHome extends PeyElement {
         t: this.#t,
         assetBaseUrl: this.#assetBaseUrl,
         views: listViews(),
-        activeView: this.#activeView,
+        activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView,
       },
-      configure: (element) => element.configure({ views: listViews(), activeView: this.#activeView }),
+      configure: (element) => element.configure({ views: listViews(), activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView }),
     });
     if (this.#sideOpen) {
       this.#sideEl = mountComponent({
@@ -833,6 +906,7 @@ class ParsiPageHome extends PeyElement {
           t: this.#t,
           assetBaseUrl: this.#assetBaseUrl,
           activeView: this.#activeView,
+          mindmapMode: this.#centerMode === 'mindmap',
           items,
           folders,
           currentId,
@@ -843,6 +917,7 @@ class ParsiPageHome extends PeyElement {
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
+          mindmapMode: this.#centerMode === 'mindmap',
           items,
           folders,
           currentId,
@@ -921,6 +996,23 @@ class ParsiPageHome extends PeyElement {
   async #createDocumentInFolder(folderId) {
     const target = typeof folderId === 'string' && folderId.length > 0 ? folderId : null;
     this.#applyResult(await this.#docs?.createDocument(target));
+  }
+
+  /**
+   * Creates a list-templated document for the mindmap section and opens
+   * it. The template lands through the draft (the editor is unmounted in
+   * mindmap mode) and the pending save persists it; the mounted map picks
+   * it up through the draft on boot or refresh.
+   * @returns {Promise<void>}
+   */
+  async #createMindmapDocument() {
+    this.#applyResult(await this.#docs?.createDocument(null));
+    if (!this.isConnected) {
+      return;
+    }
+    this.#docs?.setDraft(MINDMAP_TEMPLATE);
+    this.#docs?.scheduleSave();
+    this.#pushLiveUpdates();
   }
 
   /**
@@ -1351,6 +1443,7 @@ class ParsiPageHome extends PeyElement {
     const { settings = null } = this.#prefs?.getState() ?? {};
     this.#sideEl?.configure({
       activeView: this.#activeView,
+      mindmapMode: this.#centerMode === 'mindmap',
       items,
       folders,
       currentId,
@@ -1358,6 +1451,9 @@ class ParsiPageHome extends PeyElement {
       settings,
       sortMode: this.#filesSort,
     });
+    if (this.#centerMode === 'mindmap') {
+      void this.#mind?.refresh();
+    }
   }
 
   #mountEditor() {
@@ -1401,6 +1497,15 @@ class ParsiPageHome extends PeyElement {
       });
       this.#editorHost = host;
       this.#spy.report();
+      if (this.#pendingBuiltin !== null) {
+        const pending = this.#pendingBuiltin;
+        this.#pendingBuiltin = null;
+        void this.#openBuiltin(pending);
+      } else if (this.#pendingGotoLine !== null) {
+        const line = this.#pendingGotoLine;
+        this.#pendingGotoLine = null;
+        this.#editor.gotoLine(line);
+      }
     } catch (error) {
       this.#editor = null;
       this.#editorHost = null;
@@ -1415,6 +1520,49 @@ class ParsiPageHome extends PeyElement {
       this.#editor = null;
     }
     this.#editorHost = null;
+  }
+
+  /**
+   * Mounts the mindmap controller into its host node (no-op when already
+   * mounted or disconnected). The library loads lazily on first mount.
+   * @returns {void}
+   */
+  #mountMindmap() {
+    if (this.#mind || !this.isConnected) {
+      return;
+    }
+    const host = this.shadowRoot.querySelector('[part="mindmap-host"]');
+    if (!host) {
+      return;
+    }
+    try {
+      this.#mind = createMindmapHost(host, {
+        getText: () => this.value,
+        t: this.#t,
+        dark: this.#resolveColorScheme() === 'dark',
+        onJump: (line) => {
+          this.#exitMindmap(line);
+          this.#requestEditor();
+        },
+      });
+      this.#mindmapHost = host;
+    } catch (error) {
+      this.#mind = null;
+      this.#mindmapHost = null;
+      throw error;
+    }
+  }
+
+  /**
+   * Destroys the mindmap controller, releasing the library instance.
+   * @returns {void}
+   */
+  #unmountMindmap() {
+    if (this.#mind) {
+      this.#mind.destroy();
+      this.#mind = null;
+    }
+    this.#mindmapHost = null;
   }
 }
 

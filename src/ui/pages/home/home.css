@@ -86,6 +86,20 @@ parsi-status-bar {
   min-block-size: 65vh;
 }
 
+[part="mindmap-host"] {
+  overflow: hidden;
+  box-sizing: border-box;
+  min-block-size: 100%;
+  block-size: 100%;
+}
+
+[part="mindmap-host"] [part="mindmap-empty"] {
+  max-inline-size: 40rem;
+  margin-inline: auto;
+  padding: 2rem 2.25rem;
+  color: var(--pey-color-text-muted, #55555f);
+}
+
 [part="editor-host"][hidden] {
   display: none;
 }

@@ -589,3 +589,66 @@ test('should_emit_move_when_move_target_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_render_filtered_files_when_mindmap_mode_is_on', async () => {
+  const element = mount({
+    mindmapMode: true,
+    items: [
+      { id: 'm', title: 'نقشه', folderId: null, content: '- الف\n  - ب' },
+      { id: 'p', title: 'متن', folderId: null, content: 'متن ساده' },
+    ],
+    currentId: 'm',
+    documentText: '- الف\n  - ب',
+  });
+  try {
+    await flush();
+    assert.equal(
+      element.shadowRoot.querySelector('[part="side-title"]').textContent,
+      'parsinegar.views.mindmap',
+    );
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="m"]'), 'expected the map document');
+    assert.equal(element.shadowRoot.querySelector('[data-doc-id="p"]'), null);
+    assert.ok(element.shadowRoot.querySelector('[data-mindmap-new]'), 'expected the new-map button');
+    assert.equal(element.shadowRoot.querySelector('[part="docs-new"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_hide_folders_without_maps_when_mindmap_mode_is_on', async () => {
+  const element = mount({
+    mindmapMode: true,
+    items: [
+      { id: 'm', title: 'نقشه', folderId: 'f1', content: '- الف' },
+      { id: 'p', title: 'متن', folderId: 'f2', content: 'متن' },
+    ],
+    folders: [
+      { id: 'f1', name: 'کار', parentId: null },
+      { id: 'f2', name: 'بایگانی', parentId: null },
+    ],
+    currentId: 'm',
+    documentText: '- الف',
+  });
+  try {
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="m"]'), 'expected the map document');
+    assert.equal(element.shadowRoot.querySelector('[data-folder-toggle="f2"]'), null);
+    assert.ok(element.shadowRoot.querySelector('[data-folder-toggle="f1"]'), 'expected the map folder');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_create_mindmap_when_new_map_is_clicked', async () => {
+  const element = mount({ mindmapMode: true, items: [], currentId: null });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('document-create-mindmap', () => seen.push(true));
+    element.shadowRoot.querySelector('[data-mindmap-new]').click();
+    await flush();
+    assert.deepEqual(seen, [true]);
+  } finally {
+    element.remove();
+  }
+});

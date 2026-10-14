@@ -138,3 +138,21 @@ test('should_emit_about_open_when_logo_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_emit_view_select_when_mindmap_button_is_clicked', async () => {
+  const element = mount({
+    views: [...VIEWS, { id: 'mindmap', icon: 'account-tree', labelKey: 'parsinegar.views.mindmap' }],
+    activeView: 'mindmap',
+  });
+  try {
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-view="mindmap"]').getAttribute('aria-pressed'), 'true');
+    const seen = [];
+    element.addEventListener('view-select', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-view="mindmap"]').click();
+    await flush();
+    assert.deepEqual(seen, [{ id: 'mindmap' }]);
+  } finally {
+    element.remove();
+  }
+});
