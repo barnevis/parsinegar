@@ -156,9 +156,9 @@ test('should_show_shortcuts_when_insert_menu_is_open', async () => {  const elem
       'Ctrl+B',
       'Ctrl+I',
       'Ctrl+Shift+S',
-      'Ctrl+Q',
+      'Ctrl+Alt+Q',
       'Ctrl+K',
-      'Ctrl+E',
+      'Ctrl+`',
       'Ctrl+Shift+U',
       'Ctrl+Shift+L',
       'Ctrl+Shift+T',
@@ -167,7 +167,7 @@ test('should_show_shortcuts_when_insert_menu_is_open', async () => {  const elem
       'Ctrl+Shift+Y',
       'Ctrl+Shift+G',
       'Ctrl+Shift+X',
-      'Ctrl+Shift+E',
+      'Ctrl+E',
     ]);
   } finally {
     element.remove();

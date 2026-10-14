@@ -78,9 +78,9 @@ test('should_offer_every_mark_when_insert_menu_is_read', () => {
     'Ctrl+B',
     'Ctrl+I',
     'Ctrl+Shift+S',
-    'Ctrl+Q',
+    'Ctrl+Alt+Q',
     'Ctrl+K',
-    'Ctrl+E',
+    'Ctrl+`',
     'Ctrl+Shift+U',
     'Ctrl+Shift+L',
     'Ctrl+Shift+T',
@@ -90,7 +90,7 @@ test('should_offer_every_mark_when_insert_menu_is_read', () => {
     'Ctrl+Shift+G',
     null,
     'Ctrl+Shift+X',
-    'Ctrl+Shift+E',
+    'Ctrl+E',
   ]);
 });
 

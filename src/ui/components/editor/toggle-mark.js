@@ -423,9 +423,13 @@ const SHORTCUTS = [
   { code: 'KeyI', shift: false, command: toggleItalic },
   { code: 'KeyS', shift: true, command: toggleStrikethrough },
   { code: 'KeyH', shift: false, command: toggleHeading },
-  { code: 'KeyQ', shift: false, command: toggleQuote },
+  // Quote avoids Ctrl+Q (browser quit on some platforms, not always
+  // interceptable) and Ctrl+Shift+Q (quit on Chrome); Ctrl+Alt+Q is free.
+  { code: 'KeyQ', shift: false, alt: true, command: toggleQuote },
   { code: 'KeyK', shift: false, command: insertLink },
-  { code: 'KeyE', shift: false, command: toggleCode },
+  // Backquote is matched by physical position, so it works on any layout;
+  // the key sits by `1` (it prints another character on Persian layouts).
+  { code: 'Backquote', shift: false, command: toggleCode },
   { code: 'KeyL', shift: true, command: toggleOrderedList },
   { code: 'KeyU', shift: true, command: toggleUnorderedList },
   { code: 'KeyT', shift: true, command: toggleTaskList },
@@ -434,20 +438,22 @@ const SHORTCUTS = [
   { code: 'KeyY', shift: true, command: insertHorizontalRule },
   { code: 'KeyG', shift: true, command: insertTable },
   { code: 'KeyX', shift: true, command: insertPoem },
-  { code: 'KeyE', shift: true, command: insertCodeBlock },
+  { code: 'KeyE', shift: false, command: insertCodeBlock },
 ];
 
 /**
  * Matches a keydown event to a toggle command by physical key position,
- * so shortcuts work on any keyboard layout. Ctrl/⌘ is required; Alt never is.
+ * so shortcuts work on any keyboard layout. Ctrl/⌘ is required; Alt counts
+ * only where the entry declares it.
  * @param {KeyboardEvent} event Keydown event.
  * @returns {Function|null} Matching command or null.
  */
 export function shortcutCommand(event) {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+  if (!(event.ctrlKey || event.metaKey)) {
     return null;
   }
   const shift = event.shiftKey === true;
-  const entry = SHORTCUTS.find(({ code, shift: wantsShift }) => event.code === code && shift === wantsShift);
+  const alt = event.altKey === true;
+  const entry = SHORTCUTS.find(({ code, shift: wantsShift, alt: wantsAlt }) => event.code === code && shift === wantsShift && alt === (wantsAlt === true));
   return entry?.command ?? null;
 }

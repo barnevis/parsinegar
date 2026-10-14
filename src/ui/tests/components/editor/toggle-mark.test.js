@@ -262,9 +262,11 @@ test('should_match_shortcuts_by_code_when_queried', () => {
   assert.equal(shortcutCommand({ code: 'KeyI', ctrlKey: true }), toggleItalic);
   assert.equal(shortcutCommand({ code: 'KeyS', ctrlKey: true, shiftKey: true }), toggleStrikethrough);
   assert.equal(shortcutCommand({ code: 'KeyH', ctrlKey: true }), toggleHeading);
-  assert.equal(shortcutCommand({ code: 'KeyQ', ctrlKey: true }), toggleQuote);
+  assert.equal(shortcutCommand({ code: 'KeyQ', ctrlKey: true, altKey: true }), toggleQuote);
+  assert.equal(shortcutCommand({ code: 'KeyQ', ctrlKey: true }), null);
   assert.equal(shortcutCommand({ code: 'KeyK', ctrlKey: true }), insertLink);
-  assert.equal(shortcutCommand({ code: 'KeyE', ctrlKey: true }), toggleCode);
+  assert.equal(shortcutCommand({ code: 'Backquote', ctrlKey: true }), toggleCode);
+  assert.equal(shortcutCommand({ code: 'Backquote', key: 'پ', ctrlKey: true }), toggleCode);
   assert.equal(shortcutCommand({ code: 'KeyL', ctrlKey: true, shiftKey: true }), toggleOrderedList);
   assert.equal(shortcutCommand({ code: 'KeyU', ctrlKey: true, shiftKey: true }), toggleUnorderedList);
   assert.equal(shortcutCommand({ code: 'KeyT', ctrlKey: true, shiftKey: true }), toggleTaskList);
@@ -273,7 +275,7 @@ test('should_match_shortcuts_by_code_when_queried', () => {
   assert.equal(shortcutCommand({ code: 'KeyY', ctrlKey: true, shiftKey: true }), insertHorizontalRule);
   assert.equal(shortcutCommand({ code: 'KeyG', ctrlKey: true, shiftKey: true }), insertTable);
   assert.equal(shortcutCommand({ code: 'KeyX', ctrlKey: true, shiftKey: true }), insertPoem);
-  assert.equal(shortcutCommand({ code: 'KeyE', ctrlKey: true, shiftKey: true }), insertCodeBlock);
+  assert.equal(shortcutCommand({ code: 'KeyE', ctrlKey: true }), insertCodeBlock);
   assert.equal(shortcutCommand({ code: 'KeyT', ctrlKey: true }), null);
 });
 
