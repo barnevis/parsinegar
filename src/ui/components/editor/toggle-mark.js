@@ -65,51 +65,60 @@ function targetLines(view) {
 }
 
 /**
- * Classifies one line for list toggling: unordered/ordered bullets, with
- * or without task boxes. Blank lines and anything else stay out so they
- * break uniformity checks instead of joining either family.
+ * Classifies one line for list toggling. A run of consecutive list markers
+ * (bullets, numbers, task boxes) counts as one previous marking, so stacked
+ * markers from any source collapse together instead of piling up; the
+ * family comes from the first marker. Blank lines and anything else stay
+ * out so they break uniformity checks instead of joining either family.
  * @param {string} text Line text.
  * @returns {object} `{ family, blank, indent, headEnd, boxStart }` where
  *   family is `'unordered'`, `'ordered'` or null, indent the leading
- *   whitespace, headEnd the content offset, and boxStart the `[` offset
- *   (or -1 without a box).
+ *   whitespace, headEnd the content offset, and boxStart the last `[`
+ *   offset (or -1 without a box).
  */
 function classifyListLine(text) {
-  const empty = { family: null, blank: true, indent: '', headEnd: 0, boxStart: -1 };
-  if (/^\s*$/.test(text)) {
-    return empty;
-  }
   const indent = /^([ \t]*)/.exec(text)?.[1] ?? '';
-  const readBox = (offset) => {
-    const box = /^\[[ xX]\](\s+|$)/.exec(text.slice(offset));
-    return box ? { start: offset, end: offset + box[0].length } : null;
-  };
-  const ordered = parseOrderedLine(text);
-  if (ordered) {
-    const digitsEnd = ordered.indent.length + ordered.digitsLength + ordered.delimiter.length;
-    const gap = /^[ \t]*/.exec(text.slice(digitsEnd))?.[0] ?? '';
-    const box = readBox(digitsEnd + gap.length);
-    return {
-      family: 'ordered',
-      blank: false,
-      indent: ordered.indent,
-      headEnd: box ? box.end : digitsEnd + gap.length,
-      boxStart: box ? box.start : -1,
-    };
+  if (/^\s*$/.test(text)) {
+    return { family: null, blank: true, indent, headEnd: 0, boxStart: -1 };
   }
-  const bullet = /^([ \t]*)([*+-])(\s+)/.exec(text);
-  if (bullet) {
-    const markerEnd = bullet[1].length + bullet[2].length + bullet[3].length;
-    const box = readBox(markerEnd);
-    return {
-      family: 'unordered',
-      blank: false,
-      indent: bullet[1],
-      headEnd: box ? box.end : markerEnd,
-      boxStart: box ? box.start : -1,
-    };
+  let offset = indent.length;
+  let family = null;
+  let boxStart = -1;
+  for (;;) {
+    const rest = text.slice(offset);
+    const bullet = /^([*+-])(?=\s)/.exec(rest);
+    const number = /^([0-9\u06F0-\u06F9]+[.)])(?=\s|$)/.exec(rest);
+    // A box counts even glued to content (`- [ ]x` renders checked, like
+    // the preview): only the brackets and the mark inside decide. A box
+    // terminates the run: it binds to its own marker, so anything after it
+    // is content even when marker-shaped (`- [ ] - x` keeps its tail).
+    const box = /^(\[[ xX]\])/.exec(rest);
+    const token = bullet ?? number ?? box;
+    if (!token) {
+      break;
+    }
+    if (family === null) {
+      if (bullet) {
+        family = 'unordered';
+      } else if (number) {
+        family = 'ordered';
+      } else {
+        break;
+      }
+    }
+    if (box) {
+      boxStart = offset;
+    }
+    offset += token[0].length;
+    offset += /^[ \t]*/.exec(text.slice(offset))?.[0].length ?? 0;
+    if (box) {
+      break;
+    }
   }
-  return { family: null, blank: false, indent, headEnd: indent.length, boxStart: -1 };
+  if (family === null) {
+    return { family: null, blank: false, indent, headEnd: indent.length, boxStart: -1 };
+  }
+  return { family, blank: false, indent, headEnd: offset, boxStart };
 }
 
 /**
@@ -359,39 +368,29 @@ export function insertLink(view) {
 
 /**
  * Toggles a `- [ ]` task box on every overlapped line: task lines lose the
- * box (the bullet stays), list lines gain one after the marker, plain lines
- * become new task items. Text is never destroyed either way.
+ * box (the bullet stays), list lines gain one after the whole marker run,
+ * plain lines become new task items. Text is never destroyed either way.
  * @param {object} view Active editor view.
  * @returns {boolean} Always true.
  */
 export function toggleTaskList(view) {
-  const { state } = view;
-  const selection = state.selection.main;
-  const firstLine = state.doc.lineAt(selection.from).number;
-  let lastLine = state.doc.lineAt(selection.to).number;
-  if (selection.to > selection.from && state.doc.line(lastLine).from === selection.to) {
-    lastLine -= 1;
-  }
+  const lines = targetLines(view);
   const changes = [];
-  for (let number = firstLine; number <= lastLine; number += 1) {
-    const line = state.doc.line(number);
-    const box = /^([ \t]*(?:[*+-]|\d+[.)])\s+)(\[[ xX]\])/.exec(line.text);
-    if (box) {
-      const spaces = /^[ \t]*/.exec(line.text.slice(box[0].length))?.[0] ?? '';
+  for (const line of lines) {
+    const info = classifyListLine(line.text);
+    if (info.boxStart >= 0) {
       changes.push({
-        from: line.from + box[1].length,
-        to: line.from + box[0].length + spaces.length,
+        from: line.from + info.boxStart,
+        to: line.from + info.headEnd,
         insert: '',
       });
       continue;
     }
-    const marker = /^([ \t]*(?:[*+-]|\d+[.)])\s+)/.exec(line.text);
-    if (marker) {
-      changes.push({ from: line.from + marker[0].length, insert: '[ ] ' });
+    if (info.family) {
+      changes.push({ from: line.from + info.headEnd, insert: '[ ] ' });
       continue;
     }
-    const indent = /^(\s*)/.exec(line.text)?.[1] ?? '';
-    changes.push({ from: line.from + indent.length, insert: '- [ ] ' });
+    changes.push({ from: line.from + info.indent.length, insert: '- [ ] ' });
   }
   view.dispatch({ changes, scrollIntoView: true });
   return true;

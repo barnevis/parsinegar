@@ -261,6 +261,43 @@ test('should_convert_unordered_to_ordered_when_toggling', () => {
   }
 });
 
+test('should_collapse_stacked_markers_when_converting', () => {
+  const stacked = createView('- - 1.\n- - 2.', 0, 13);
+  try {
+    toggleOrderedList(stacked.view);
+    assert.equal(docOf(stacked.view), '1. \n2. ');
+  } finally {
+    stacked.destroy();
+  }
+  const crossed = createView('1. - x\n2. - y', 0, 13);
+  try {
+    toggleUnorderedList(crossed.view);
+    assert.equal(docOf(crossed.view), '- x\n- y');
+  } finally {
+    crossed.destroy();
+  }
+});
+
+test('should_strip_stacked_markers_when_toggling_off', () => {
+  const stacked = createView('- - x\n- - y', 0, 11);
+  try {
+    toggleUnorderedList(stacked.view);
+    assert.equal(docOf(stacked.view), 'x\ny');
+  } finally {
+    stacked.destroy();
+  }
+});
+
+test('should_keep_tail_after_task_box_when_toggling', () => {
+  const quoted = createView('- [ ] - x', 0, 9);
+  try {
+    toggleTaskList(quoted.view);
+    assert.equal(docOf(quoted.view), '- - x');
+  } finally {
+    quoted.destroy();
+  }
+});
+
 test('should_toggle_ordered_list_when_called', () => {
   const first = createView('a\nb', 0, 3);
   try {
