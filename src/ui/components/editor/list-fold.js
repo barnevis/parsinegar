@@ -91,6 +91,46 @@ export function isFoldedRange(state, from, to) {
 }
 
 /**
+ * Finds the fold range of the parent list item whose first line contains
+ * a document position in its head zone (line start through marker end).
+ * That covers the chevron gap and raw (unwidgetized) marker glyphs, which
+ * carry no element to match. Tree-based, so fenced code never contributes;
+ * task lines stay out (their box keeps checkbox behavior, their chevron
+ * keeps the fold), as do plain and child lines.
+ * @param {object} view Active editor view.
+ * @param {number} position Document position.
+ * @returns {object|null} `{ from, to }` fold range or null.
+ */
+export function parentFoldAt(view, position) {
+  if (typeof position !== 'number' || !Number.isInteger(position)) {
+    return null;
+  }
+  let line = null;
+  try {
+    if (position < 0 || position > view.state.doc.length) {
+      return null;
+    }
+    line = view.state.doc.lineAt(position);
+  } catch {
+    return null;
+  }
+  for (const parent of collectListParents(view, line.from, line.to)) {
+    if (view.state.doc.lineAt(parent.itemFrom).number !== line.number) {
+      continue;
+    }
+    if (position < line.from || position >= parent.markerTo) {
+      continue;
+    }
+    const afterMarker = line.text.slice(parent.markerTo - line.from);
+    if (/^[ \t]*\[[ xX]\]/.test(afterMarker)) {
+      return null;
+    }
+    return { from: parent.foldFrom, to: parent.foldTo };
+  }
+  return null;
+}
+
+/**
  * Reports whether an update toggled any fold (fold effects change neither
  * the document, the viewport nor the selection, so decoration plugins must
  * watch for them explicitly).
@@ -257,18 +297,37 @@ export function listFoldExtensions() {
           return false;
         }
         const marker = event.target?.closest?.('.parsi-list-marker,.parsi-task-marker');
-        if (!marker) {
+        if (marker) {
+          // Only parent markers carry fold data; plain ones keep the stock
+          // cursor behavior.
+          const from = Number(marker.dataset?.foldFrom ?? Number.NaN);
+          const to = Number(marker.dataset?.foldTo ?? Number.NaN);
+          if (!Number.isInteger(from) || !Number.isInteger(to)) {
+            return false;
+          }
+          event.preventDefault();
+          flipFold(view, from, to);
+          return true;
+        }
+        // Position fallback for clicks with no marker element: the chevron
+        // gap and raw (unwidgetized) glyphs. Trusted events only — synthetic
+        // ones carry meaningless coordinates, and jsdom has no layout to
+        // resolve them through.
+        if (event.isTrusted !== true) {
           return false;
         }
-        // Only parent markers carry fold data; plain ones keep the stock
-        // cursor behavior.
-        const from = Number(marker.dataset?.foldFrom ?? Number.NaN);
-        const to = Number(marker.dataset?.foldTo ?? Number.NaN);
-        if (!Number.isInteger(from) || !Number.isInteger(to)) {
+        let position = null;
+        try {
+          position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        } catch {
+          position = null;
+        }
+        const fold = parentFoldAt(view, position);
+        if (!fold) {
           return false;
         }
         event.preventDefault();
-        flipFold(view, from, to);
+        flipFold(view, fold.from, fold.to);
         return true;
       },
     }),

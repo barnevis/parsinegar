@@ -2,7 +2,26 @@
 import '../../setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { EditorView } from '@codemirror/view';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
+import { flipFold, parentFoldAt } from '../../../components/editor/list-fold.js';
+
+function createTreeView(documentText) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const view = new EditorView({
+    doc: documentText,
+    parent: host,
+    extensions: [markdown({ base: markdownLanguage })],
+  });
+  return { host, view };
+}
+
+function destroyView({ host, view }) {
+  view.destroy();
+  host.remove();
+}
 
 function createEditor(documentText) {
   const host = document.createElement('div');
@@ -174,5 +193,52 @@ test('should_point_chevron_by_state_when_themed', () => {
     assert.ok(has('.cm-foldPlaceholder', 'background-color', 'transparent'), 'expected the invisible fold placeholder');
   } finally {
     destroy(mounted);
+  }
+});
+
+test('should_find_parent_fold_when_position_is_in_head_zone', () => {
+  const mounted = createTreeView('- والد\n\t- بچه\n- ساده');
+  try {
+    assert.deepEqual(parentFoldAt(mounted.view, 0), { from: 6, to: 13 });
+    assert.equal(parentFoldAt(mounted.view, 1), null);
+    assert.equal(parentFoldAt(mounted.view, 7), null);
+    assert.equal(parentFoldAt(mounted.view, 8), null);
+    assert.equal(parentFoldAt(mounted.view, 14), null);
+    assert.equal(parentFoldAt(mounted.view, -1), null);
+    assert.equal(parentFoldAt(mounted.view, 26), null);
+    assert.equal(parentFoldAt(mounted.view, Number.NaN), null);
+  } finally {
+    destroyView(mounted);
+  }
+});
+
+test('should_cover_ordered_markers_when_position_is_in_head_zone', () => {
+  const mounted = createTreeView('1. اول\n   1. دوم');
+  try {
+    assert.deepEqual(parentFoldAt(mounted.view, 0), { from: 6, to: 16 });
+    assert.deepEqual(parentFoldAt(mounted.view, 1), { from: 6, to: 16 });
+    assert.equal(parentFoldAt(mounted.view, 2), null);
+  } finally {
+    destroyView(mounted);
+  }
+});
+
+test('should_skip_task_lines_when_position_is_in_head_zone', () => {
+  const mounted = createTreeView('- [ ] والد\n\t- [ ] بچه');
+  try {
+    assert.equal(parentFoldAt(mounted.view, 0), null);
+    assert.equal(parentFoldAt(mounted.view, 2), null);
+  } finally {
+    destroyView(mounted);
+  }
+});
+
+test('should_return_null_when_no_parent_covers_position', () => {
+  const mounted = createTreeView('متن ساده');
+  try {
+    assert.equal(parentFoldAt(mounted.view, 0), null);
+    assert.equal(parentFoldAt(mounted.view, 3), null);
+  } finally {
+    destroyView(mounted);
   }
 });
