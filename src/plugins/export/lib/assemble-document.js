@@ -82,7 +82,8 @@ function themeCss(theme) {
     `table{border-collapse:collapse;margin:1em 0}` +
     `th,td{border:1px solid ${c.border};padding:.4em .8em}` +
     `ul,ol{padding-inline-start:1.5em}` +
-    `li:has(> input[type="checkbox"]){list-style:none}` +
+    `li:has(> input[type="checkbox"]){list-style:none;padding-inline-start:1.5em;text-indent:-1.5em}` +
+    `li:has(> input[type="checkbox"]) > input[type="checkbox"]{width:1rem;height:1rem;margin:0;margin-inline-end:.5rem;vertical-align:-.125rem}` +
     `.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}` +
     `mark{background:${c.mark};border-radius:2px;padding:0 .15em}` +
     `hr{border:none;border-top:2px solid ${c.border};margin:1.5em 0}` +

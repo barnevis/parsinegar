@@ -76,7 +76,7 @@ function targetLines(view) {
  *   whitespace, headEnd the content offset, and boxStart the last `[`
  *   offset (or -1 without a box).
  */
-function classifyListLine(text) {
+export function classifyListLine(text) {
   const indent = /^([ \t]*)/.exec(text)?.[1] ?? '';
   if (/^\s*$/.test(text)) {
     return { family: null, blank: true, indent, headEnd: 0, boxStart: -1 };

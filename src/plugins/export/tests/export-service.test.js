@@ -90,3 +90,20 @@ test('should_render_empty_body_when_markdown_is_empty', async () => {
   const result = await service.exportHtml({ markdown: '' });
   assert.ok(result.html.includes('<body>'));
 });
+
+test('should_hang_task_continuations_when_exported', async () => {
+  const { service } = setup('<ul><li><input type="checkbox" disabled=""> کار</li></ul>');
+  const result = await service.exportHtml({ markdown: '- [ ] کار' });
+  assert.ok(
+    result.html.includes(
+      'li:has(> input[type="checkbox"]){list-style:none;padding-inline-start:1.5em;text-indent:-1.5em}',
+    ),
+    'task items keep a hanging zone like the editor',
+  );
+  assert.ok(
+    result.html.includes(
+      'li:has(> input[type="checkbox"]) > input[type="checkbox"]{width:1rem',
+    ),
+    'checkbox fills the hanging zone in root units, not the control font',
+  );
+});

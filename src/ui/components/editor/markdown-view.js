@@ -18,6 +18,7 @@ import { codeFenceExtensions } from './code-fence.js';
 import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highlight.js';
 import { lineDirectionExtensions } from './line-direction.js';
 import { listFoldExtensions } from './list-fold.js';
+import { listHangExtensions } from './list-hang.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList, indentListItem, listResequenceExtension } from './list-continue.js';
 import { indentNormalizeExtensions } from './indent-normalize.js';
@@ -190,6 +191,7 @@ export function createMarkdownView(host, options = {}) {
       ...linkFollowExtensions(),
       ...tableViewExtensions(),
        ...listFoldExtensions(),
+       ...listHangExtensions(),
        ...indentNormalizeExtensions(),
        ...taskListExtensions(),
       ...textHighlightExtensions(),
