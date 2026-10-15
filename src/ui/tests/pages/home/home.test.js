@@ -102,6 +102,27 @@ test('should_focus_editor_when_card_is_clicked', async () => {
   }
 });
 
+test('should_keep_cell_focus_when_table_cell_is_clicked', async () => {
+  // In-place table editing owns its focus: the page must not steal it to
+  // the CodeMirror view on click, or rendered editing becomes impossible.
+  const documents = createDocuments([
+    { id: 't', title: 'جدول', content: 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |', updatedAt: 1 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    const cell = element.shadowRoot.querySelector('tbody td');
+    assert.ok(cell, 'expected a rendered cell');
+    cell.focus();
+    await settled();
+    cell.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
+    await settled();
+    assert.equal(element.shadowRoot.activeElement, cell);
+    assert.ok(element.shadowRoot.querySelector('.parsi-table'), 'expected the widget undisturbed');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_emit_change_when_editor_content_changes', async () => {
   const element = document.createElement(TAG);
   element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });

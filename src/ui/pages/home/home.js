@@ -365,6 +365,12 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     if (target?.closest?.('[part="editor-host"]')) {
+      // In-place editing owns its own focus (table cells): stealing it to
+      // the CodeMirror view would blur the cell mid-gesture and make
+      // rendered editing impossible.
+      if (target?.closest?.('[contenteditable="true"]')) {
+        return;
+      }
       this.#editor?.focus();
       return;
     }
