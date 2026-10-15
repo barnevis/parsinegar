@@ -183,3 +183,22 @@ test('should_offer_new_folder_when_file_menu_is_read', () => {
   assert.equal(item.action, 'new-folder');
   assert.equal(item.disabled, false);
 });
+
+test('should_offer_download_zip_in_file_menu_when_read', () => {
+  // Library-wide export lives with the file menu, not the per-document
+  // top buttons: it needs no open document, only a non-built-in view.
+  const menus = buildMenuModel({ t: translate, hasDocument: true });
+  const file = menus.find(({ id }) => id === 'file');
+  const item = file.items.find(({ id }) => id === 'download-zip');
+  assert.ok(item, 'expected the download-zip item');
+  assert.equal(item.action, 'download-zip');
+  assert.equal(item.disabled, false);
+  assert.deepEqual(
+    file.items.map(({ id }) => id).slice(0, 6),
+    ['new-document', 'new-folder', 'import-document', 'open-folder', 'download-zip', 'delete-document'],
+  );
+  const bare = buildMenuModel({ t: translate, hasDocument: false });
+  assert.equal(bare.find(({ id }) => id === 'file').items.find(({ id }) => id === 'download-zip').disabled, false);
+  const builtIn = buildMenuModel({ t: translate, hasDocument: true, builtInOpen: true });
+  assert.equal(builtIn.find(({ id }) => id === 'file').items.find(({ id }) => id === 'download-zip').disabled, true);
+});

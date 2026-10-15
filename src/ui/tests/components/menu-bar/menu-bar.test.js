@@ -470,7 +470,7 @@ test('should_render_download_toggle_with_icon_when_mounted', async () => {
     assert.ok(toggle.innerHTML.includes('#download'));
     assert.equal(element.shadowRoot.querySelector('[part="download-dropdown"]').hasAttribute('hidden'), true);
     const options = [...element.shadowRoot.querySelectorAll('[data-download-option]')];
-    assert.deepEqual(options.map((option) => option.getAttribute('data-download-option')), ['markdown', 'html', 'zip']);
+    assert.deepEqual(options.map((option) => option.getAttribute('data-download-option')), ['markdown', 'html']);
   } finally {
     element.remove();
   }
@@ -481,6 +481,64 @@ test('should_disable_download_toggle_without_document_when_configured', async ()
   try {
     await flush();
     assert.ok(element.shadowRoot.querySelector('[data-download-toggle]').disabled);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_render_fullscreen_toggle_beside_search_when_mounted', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const toggle = element.shadowRoot.querySelector('[data-fullscreen-toggle]');
+    assert.ok(toggle, 'expected the fullscreen toggle');
+    assert.equal(toggle.getAttribute('aria-label'), 'parsinegar.view.fullscreen');
+    assert.ok(toggle.innerHTML.includes('#fullscreen'));
+    assert.ok(!toggle.innerHTML.includes('#fullscreen-exit'));
+    // Sits beside the search toggle, at the end of the button cluster.
+    const cluster = [...element.shadowRoot.querySelectorAll('[data-mode-toggle], [data-download-toggle], [data-search-toggle], [data-fullscreen-toggle]')];
+    assert.deepEqual(cluster.map((button) => button.hasAttribute('data-fullscreen-toggle')), [false, false, false, true]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_toggle_fullscreen_when_fullscreen_toggle_is_clicked', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('menu-action', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-fullscreen-toggle]').click();
+    await flush();
+    assert.deepEqual(seen, [{ action: 'toggle-fullscreen' }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_swap_fullscreen_icon_when_fullscreen_is_configured', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.configure({ fullscreen: true });
+    await flush();
+    const toggle = element.shadowRoot.querySelector('[data-fullscreen-toggle]');
+    assert.equal(toggle.getAttribute('aria-label'), 'parsinegar.view.exitFullscreen');
+    assert.ok(toggle.innerHTML.includes('#fullscreen-exit'));
+    element.configure({ fullscreen: false });
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-fullscreen-toggle]').getAttribute('aria-label'), 'parsinegar.view.fullscreen');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_disable_fullscreen_toggle_without_document_when_configured', async () => {
+  const element = mount({ hasDocument: false });
+  try {
+    await flush();
+    assert.ok(element.shadowRoot.querySelector('[data-fullscreen-toggle]').disabled);
   } finally {
     element.remove();
   }
@@ -535,18 +593,18 @@ test('should_emit_download_html_when_option_is_clicked', async () => {
   }
 });
 
-test('should_emit_download_zip_when_option_is_clicked', async () => {
+test('should_emit_download_zip_when_file_menu_item_is_clicked', async () => {
   const element = mount();
   try {
     await flush();
     const seen = [];
     element.addEventListener('menu-action', (event) => seen.push(event.detail));
-    element.shadowRoot.querySelector('[data-download-toggle]').click();
+    element.shadowRoot.querySelector('[data-menu="file"]').click();
     await flush();
-    element.shadowRoot.querySelector('[data-download-option="zip"]').click();
+    element.shadowRoot.querySelector('[data-action="download-zip"]').click();
     await flush();
     assert.deepEqual(seen, [{ action: 'download-zip' }]);
-    assert.equal(element.shadowRoot.querySelector('[part="download-dropdown"]').hasAttribute('hidden'), true);
+    assert.equal(element.shadowRoot.querySelectorAll('[part="menu-dropdown"]:not([hidden])').length, 0);
   } finally {
     element.remove();
   }

@@ -33,6 +33,7 @@ class ParsiMenuBar extends PeyElement {
   #openMenu = null;
   #searchOpen = false;
   #downloadOpen = false;
+  #fullscreen = false;
   #openSubmenu = null;
   #submenuFlip = false;
   #search = { ...SEARCH_DEFAULTS };
@@ -105,6 +106,8 @@ class ParsiMenuBar extends PeyElement {
    * form to its defaults.
    * @param {object} data New data.
    * @param {boolean} [data.hasDocument] Whether a document is open.
+   * @param {boolean} [data.fullscreen] Whether the page is in fullscreen
+   *   writing mode (swaps the toggle icon toward the exit affordance).
    * @param {boolean} [data.searchOpen] Whether the search dropdown is open.
    * @param {object|null} [data.search] Search form state to display, or null to reset.
    * @param {string} [data.searchFocus] When opening, 'replace' focuses the
@@ -112,9 +115,12 @@ class ParsiMenuBar extends PeyElement {
    * @param {Function} [data.formatNumber] Number formatter.
    * @returns {void}
    */
-  configure({ hasDocument, searchOpen, search, searchFocus, formatNumber, readOnly, builtInOpen } = {}) {
+  configure({ hasDocument, searchOpen, search, searchFocus, formatNumber, readOnly, builtInOpen, fullscreen } = {}) {
     if (typeof hasDocument === 'boolean') {
       this.#hasDocument = hasDocument;
+    }
+    if (typeof fullscreen === 'boolean') {
+      this.#fullscreen = fullscreen;
     }
     if (typeof readOnly === 'boolean') {
       this.#readOnly = readOnly;
@@ -282,18 +288,27 @@ class ParsiMenuBar extends PeyElement {
       this.requestRender();
       return;
     }
+    const fullscreenToggle = event.target?.closest?.('[data-fullscreen-toggle]');
+    if (fullscreenToggle && !fullscreenToggle.disabled) {
+      // State lives with the parent page (it owns the layout); the event
+      // only asks for the flip, like the mode toggle asks for toggle-lock.
+      this.dispatchEvent(
+        new CustomEvent('menu-action', { bubbles: true, composed: true, detail: { action: 'toggle-fullscreen' } }),
+      );
+      return;
+    }
     const downloadOption = event.target?.closest?.('[data-download-option]');
     if (downloadOption && !downloadOption.disabled) {
-      // Same road as the file-menu download items: the parent maps the
-      // action to the open document and runs the matching download.
+      // Same road as the per-document download items: the parent maps
+      // the action to the open document and runs the matching download.
+      // The library-wide zip lives in the file menu instead (menu-model),
+      // since the top buttons all act on the single open document.
       const format = downloadOption.getAttribute('data-download-option');
       let action = null;
       if (format === 'markdown') {
         action = 'download-markdown';
       } else if (format === 'html') {
         action = 'download-html';
-      } else if (format === 'zip') {
-        action = 'download-zip';
       }
       if (action) {
         this.#downloadOpen = false;
@@ -391,12 +406,14 @@ class ParsiMenuBar extends PeyElement {
           <div part="download-dropdown" role="menu" ${this.#downloadOpen ? '' : 'hidden'}>
             <button type="button" part="download-option" role="menuitem" data-download-option="markdown"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.download'))}</span></button>
             <button type="button" part="download-option" role="menuitem" data-download-option="html"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.downloadHtml'))}</span></button>
-            <button type="button" part="download-option" role="menuitem" data-download-option="zip"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.downloadZip'))}</span></button>
           </div>
         </div>
         <div part="search">
           <button type="button" part="search-toggle" data-search-toggle data-pey-preserve="search-toggle" data-pey-preserve-state="focus" aria-expanded="${this.#searchOpen}" aria-label="${escapeHtml(this.#t('parsinegar.search.button'))}" title="${escapeHtml(this.#t('parsinegar.search.button'))}" ${this.#hasDocument ? '' : 'disabled'}>${iconMarkup(this.#assetBaseUrl, 'search')}</button>
           <div part="search-dropdown" ${this.#searchOpen ? '' : 'hidden'}>${renderSearchForm({ t: this.#t, state: this.#search, formatNumber: this.#formatNumber })}</div>
+        </div>
+        <div part="fullscreen">
+          <button type="button" part="fullscreen-toggle" data-fullscreen-toggle data-pey-preserve="fullscreen-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(this.#fullscreen ? 'parsinegar.view.exitFullscreen' : 'parsinegar.view.fullscreen'))}" title="${escapeHtml(this.#t(this.#fullscreen ? 'parsinegar.view.exitFullscreen' : 'parsinegar.view.fullscreen'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#fullscreen ? 'fullscreen-exit' : 'fullscreen')}</button>
         </div>
       </div>`;
   }

@@ -172,6 +172,31 @@
   opacity: 0.45;
   cursor: default;
 }
+[part="fullscreen-toggle"] {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: transparent;
+  padding: 0.2rem;
+  cursor: pointer;
+  color: inherit;
+}
+[part="fullscreen-toggle"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+[part="fullscreen-toggle"] svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+}
+[part="fullscreen-toggle"][disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
 [part="download"] {
   position: relative;
 }

@@ -25,6 +25,7 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
     { id: 'new-folder', label: translate('parsinegar.folders.new'), action: 'new-folder', disabled: false },
     { id: 'import-document', label: translate('parsinegar.documents.import'), action: 'import-document', disabled: false },
     { id: 'open-folder', label: translate('parsinegar.disk.openFolder'), action: 'open-folder', disabled: false },
+    { id: 'download-zip', label: translate('parsinegar.documents.downloadZip'), action: 'download-zip', disabled: builtIn },
     { id: 'delete-document', label: translate('parsinegar.documents.delete'), action: 'delete-document', disabled: !hasDocument },
   ];
   if (builtIn) {

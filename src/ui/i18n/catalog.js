@@ -93,6 +93,8 @@ const catalog = {
     'parsinegar.view.status': 'نوار وضعیت',
     'parsinegar.view.read': 'حالت خواندن',
     'parsinegar.view.write': 'حالت نوشتن',
+    'parsinegar.view.fullscreen': 'تمام صفحه',
+    'parsinegar.view.exitFullscreen': 'خروج از تمام صفحه',
     'parsinegar.views.files': 'سندها',
     'parsinegar.views.outline': 'فهرست مطالب',
     'parsinegar.views.outline-empty': 'سرفصلی در این سند نیست',

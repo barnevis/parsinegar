@@ -37,6 +37,56 @@ parsi-status-bar {
     "status status";
 }
 
+/* Fullscreen writing: every chrome slot hides and the center takes the
+   whole viewport. Two attribute selectors outrank the single-column media
+   query below, so the override holds on narrow screens too. */
+[part="workbench"][data-fullscreen="on"] {
+  block-size: 100vh;
+  block-size: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "center";
+}
+
+[part="workbench"][data-fullscreen="on"] [data-slot="menubar"],
+[part="workbench"][data-fullscreen="on"] [data-slot="rail"],
+[part="workbench"][data-fullscreen="on"] [data-slot="side"],
+[part="workbench"][data-fullscreen="on"] [data-slot="status"] {
+  display: none;
+}
+
+/* The only chrome left in fullscreen: a floating exit button parked at the
+   inline-end top corner, where the toggle sat. Fixed, so it never scrolls
+   with the center column. */
+[part="fullscreen-exit"] {
+  position: fixed;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  font: inherit;
+  border: 1px solid var(--pey-color-border, #b9b9c4);
+  border-radius: 999px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+[part="fullscreen-exit"]:hover {
+  background-color: var(--pey-color-surface, #f1f1f5);
+}
+
+[part="fullscreen-exit"] svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+}
+
 [data-slot="menubar"] {
   grid-area: menubar;
   position: sticky;

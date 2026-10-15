@@ -1664,6 +1664,32 @@ test('should_download_library_zip_with_folder_paths_when_menu_action_requests_it
   }
 });
 
+test('should_enter_and_exit_fullscreen_without_remounting_editor', async () => {
+  const element = document.createElement(TAG);
+  element.connect({ infrastructure: { events: createEvents() }, refs: baseRefs() });
+  document.body.append(element);
+  await settled();
+  try {
+    const host = element.shadowRoot.querySelector('[part="editor-host"]');
+    assert.ok(host.querySelector('.cm-editor'), 'expected a mounted editor');
+    child(element, 'parsi-menu-bar').dispatchEvent(new CustomEvent('menu-action', { bubbles: true, detail: { action: 'toggle-fullscreen' } }));
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[part="workbench"]').getAttribute('data-fullscreen'), 'on');
+    const exit = element.shadowRoot.querySelector('[data-fullscreen-exit]');
+    assert.ok(exit, 'expected the floating exit button');
+    assert.equal(exit.getAttribute('aria-label'), 'خروج از تمام صفحه');
+    assert.equal(element.shadowRoot.querySelector('[part="editor-host"]'), host, 'editor host must survive the toggle');
+    assert.ok(inChild(element, 'parsi-menu-bar', '[data-fullscreen-toggle]').innerHTML.includes('#fullscreen-exit'));
+    exit.click();
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[part="workbench"]').getAttribute('data-fullscreen'), 'off');
+    assert.equal(element.shadowRoot.querySelector('[data-fullscreen-exit]'), null);
+    assert.equal(element.shadowRoot.querySelector('[part="editor-host"]'), host, 'editor host must survive the exit');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_restore_sort_order_after_reload_when_persisted', async () => {
   const documents = createDocuments([
     { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 300 },

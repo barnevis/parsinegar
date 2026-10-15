@@ -10,6 +10,7 @@ import { countStats } from '../../components/workbench/stats.js';
 import { FILES_VIEW, MINDMAP_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
+import { escapeHtml, iconMarkup } from '../../components/workbench/html.js';
 import { mountComponent, scheduleAttachments } from '../../utils/mount.js';
 import { createDocumentController, deriveImportTitle } from './document-controller.js';
 import { createMindmapHost } from './mindmap-host.js';
@@ -101,6 +102,7 @@ class ParsiPageHome extends PeyElement {
   #sideOpen = true;
   #filesSort = DEFAULT_FILES_SORT;
   #bottomOpen = true;
+  #fullscreen = false;
   #renderObserver = null;
   #editorHost = null;
   #menuEl = null;
@@ -358,6 +360,10 @@ class ParsiPageHome extends PeyElement {
       }
     }
     const target = event.target;
+    if (target?.closest?.('[data-fullscreen-exit]')) {
+      this.#setFullscreen(false);
+      return;
+    }
     if (target?.closest?.('[part="editor-host"]')) {
       this.#editor?.focus();
       return;
@@ -550,6 +556,9 @@ class ParsiPageHome extends PeyElement {
           this.#sideOpen = !this.#sideOpen;
           this.#requestEditor();
           return;
+        case 'toggle-fullscreen':
+          this.#setFullscreen(!this.#fullscreen);
+          return;
         case 'toggle-status':
           this.#bottomOpen = !this.#bottomOpen;
           this.#requestEditor();
@@ -571,14 +580,15 @@ class ParsiPageHome extends PeyElement {
 
   /**
    * Opens the search dropdown and focuses a form field. No-op without an
-   * open document or a mounted editor.
+   * open document, a mounted editor, or outside fullscreen mode (the form
+   * would hide with the chrome).
    * @param {string} focus 'replace' focuses the replacement input, anything
    *   else the query input.
    * @returns {boolean} True when the dropdown was opened.
    */
   #openSearch(focus) {
     const { currentId = null } = this.#docs?.getState() ?? {};
-    if (currentId === null || !this.#editor) {
+    if (currentId === null || !this.#editor || this.#fullscreen) {
       return false;
     }
     this.#searchOpen = true;
@@ -732,7 +742,7 @@ class ParsiPageHome extends PeyElement {
   render() {
     scheduleAttachments(() => this.#attachChildren());
     return `
-      <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}">
+      <div part="workbench" data-side="${this.#sideOpen ? 'open' : 'closed'}" data-fullscreen="${this.#fullscreen ? 'on' : 'off'}">
         <div data-slot="menubar"></div>
         <div data-slot="rail"></div>
         ${this.#sideOpen ? '<div data-slot="side"></div>' : ''}
@@ -741,8 +751,44 @@ class ParsiPageHome extends PeyElement {
         </div>
         ${this.#bottomOpen ? '<div data-slot="status"></div>' : ''}
       </div>
+      ${this.#fullscreen ? this.#fullscreenExitMarkup() : ''}
       <div data-slot="modal"></div>
     `;
+  }
+
+  /**
+   * Builds the floating fullscreen-exit button. It lives with the page
+   * (not the menubar) because the menubar itself hides in fullscreen mode;
+   * it parks at the inline-end top corner, where the toggle sat.
+   * @returns {string} Button markup.
+   */
+  #fullscreenExitMarkup() {
+    const label = this.#t('parsinegar.view.exitFullscreen');
+    return `<button type="button" part="fullscreen-exit" data-fullscreen-exit aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${iconMarkup(this.#assetBaseUrl, 'fullscreen-exit')}</button>`;
+  }
+
+  /**
+   * Flips fullscreen writing mode without a page render: re-rendering
+   * would detach the editor host and drop undo history, so only the chrome
+   * attribute, the exit button and the menubar snapshot move.
+   * @param {boolean} on True enters, false exits.
+   * @returns {void}
+   */
+  #setFullscreen(on) {
+    const next = on === true;
+    if (this.#fullscreen === next || !this.isConnected) {
+      return;
+    }
+    this.#fullscreen = next;
+    if (next && this.#searchOpen) {
+      this.#clearSearch();
+    }
+    this.shadowRoot.querySelector('[part="workbench"]')?.setAttribute('data-fullscreen', next ? 'on' : 'off');
+    this.shadowRoot.querySelector('[data-fullscreen-exit]')?.remove();
+    if (next) {
+      this.shadowRoot.querySelector('[data-slot="modal"]')?.insertAdjacentHTML('beforebegin', this.#fullscreenExitMarkup());
+    }
+    this.#menuEl?.configure({ fullscreen: next });
   }
 
   /**
@@ -850,6 +896,7 @@ class ParsiPageHome extends PeyElement {
       hasDocument: currentId !== null,
       readOnly: locked,
       builtInOpen: this.#builtIn !== null,
+      fullscreen: this.#fullscreen,
     });
     this.#pushLiveUpdates();
   }
@@ -877,11 +924,12 @@ class ParsiPageHome extends PeyElement {
         formatNumber: (value) => this.#formatNumber(value),
         assetBaseUrl: this.#assetBaseUrl,
       },
-      configure: (element) => element.configure({
-        hasDocument: currentId !== null,
-        readOnly: this.#builtIn !== null || this.#currentLocked(),
-        builtInOpen: this.#builtIn !== null,
-      }),
+        configure: (element) => element.configure({
+          hasDocument: currentId !== null,
+          readOnly: this.#builtIn !== null || this.#currentLocked(),
+          builtInOpen: this.#builtIn !== null,
+          fullscreen: this.#fullscreen,
+        }),
     });
     this.#railEl = mountComponent({
       shadowRoot: this.shadowRoot,
