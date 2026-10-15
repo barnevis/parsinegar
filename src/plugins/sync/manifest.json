@@ -22,7 +22,7 @@
             { "name": "params", "type": "object" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_NETWORK_FAILED", "SYNC_STORAGE_UNAVAILABLE"]
+          "errors": ["SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_REPO_NOT_FOUND", "SYNC_NETWORK_FAILED", "SYNC_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "removeBackend",
