@@ -2271,3 +2271,71 @@ test('should_show_busy_dot_while_sync_runs', async () => {
     element.remove();
   }
 });
+
+test('should_show_dirty_dot_with_tooltip_after_local_edit', async (t) => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  let pending = false;
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
+    },
+    async hasPendingChanges() {
+      return { pending };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'ok');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    pending = true;
+    element.setDocument('متن تازه');
+    t.mock.timers.tick(1000);
+    t.mock.timers.reset();
+    await settled();
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'stale');
+    const title = inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('title');
+    assert.ok(title.includes('تغییرهای ارسال‌نشده'), `expected the unsent hint, got: ${title}`);
+  } finally {
+    t.mock.timers.reset();
+    element.remove();
+  }
+});
+
+test('should_clear_dirty_dot_after_clean_sync', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  let pending = true;
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
+    },
+    async hasPendingChanges() {
+      return { pending };
+    },
+    async syncNow() {
+      pending = false;
+      return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'stale');
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'ok');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('title'), 'همگام‌سازی');
+  } finally {
+    element.remove();
+  }
+});

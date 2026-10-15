@@ -127,6 +127,8 @@ class ParsiPageHome extends PeyElement {
   #syncStatus = null;
   #syncBusy = false;
   #syncAttempt = null;
+  #syncDirty = false;
+  #dirtyWrite = null;
   #searchSpec = null;
   #builtIn = null;
   #guides = null;
@@ -169,6 +171,7 @@ class ParsiPageHome extends PeyElement {
         ...docRefs,
         isLive: () => this.isConnected,
         readEditorContent: () => this.#editor?.getValue(),
+        onSaved: () => void this.#updateSyncDirty(),
       });
     } else {
       this.#docs.reconnect(docRefs);
@@ -1004,6 +1007,7 @@ class ParsiPageHome extends PeyElement {
       // Best effort; status refresh reports the truth.
     }
     this.#syncConflicts = [];
+    this.#syncDirty = false;
     await this.#refreshSyncStatus();
   }
 
@@ -1035,6 +1039,7 @@ class ParsiPageHome extends PeyElement {
     this.#syncBusy = false;
     this.#syncConflicts = Array.isArray(report?.conflicts) ? report.conflicts : [];
     await this.#reloadLibrary();
+    await this.#updateSyncDirty();
     await this.#refreshSyncStatus();
   }
 
@@ -1058,6 +1063,7 @@ class ParsiPageHome extends PeyElement {
       this.#syncConflicts = [];
     }
     await this.#reloadLibrary();
+    await this.#updateSyncDirty();
     await this.#refreshSyncStatus();
   }
 
@@ -1131,15 +1137,16 @@ class ParsiPageHome extends PeyElement {
     if (!this.isConnected) {
       return;
     }
-    this.#railEl?.configure({ syncDot: this.#syncDot() });
+    this.#railEl?.configure({ syncDot: this.#syncDot(), syncHint: this.#syncHint() });
     this.#sideEl?.configure({ sync: snapshot });
     this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() });
   }
 
   /**
    * Derives the rail sync dot from the latest snapshot: blinking orange
-   * while an operation runs, red on error or pending conflict, green once a
-   * clean sync completed, steady orange otherwise (including unconfigured).
+   * while an operation runs, red on error or pending conflict, steady
+   * orange while local news awaits sending (or no clean sync yet), green
+   * once a clean sync completed.
    * @returns {string} 'ok', 'stale', 'busy' or 'bad'.
    */
   #syncDot() {
@@ -1156,7 +1163,54 @@ class ParsiPageHome extends PeyElement {
     if (status.errorText) {
       return 'bad';
     }
+    if (this.#syncDirty) {
+      return 'stale';
+    }
     return status.lastSyncText ? 'ok' : 'stale';
+  }
+
+  /**
+   * Builds the sync button tooltip: names the unsent changes only while the
+   * dot shows the steady-orange dirty state, otherwise nothing.
+   * @returns {string|null} Hint text or null.
+   */
+  #syncHint() {
+    if (this.#syncBusy || !this.#syncDirty || this.#syncConflicts.length > 0) {
+      return null;
+    }
+    const status = this.#syncStatus;
+    if (!status || status.configured !== true || status.errorText) {
+      return null;
+    }
+    return this.#t('parsinegar.sync.unsent-changes');
+  }
+
+  /**
+   * Rechecks local dirtiness against the sync snapshot (local reads only,
+   * never network) and moves the rail dot when it flips. Runs serialize
+   * like the theme queue so rapid saves converge instead of racing.
+   * @returns {Promise<void>}
+   */
+  async #updateSyncDirty() {
+    const run = (this.#dirtyWrite ?? Promise.resolve()).then(async () => {
+      let dirty = false;
+      try {
+        if (this.#syncer && typeof this.#syncer.hasPendingChanges === 'function' && this.isConnected) {
+          const checked = await this.#syncer.hasPendingChanges({ scope: SYNC_SCOPE });
+          dirty = checked?.pending === true;
+        }
+      } catch {
+        // A failed check never flips the dot; the next trigger retries.
+        return;
+      }
+      if (!this.isConnected || this.#syncDirty === dirty) {
+        return;
+      }
+      this.#syncDirty = dirty;
+      this.#railEl?.configure({ syncDot: this.#syncDot(), syncHint: this.#syncHint() });
+    });
+    this.#dirtyWrite = run.catch(() => {});
+    return run;
   }
 
   /**
@@ -1221,8 +1275,9 @@ class ParsiPageHome extends PeyElement {
         views: listViews(),
         activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView,
         syncDot: this.#syncDot(),
+        syncHint: this.#syncHint(),
       },
-      configure: (element) => element.configure({ views: listViews(), activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView, syncDot: this.#syncDot() }),
+      configure: (element) => element.configure({ views: listViews(), activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView, syncDot: this.#syncDot(), syncHint: this.#syncHint() }),
     });
     if (this.#sideOpen) {
       this.#sideEl = mountComponent({
@@ -1731,6 +1786,7 @@ class ParsiPageHome extends PeyElement {
       this.#menuEl?.configure({ searchOpen: false, search: null });
     }
     this.#requestEditor();
+    void this.#updateSyncDirty();
   }
 
   #requestEditor() {

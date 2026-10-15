@@ -133,6 +133,7 @@ const catalog = {
     'parsinegar.sync.dot-stale': 'هنوز همگام نشده',
     'parsinegar.sync.dot-busy': 'در حال همگام‌سازی',
     'parsinegar.sync.dot-bad': 'خطای همگام‌سازی',
+    'parsinegar.sync.unsent-changes': 'تغییرهای ارسال‌نشده',
     'parsinegar.sync.save': 'ذخیره اتصال',
     'parsinegar.sync.connecting': 'در حال اتصال…',
     'parsinegar.sync.remove': 'حذف اتصال',

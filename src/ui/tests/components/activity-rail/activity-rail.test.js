@@ -178,3 +178,25 @@ test('should_show_sync_dot_only_on_sync_button_when_reported', async () => {
     element.remove();
   }
 });
+
+test('should_suffix_sync_title_with_hint_when_dirty', async () => {
+  const element = mount({
+    views: [...VIEWS, { id: 'sync', icon: 'github', labelKey: 'sync-view' }],
+    activeView: 'files',
+    syncDot: 'stale',
+    syncHint: 'unsent!',
+  });
+  try {
+    await flush();
+    assert.equal(
+      element.shadowRoot.querySelector('[data-view="sync"]').getAttribute('title'),
+      'sync-view — unsent!',
+    );
+    assert.equal(
+      element.shadowRoot.querySelector('[data-view="files"]').getAttribute('title'),
+      'parsinegar.views.files',
+    );
+  } finally {
+    element.remove();
+  }
+});

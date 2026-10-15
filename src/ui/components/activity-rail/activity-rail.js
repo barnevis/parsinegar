@@ -16,7 +16,9 @@ class ParsiActivityRail extends PeyElement {
   #activeView = null;
   // Sync status dot: 'ok' (synced), 'stale' (not yet synced), 'busy'
   // (operation running), 'bad' (error or conflict), null (no sync view).
+  // The hint names the unsent changes as the button tooltip while dirty.
   #syncDot = null;
+  #syncHint = null;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -30,6 +32,7 @@ class ParsiActivityRail extends PeyElement {
       this.#activeView = refs.activeView;
     }
     this.#storeSyncDot(refs.syncDot);
+    this.#storeSyncHint(refs.syncHint);
   }
 
   /**
@@ -47,14 +50,16 @@ class ParsiActivityRail extends PeyElement {
    * @param {Array<object>} [data.views] View entries.
    * @param {string} [data.activeView] Active view id.
    * @param {string|null} [data.syncDot] Sync dot state for the sync button.
+   * @param {string|null} [data.syncHint] Tooltip suffix while dirty.
    * @returns {void}
    */
-  configure({ views, activeView, syncDot } = {}) {
+  configure({ views, activeView, syncDot, syncHint } = {}) {
     this.#storeViews(views);
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
     this.#storeSyncDot(syncDot);
+    this.#storeSyncHint(syncHint);
     this.requestRender();
   }
 
@@ -109,8 +114,10 @@ class ParsiActivityRail extends PeyElement {
    */
   #renderButton(view) {
     const dot = view.id === 'sync' ? this.#renderSyncDot() : '';
+    const label = this.#t(view.labelKey);
+    const title = view.id === 'sync' && this.#syncHint ? `${label} — ${this.#syncHint}` : label;
     return `
-      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${iconMarkup(this.#assetBaseUrl, view.icon)}${dot}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`;
+      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(label)}" title="${escapeHtml(title)}">${iconMarkup(this.#assetBaseUrl, view.icon)}${dot}<span part="rail-fallback">${escapeHtml(label)}</span></button>`;
   }
 
   /**
@@ -130,6 +137,13 @@ class ParsiActivityRail extends PeyElement {
       return;
     }
     this.#syncDot = typeof syncDot === 'string' ? syncDot : null;
+  }
+
+  #storeSyncHint(syncHint) {
+    if (syncHint === undefined) {
+      return;
+    }
+    this.#syncHint = typeof syncHint === 'string' && syncHint.length > 0 ? syncHint : null;
   }
 
   #storeViews(views) {

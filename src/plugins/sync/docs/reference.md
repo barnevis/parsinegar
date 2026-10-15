@@ -55,9 +55,14 @@ await sync.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' });
 await sync.getStatus();
 // → { configured, kind, repo, branch, lastSyncAt, lastError }
 await sync.removeBackend(); // → { ok: true } (داده محلی دست نمی‌خورد)
+
+// ۵. پیش‌پرواز محلی (بدون هیچ شبکه‌ای)
+await sync.hasPendingChanges({ scope });
+// → { pending: true/false } (فقط خبر محلی نسبت به عکس آخر؛
+// پیکربندی‌نشده همیشه false است، نه خطا)
 ```
 
-نکته‌ها: `syncNow` اول draft معلق را نمی‌شناسد — میزبان قبلش flush کند. `resolveConflict` دامنه را از اجرای قبلی می‌خواند (نیازی به scope دوباره نیست). `title` مانیفست فقط فراداده وفاداری نام‌هاست.
+نکته‌ها: `syncNow` اول draft معلق را نمی‌شناسد — میزبان قبلش flush کند. `resolveConflict` دامنه را از اجرای قبلی می‌خواند (نیازی به scope دوباره نیست). `title` مانیفست فقط فراداده وفاداری نام‌هاست. `hasPendingChanges` همان مقایسه مهری `syncNow` است بدون شبکه: «ارسال‌نشده محلی» را می‌فهمد ولی عقب‌ماندگی از ریموت را نه — نقطه «کثیف» ادعای بیشتری ندارد.
 
 ## ایونت‌ها
 

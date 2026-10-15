@@ -51,6 +51,7 @@ export function createDocumentController({
   format = null,
   isLive = () => true,
   readEditorContent = () => undefined,
+  onSaved = () => {},
 } = {}) {
   let service = documents;
   let translate = t;
@@ -145,6 +146,9 @@ export function createDocumentController({
         content: readEditorContent() ?? draft ?? '',
       });
       items = await service.listDocuments();
+      // The library moved under sync's feet: let the host recheck dirtiness
+      // (the check itself rides the autosave rhythm, never the keystrokes).
+      onSaved();
     } catch (error) {
       console.error('[parsi-document-controller] autosave failed');
     }

@@ -39,6 +39,15 @@
           "errors": ["SYNC_STORAGE_UNAVAILABLE"]
         },
         {
+          "name": "hasPendingChanges",
+          "description": "Reports local news against the last snapshot without any network (drives the dirty indicator)",
+          "params": [
+            { "name": "scope", "type": "object" }
+          ],
+          "returns": "Promise<object>",
+          "errors": ["SYNC_INVALID_CONFIG", "SYNC_STORAGE_UNAVAILABLE"]
+        },
+        {
           "name": "syncNow",
           "description": "Pushes local news, pulls remote news, stops on first conflicts",
           "params": [

@@ -208,6 +208,41 @@ test('should_report_redacted_status_when_configured', async () => {
   assert.equal(JSON.stringify(status).includes('tok'), false);
 });
 
+test('should_report_no_pending_changes_when_unconfigured', async () => {
+  const { service } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
+    },
+  });
+  assert.deepEqual(await service.hasPendingChanges({ scope: SCOPE }), { pending: false });
+});
+
+test('should_report_pending_local_news_without_network_when_checked', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
+    },
+  });
+  await configure(service);
+  const before = remote.calls.length;
+  assert.deepEqual(await service.hasPendingChanges({ scope: SCOPE }), { pending: true });
+  assert.equal(remote.calls.length, before, 'expected no network for the check');
+});
+
+test('should_report_clean_after_completed_sync_when_checked', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
+  const before = remote.calls.length;
+  assert.deepEqual(await service.hasPendingChanges({ scope: SCOPE }), { pending: false });
+  assert.equal(remote.calls.length, before, 'expected no network for the check');
+});
+
 test('should_push_everything_on_first_sync_when_synced', async () => {
   const { service, remote, events: bus } = setup({
     storageData: {

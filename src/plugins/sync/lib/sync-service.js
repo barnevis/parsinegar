@@ -7,7 +7,7 @@
 // (all remote operations are idempotent).
 
 import { syncError } from './error.js';
-import { buildManifest, hashRecord, parseManifest, planSync } from './sync-engine.js';
+import { buildManifest, hashRecord, parseManifest, planSync, snapshotDiff } from './sync-engine.js';
 import { json, markdown, sanitizePathSegment } from './serializers.js';
 import { createGitAdapter } from '../adapters/git-adapter.js';
 
@@ -509,6 +509,28 @@ function createService(state) {
       };
     },
 
+    async hasPendingChanges(input = {}) {
+      // Local-only preflight for the dirty dot: same stamp comparison the
+      // next syncNow would run, but never any network. Unconfigured means
+      // nothing can be pending, never an error.
+      const configs = normalizeScope(input?.scope);
+      const storage = requireStorage(state);
+      const backend = await store(storage.read(BACKENDS_COLLECTION, BACKEND_ID));
+      if (!backend) {
+        return { pending: false };
+      }
+      const local = await collectLocal(storage, configs);
+      const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
+      const snapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];
+      const diff = snapshotDiff(snapshot, local.entries);
+      return {
+        pending: diff.created.length > 0
+          || diff.updated.length > 0
+          || diff.deleted.length > 0
+          || diff.moved.length > 0,
+      };
+    },
+
     async syncNow(input = {}) {
       const configs = normalizeScope(input?.scope);
       const { backend, storage } = await requireBackend(state);
@@ -538,7 +560,6 @@ function createService(state) {
         report.relocated.push(...local.relocated);
         report.skipped.push(...local.skipped.map((item) => ({ collection: item.collection, id: item.id })));
         const manifestRead = await readManifest(adapter).catch(mapAdapterError);
-        console.log('DBG manifest:', JSON.stringify(manifestRead.manifest.records));
         const savedBefore = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
         const snapshot = Array.isArray(savedBefore.snapshot) ? savedBefore.snapshot : [];
         const plan = planSync(
