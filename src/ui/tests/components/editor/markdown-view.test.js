@@ -148,6 +148,22 @@ test('should_fail_clearly_when_host_is_not_an_element', () => {
   assert.throws(() => createMarkdownView(null), /element host/);
 });
 
+test('should_hide_horizontal_overflow_when_scroller_is_themed', () => {
+  // Select-all over hung list lines overshoots the selection layer past the
+  // edge by a few pixels; with wrapping on, no legitimate horizontal scroll
+  // exists, so the scroller must never offer the bar (hidden keeps
+  // programmatic scrolling for unbreakable runs).
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: '1. مورد' });
+  try {
+    assert.ok(hasRule('.cm-scroller', 'overflow-x', 'hidden'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
 test('should_toggle_bold_when_ctrl_b_pressed_on_persian_layout', () => {
   const host = document.createElement('div');
   document.body.append(host);

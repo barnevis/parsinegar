@@ -296,6 +296,13 @@ export function createMarkdownView(host, options = {}) {
         },
         '& .cm-scroller': {
           fontFamily: PERSIAN_FONT,
+          // No horizontal bar, ever: wrapping is on, so the only inline
+          // overflow comes from internal overlays (the selection layer
+          // overshoots the edge by a few pixels on select-all over hung
+          // lines) and subpixel rounding. `hidden` (not `clip`) keeps
+          // programmatic scrolling, so the cursor still reaches into long
+          // unbreakable runs via scrollIntoView.
+          overflowX: 'hidden',
         },
         '& .cm-content': {
           lineHeight: '1.8',
