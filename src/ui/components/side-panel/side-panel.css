@@ -374,6 +374,51 @@
   text-align: center;
   font-weight: 700;
 }
+[part="settings-field"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block: 0.35rem;
+  font-size: 0.85rem;
+}
+[part="settings-field"] input {
+  font: inherit;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.35rem 0.5rem;
+  color: inherit;
+}
+[part="settings-actions"] {
+  display: flex;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+[part="settings-button"] {
+  font: inherit;
+  flex: 1;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  color: inherit;
+}
+[part="settings-button"]:hover {
+  border-color: var(--pey-color-border, #c8c8d2);
+}
+[part="settings-note"] {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+[part="settings-error"] {
+  font-size: 0.8rem;
+  margin: 0.25rem 0;
+  color: #b91c1c;
+  overflow-wrap: anywhere;
+}
 [part="docs-open"]:focus-visible,
 [part="outline-jump"]:focus-visible,
 [part="outline-toggle"]:focus-visible,

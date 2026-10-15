@@ -1,7 +1,7 @@
 // Verifies the delete-confirmation modal rendering (pure, no DOM).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { renderConfirmModal, renderPropertiesModal } from '../../../components/workbench/modal.js';
+import { renderConfirmModal, renderPropertiesModal, renderSyncConflictModal } from '../../../components/workbench/modal.js';
 
 function translate(key, params) {
   const template = {
@@ -73,4 +73,51 @@ test('should_render_folder_variant_when_keys_are_given', () => {
   });
   assert.ok(html.includes('parsinegar.folders.delete'), 'expected the folder heading key');
   assert.ok(html.includes('parsinegar.folders.delete-confirm'), 'expected the folder message key');
+});
+
+test('should_render_nothing_without_conflict_when_conflict_missing', () => {
+  assert.equal(renderSyncConflictModal({ t: translate, conflict: null, assetBaseUrl: null }), '');
+  assert.equal(renderSyncConflictModal({ t: translate, conflict: {}, assetBaseUrl: null }), '');
+});
+
+test('should_render_both_versions_with_choices_when_conflict_is_given', () => {
+  const html = renderSyncConflictModal({
+    t: (key) => key,
+    assetBaseUrl: null,
+    conflict: {
+      collection: 'documents',
+      id: 'd1',
+      title: 'یادداشت',
+      local: { updatedAt: 2, content: 'نسخه من' },
+      remote: { updatedAt: 3, content: 'نسخه طرف' },
+    },
+  });
+  assert.ok(html.includes('role="alertdialog"'));
+  assert.ok(html.includes('نسخه من'));
+  assert.ok(html.includes('نسخه طرف'));
+  assert.ok(html.includes('data-sync-resolve="local"'));
+  assert.ok(html.includes('data-sync-resolve="remote"'));
+  assert.ok(html.includes('data-sync-later'));
+  assert.ok(html.includes('data-sync-collection="documents"'));
+  assert.ok(html.includes('data-sync-id="d1"'));
+});
+
+test('should_escape_conflict_content_when_rendered', () => {
+  const interpolate = (key, params) => key === 'parsinegar.sync.conflict'
+    ? `تعارض «${params?.title ?? ''}»`
+    : key;
+  const html = renderSyncConflictModal({
+    t: interpolate,
+    assetBaseUrl: null,
+    conflict: {
+      collection: 'documents',
+      id: 'd1',
+      title: '<b>',
+      local: { updatedAt: 2, content: '<script>' },
+      remote: null,
+    },
+  });
+  assert.ok(!html.includes('<script>'));
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.ok(html.includes('&lt;b&gt;'));
 });

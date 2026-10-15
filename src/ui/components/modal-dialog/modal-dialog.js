@@ -6,7 +6,7 @@
 // yes/no buttons, `modal-dismiss` for the properties close button and
 // backdrop clicks. Escape stays with the owning page (global keydown).
 import { PeyElement } from 'pey.webui/base/pey-element';
-import { renderConfirmModal, renderPropertiesModal } from '../workbench/modal.js';
+import { renderConfirmModal, renderPropertiesModal, renderSyncConflictModal } from '../workbench/modal.js';
 
 const TAG = 'parsi-modal-dialog';
 const STYLE_URL = new URL('./modal-dialog.css', import.meta.url).href;
@@ -37,7 +37,7 @@ class ParsiModalDialog extends PeyElement {
   /**
    * Updates the pending overlay snapshot.
    * @param {object} data New data.
-   * @param {object|null} [data.modal] `{ kind: 'confirm', title }`, `{ kind: 'confirm-folder', title, count }` or the formatted properties snapshot, or null when closed.
+   * @param {object|null} [data.modal] `{ kind: 'confirm', title }`, `{ kind: 'confirm-folder', title, count }`, `{ kind: 'sync-conflict', conflict }` or the formatted properties snapshot, or null when closed.
    * @returns {void}
    */
   configure({ modal } = {}) {
@@ -69,6 +69,25 @@ class ParsiModalDialog extends PeyElement {
       this.dispatchEvent(new CustomEvent('modal-dismiss', { bubbles: true, composed: true }));
       return;
     }
+    const resolveButton = target?.closest?.('[data-sync-resolve]');
+    if (resolveButton) {
+      this.dispatchEvent(
+        new CustomEvent('sync-resolve', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            collection: resolveButton.getAttribute('data-sync-collection') ?? '',
+            id: resolveButton.getAttribute('data-sync-id') ?? '',
+            choice: resolveButton.getAttribute('data-sync-resolve') === 'remote' ? 'remote' : 'local',
+          },
+        }),
+      );
+      return;
+    }
+    if (target?.closest?.('[data-sync-later]')) {
+      this.dispatchEvent(new CustomEvent('sync-later', { bubbles: true, composed: true, detail: {} }));
+      return;
+    }
     if (target?.closest?.('[part="modal-backdrop"]') && !target?.closest?.('[part="modal-dialog"]')) {
       this.dispatchEvent(new CustomEvent('modal-dismiss', { bubbles: true, composed: true }));
     }
@@ -95,6 +114,13 @@ class ParsiModalDialog extends PeyElement {
         createdText: this.#modal.createdText,
         updatedText: this.#modal.updatedText,
         sizeText: this.#modal.sizeText,
+        assetBaseUrl: this.#assetBaseUrl,
+      });
+    }
+    if (this.#modal?.kind === 'sync-conflict') {
+      return renderSyncConflictModal({
+        t: this.#t,
+        conflict: this.#modal.conflict ?? null,
         assetBaseUrl: this.#assetBaseUrl,
       });
     }

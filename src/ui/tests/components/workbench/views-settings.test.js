@@ -54,6 +54,39 @@ test('should_use_stepper_buttons_for_font_size_when_rendered', () => {
   assert.ok(markup.includes('data-setting-key="fontSize" data-setting-step="1"'));
 });
 
+test('should_render_sync_form_when_unconfigured', () => {
+  const markup = renderSettingsView({ t: (key) => key, settings, formatNumber: String, sync: null });
+  assert.ok(markup.includes('data-sync-field="repo"'));
+  assert.ok(markup.includes('data-sync-field="branch"'));
+  assert.ok(markup.includes('data-sync-field="token"'));
+  assert.ok(markup.includes('data-sync-save'));
+  assert.ok(!markup.includes('data-sync-now'), 'expected no sync button without a backend');
+  assert.ok(!markup.includes('data-sync-remove'), 'expected no remove button without a backend');
+});
+
+test('should_render_sync_status_when_configured', () => {
+  const markup = renderSettingsView({
+    t: (key) => key,
+    settings,
+    formatNumber: String,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null },
+  });
+  assert.ok(markup.includes('data-sync-now'));
+  assert.ok(markup.includes('data-sync-remove'));
+  assert.ok(markup.includes('u/r'));
+  assert.ok(!markup.includes('data-sync-field="token"'), 'expected no token field when configured');
+});
+
+test('should_render_sync_error_when_present', () => {
+  const markup = renderSettingsView({
+    t: (key) => key,
+    settings,
+    formatNumber: String,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: 'boom' },
+  });
+  assert.ok(markup.includes('boom'));
+});
+
 test('should_offer_four_themes_when_rendered', () => {
   const markup = renderSettingsView({
     t: (key) => key,

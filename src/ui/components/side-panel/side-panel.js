@@ -51,6 +51,7 @@ class ParsiSidePanel extends PeyElement {
   #editingId = null;
   #renameError = null;
   #filesSort = DEFAULT_FILES_SORT;
+  #sync = null;
   #collapsedLines = new Set();
   #folderCollapsed = new Set();
   #moveMenuId = null;
@@ -98,7 +99,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode } = {}) {
+  #store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -129,6 +130,9 @@ class ParsiSidePanel extends PeyElement {
     if (FILES_SORT_MODES.includes(sortMode)) {
       this.#filesSort = sortMode;
     }
+    if (sync !== undefined) {
+      this.#sync = sync;
+    }
     return {
       activeView: this.#activeView,
       mindmapMode: this.#mindmapMode,
@@ -144,6 +148,7 @@ class ParsiSidePanel extends PeyElement {
       editingId: this.#editingId,
       renameError: this.#renameError,
       filesSort: this.#filesSort,
+      sync: this.#sync,
       collapsed: [...this.#collapsedLines].sort((left, right) => left - right).join(','),
       signature: outlineSignature(this.#documentText),
     };
@@ -210,10 +215,11 @@ class ParsiSidePanel extends PeyElement {
    * @param {number|null} [data.activeLine] Highlighted outline heading line.
    * @param {string|null} [data.renameError] Translation key for a rename failure.
    * @param {string} [data.sortMode] Files ordering (one of `FILES_SORT_MODES`).
+   * @param {object|null} [data.sync] Sync snapshot for the settings view.
    * @returns {void}
    */
-  configure({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode } = {}) {
-    const next = this.#store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode });
+  configure({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync } = {}) {
+    const next = this.#store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -235,6 +241,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.editingId === next.editingId
       && prev.renameError === next.renameError
       && prev.filesSort === next.filesSort
+      && prev.sync === next.sync
       && prev.collapsed === next.collapsed
       && prev.signature === next.signature;
     if (!same) {
@@ -298,6 +305,37 @@ class ParsiSidePanel extends PeyElement {
     const closeButton = event.target?.closest?.('[part="side-close"]');
     if (closeButton) {
       this.dispatchEvent(new CustomEvent('side-close', { bubbles: true, composed: true }));
+      return;
+    }
+    const syncSave = event.target?.closest?.('[data-sync-save]');
+    if (syncSave) {
+      const fields = [...(this.shadowRoot?.querySelectorAll('[data-sync-field]') ?? [])];
+      const values = {};
+      for (const field of fields) {
+        values[field.getAttribute('data-sync-field')] = field.value ?? '';
+      }
+      const invalid = fields.find((field) => typeof field.reportValidity === 'function' && !field.checkValidity());
+      if (invalid) {
+        invalid.reportValidity();
+        return;
+      }
+      this.dispatchEvent(
+        new CustomEvent('sync-configure', {
+          bubbles: true,
+          composed: true,
+          detail: { repo: values.repo ?? '', branch: values.branch || 'main', token: values.token ?? '' },
+        }),
+      );
+      return;
+    }
+    const syncRemove = event.target?.closest?.('[data-sync-remove]');
+    if (syncRemove) {
+      this.dispatchEvent(new CustomEvent('sync-remove', { bubbles: true, composed: true, detail: {} }));
+      return;
+    }
+    const syncNow = event.target?.closest?.('[data-sync-now]');
+    if (syncNow) {
+      this.dispatchEvent(new CustomEvent('sync-now', { bubbles: true, composed: true, detail: {} }));
       return;
     }
     const outlineButton = event.target?.closest?.('[data-line]');
@@ -490,7 +528,7 @@ class ParsiSidePanel extends PeyElement {
     const scope = this.#mindmapMode ? filterMindmapTree(sortDocuments(liveItems, this.#filesSort), this.#folders) : null;
     const body = this.#mindmapMode
       ? renderFilesView({ t: this.#t, items: scope.items, folders: scope.folders, currentId: this.#currentId, openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed], mindmap: true })
-      : view.render({ t: this.#t, items: ordered, folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed] });
+      : view.render({ t: this.#t, items: ordered, folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed], sync: this.#sync });
     return `
       <aside part="side">
         <div part="side-header">

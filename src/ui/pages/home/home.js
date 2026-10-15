@@ -29,6 +29,19 @@ const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
 const EXPORT_SERVICE = 'parsinegar.export.service';
 const FILESYSTEM_SERVICE = 'pey.filesystem.service';
+const SYNC_SERVICE = 'pey.sync.service';
+const SYNC_METHODS = ['configureBackend', 'removeBackend', 'getStatus', 'syncNow', 'resolveConflict'];
+const SYNC_SCOPE = {
+  collections: [
+    { collection: 'folders', serializer: 'json' },
+    {
+      collection: 'documents',
+      serializer: 'markdown',
+      titleField: 'title',
+      folders: { collection: 'folders', nameField: 'name' },
+    },
+  ],
+};
 // Side-panel ids for folders: documents keep raw ids, folders travel
 // prefixed so rename/delete/move route to the folder flows.
 const FOLDER_ID_PREFIX = 'folder:';
@@ -108,6 +121,10 @@ class ParsiPageHome extends PeyElement {
   #menuEl = null;
   #searchOpen = false;
   #exporter = null;
+  #documentsService = null;
+  #syncer = null;
+  #syncConflicts = [];
+  #syncStatus = null;
   #searchSpec = null;
   #builtIn = null;
   #guides = null;
@@ -141,6 +158,7 @@ class ParsiPageHome extends PeyElement {
     }
     const service = refs.services?.[DOCUMENTS_SERVICE] ?? null;
     const documents = service && typeof service.listDocuments === 'function' ? service : null;
+    this.#documentsService = documents && typeof documents.listFolders === 'function' ? documents : null;
     // Raw values (not wrappers): the controller guards absent services and
     // formatters itself, and reconnect re-passes them without losing state.
     const docRefs = { documents, t: this.#t, format: this.#format };
@@ -164,6 +182,10 @@ class ParsiPageHome extends PeyElement {
     }
     const exporter = refs.services?.[EXPORT_SERVICE] ?? null;
     this.#exporter = exporter && typeof exporter.exportHtml === 'function' ? exporter : null;
+    const syncer = refs.services?.[SYNC_SERVICE] ?? null;
+    this.#syncer = syncer && SYNC_METHODS.every((method) => typeof syncer[method] === 'function')
+      ? syncer
+      : null;
     const filesystem = refs.services?.[FILESYSTEM_SERVICE] ?? null;
     this.#filesystem = filesystem && FILESYSTEM_METHODS.every((method) => typeof filesystem[method] === 'function')
       ? filesystem
@@ -206,6 +228,11 @@ class ParsiPageHome extends PeyElement {
       'search-replace-one',
       'search-replace-all',
       'search-close',
+      'sync-configure',
+      'sync-remove',
+      'sync-now',
+      'sync-resolve',
+      'sync-later',
     ];
   }
 
@@ -356,6 +383,27 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'settings-step') {
         void this.#applySettingStep(event.detail?.key, event.detail?.delta);
+        return;
+      }
+      if (event.type === 'sync-configure') {
+        void this.#configureSyncBackend(event.detail);
+        return;
+      }
+      if (event.type === 'sync-remove') {
+        void this.#removeSyncBackend();
+        return;
+      }
+      if (event.type === 'sync-now') {
+        void this.#runSyncNow();
+        return;
+      }
+      if (event.type === 'sync-resolve') {
+        void this.#resolveSyncConflict(event.detail);
+        return;
+      }
+      if (event.type === 'sync-later') {
+        this.#syncConflicts = [];
+        this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
         return;
       }
     }
@@ -908,6 +956,190 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
+   * Configures the git backend from the settings form. Validation failures
+   * surface through the next status refresh (the service records run
+   * errors; field emptiness is already guarded by reportValidity).
+   * @param {object} detail `{ repo, branch, token }`.
+   * @returns {Promise<void>}
+   */
+  async #configureSyncBackend(detail) {
+    if (!this.#syncer) {
+      return;
+    }
+    const repo = typeof detail?.repo === 'string' ? detail.repo.trim() : '';
+    const branch = typeof detail?.branch === 'string' && detail.branch.trim().length > 0
+      ? detail.branch.trim()
+      : 'main';
+    const token = typeof detail?.token === 'string' ? detail.token : '';
+    if (repo.length === 0 || token.length === 0) {
+      return;
+    }
+    try {
+      await this.#syncer.configureBackend({ kind: 'git', params: { repo, branch, token } });
+    } catch {
+      // Failure lands in status via getStatus on refresh below.
+    }
+    await this.#refreshSyncStatus();
+  }
+
+  /**
+   * Removes the sync backend and closes any pending conflict view.
+   * @returns {Promise<void>}
+   */
+  async #removeSyncBackend() {
+    try {
+      await this.#syncer?.removeBackend();
+    } catch {
+      // Best effort; status refresh reports the truth.
+    }
+    this.#syncConflicts = [];
+    await this.#refreshSyncStatus();
+  }
+
+  /**
+   * Runs one manual sync: flushes the pending draft first so pulled content
+   * can never clobber unsaved keystrokes (the flush stamps updatedAt, which
+   * turns a would-be overwrite into a conflict instead), then reloads the
+   * library and repoints the editor without remounting.
+   * @returns {Promise<void>}
+   */
+  async #runSyncNow() {
+    if (!this.#syncer) {
+      return;
+    }
+    await this.#docs?.flushSave();
+    if (!this.isConnected) {
+      return;
+    }
+    let report = null;
+    try {
+      report = await this.#syncer.syncNow(SYNC_SCOPE);
+    } catch {
+      await this.#refreshSyncStatus();
+      return;
+    }
+    this.#syncConflicts = Array.isArray(report?.conflicts) ? report.conflicts : [];
+    await this.#reloadLibrary();
+    await this.#refreshSyncStatus();
+  }
+
+  /**
+   * Applies one conflict choice, then advances the dialog or closes it.
+   * A stale choice (remote moved on) drops the queue view and refreshes.
+   * @param {object} detail `{ collection, id, choice }`.
+   * @returns {Promise<void>}
+   */
+  async #resolveSyncConflict(detail) {
+    if (!this.#syncer) {
+      return;
+    }
+    const { collection, id, choice } = detail ?? {};
+    try {
+      await this.#syncer.resolveConflict({ collection, id, choice });
+      this.#syncConflicts = this.#syncConflicts.filter(
+        (item) => !(item.collection === collection && item.id === id),
+      );
+    } catch {
+      this.#syncConflicts = [];
+    }
+    await this.#reloadLibrary();
+    await this.#refreshSyncStatus();
+  }
+
+  /**
+   * Reloads the library snapshot after external (sync) writes and repoints
+   * the editor surgically: no remount, undo preserved unless pulled content
+   * actually replaced the open text.
+   * @returns {Promise<void>}
+   */
+  async #reloadLibrary() {
+    const service = this.#documentsService;
+    if (!service || !this.isConnected) {
+      return;
+    }
+    let items = null;
+    let folders = [];
+    try {
+      items = await service.listDocuments();
+      folders = await service.listFolders();
+    } catch {
+      return;
+    }
+    if (!Array.isArray(items)) {
+      return;
+    }
+    const { currentId = null } = this.#docs?.getState() ?? {};
+    const current = items.find((item) => item?.id === currentId) ?? items[0] ?? null;
+    if (!current) {
+      const result = await this.#docs?.ensureInitial() ?? { none: true };
+      this.#applyResult(result);
+      return;
+    }
+    this.#docs?.adopt(current, items, folders);
+    this.#sideEl?.configure({ items, folders, currentId: current.id });
+    if (this.#centerMode === 'editor' && !this.#builtIn && this.#editor) {
+      const live = this.#editor.getValue();
+      if (typeof live === 'string' && live !== (current.content ?? '')) {
+        this.#editor.setDocument(current.content ?? '');
+        this.#searchOpen = false;
+        this.#searchSpec = null;
+        this.#menuEl?.configure({ searchOpen: false, search: null });
+        this.#pushLiveUpdates();
+      }
+    }
+  }
+
+  /**
+   * Refreshes the sync snapshot shown in settings (and the conflict
+   * dialog): status from the service, preformatted for the pure renderer.
+   * @returns {Promise<void>}
+   */
+  async #refreshSyncStatus() {
+    let snapshot = null;
+    try {
+      const status = await this.#syncer?.getStatus();
+      if (status) {
+        snapshot = {
+          configured: status.configured === true,
+          repo: status.repo ?? null,
+          branch: status.branch ?? null,
+          lastSyncText: typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null,
+          errorText: status.lastError?.message ?? null,
+        };
+      }
+    } catch {
+      snapshot = null;
+    }
+    this.#syncStatus = snapshot;
+    if (!this.isConnected) {
+      return;
+    }
+    this.#sideEl?.configure({ sync: snapshot });
+    this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() });
+  }
+
+  /**
+   * Builds the pending conflict modal snapshot, if any.
+   * @returns {object|null} `{ kind: 'sync-conflict', ... }` or null.
+   */
+  #syncModal() {
+    const head = this.#syncConflicts[0];
+    if (!head) {
+      return null;
+    }
+    return {
+      kind: 'sync-conflict',
+      conflict: {
+        collection: head.collection,
+        id: head.id,
+        title: head.title ?? head.id,
+        local: head.local,
+        remote: head.remote,
+      },
+    };
+  }
+
+  /**
    * Mounts region children into their placeholders (or reconfigures the
    * mounted ones). Runs after render lands; skipped entirely without the
    * events facade, in which case only the editor is available.
@@ -979,6 +1211,7 @@ class ParsiPageHome extends PeyElement {
           settings: this.#prefs?.getState().settings ?? null,
           activeLine: this.#spy.getActiveLine(),
           sortMode: this.#filesSort,
+          sync: this.#syncStatus,
         }),
       });
     } else {
@@ -1011,7 +1244,7 @@ class ParsiPageHome extends PeyElement {
       tag: 'parsi-modal-dialog',
       infrastructure,
       refs: { t: this.#t, assetBaseUrl: this.#assetBaseUrl },
-      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? null }),
+      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() }),
     });
   }
 
@@ -1032,6 +1265,7 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     this.#applyResult(result);
+    void this.#refreshSyncStatus();
   }
 
   async #switchDocument(id) {

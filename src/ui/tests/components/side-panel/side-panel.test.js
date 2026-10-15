@@ -48,6 +48,43 @@ test('should_render_files_view_when_mounted', async () => {
   }
 });
 
+test('should_emit_sync_configure_when_save_is_clicked', async () => {
+  const element = mount({ activeView: 'settings', sync: null });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('sync-configure', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-sync-field="repo"]').value = 'u/r';
+    element.shadowRoot.querySelector('[data-sync-field="branch"]').value = 'main';
+    element.shadowRoot.querySelector('[data-sync-field="token"]').value = 'tok';
+    element.shadowRoot.querySelector('[data-sync-save]').click();
+    await flush();
+    assert.deepEqual(seen, [{ repo: 'u/r', branch: 'main', token: 'tok' }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_sync_actions_when_configured_buttons_are_clicked', async () => {
+  const element = mount({
+    activeView: 'settings',
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null },
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('sync-now', () => seen.push('now'));
+    element.addEventListener('sync-remove', () => seen.push('remove'));
+    element.shadowRoot.querySelector('[data-sync-now]').click();
+    await flush();
+    element.shadowRoot.querySelector('[data-sync-remove]').click();
+    await flush();
+    assert.deepEqual(seen, ['now', 'remove']);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_emit_open_when_document_button_is_clicked', async () => {
   const element = mount({
     items: [{ id: 'a', title: 'اول' }],

@@ -40,12 +40,11 @@ async function store(task) {
  * Maps a backend failure to the sync error contract. Adapter messages are
  * safe by contract (no secrets, no content); codes translate one to one.
  * @param {object} error Adapter error with a code.
- * @returns {object} Structured sync error (never returns).
- * @throws {object} Always.
+ * @returns {object} Structured sync error.
  */
-function mapAdapterError(error) {
+function toSyncError(error) {
   if (error?.code && String(error.code).startsWith('SYNC_')) {
-    throw error;
+    return error;
   }
   const mapping = {
     GIT_AUTH_FAILED: 'SYNC_AUTH_FAILED',
@@ -57,7 +56,17 @@ function mapAdapterError(error) {
     GIT_INVALID_CONFIG: 'SYNC_INVALID_CONFIG',
   };
   const code = mapping[error?.code] ?? 'SYNC_NETWORK_FAILED';
-  throw syncError(code, error?.message ?? 'Sync backend failed', {});
+  return syncError(code, error?.message ?? 'Sync backend failed', {});
+}
+
+/**
+ * Throws the mapped sync error (for promise-catch chains).
+ * @param {object} error Adapter error with a code.
+ * @returns {object} Never returns.
+ * @throws {object} Always.
+ */
+function mapAdapterError(error) {
+  throw toSyncError(error);
 }
 
 /**
@@ -455,7 +464,14 @@ function createService(state) {
         if (error?.code && String(error.code).startsWith('SYNC_')) {
           throw error;
         }
-        throw mapAdapterError(error);
+        const mapped = toSyncError(error);
+        try {
+          const storage = requireStorage(state);
+          await recordError(storage, mapped);
+        } catch {
+          // Storage outage already reported by its own code path below.
+        }
+        throw mapped;
       }
       const storage = requireStorage(state);
       await store(storage.write(BACKENDS_COLLECTION, {

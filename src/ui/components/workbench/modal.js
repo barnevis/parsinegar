@@ -7,6 +7,46 @@
 import { escapeHtml, iconMarkup } from './html.js';
 
 /**
+ * Renders the sync-conflict modal: both versions side by side with a choice
+ * per record, or '' when nothing is pending. Long texts scroll inside
+ * their own panes so the dialog never grows past the viewport.
+ * @param {object} options Render options.
+ * @param {Function} options.t Translation function.
+ * @param {object|null} options.conflict `{ collection, id, title, local, remote }` with `{ updatedAt, content }` sides (either side null on delete-vs-change).
+ * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
+ * @returns {string} Modal markup or ''.
+ */
+export function renderSyncConflictModal({ t, conflict, assetBaseUrl }) {
+  const translate = typeof t === 'function' ? t : (key) => key;
+  if (!conflict || typeof conflict.id !== 'string') {
+    return '';
+  }
+  const icon = iconMarkup(assetBaseUrl, 'content-copy');
+  const pane = (labelKey, side) => `
+      <div part="modal-pane">
+        <h3 part="modal-pane-title">${escapeHtml(translate(labelKey))}</h3>
+        <pre part="modal-code" dir="auto">${escapeHtml(side?.content ?? '')}</pre>
+      </div>`;
+  return `
+    <div part="modal-backdrop">
+      <div part="modal-dialog" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+        <div part="modal-icon" aria-hidden="true">${icon}</div>
+        <h2 part="modal-title" id="modal-title">${escapeHtml(translate('parsinegar.sync.conflict', { title: conflict.title ?? conflict.id }))}</h2>
+        <p part="modal-desc" id="modal-desc">${escapeHtml(conflict.collection ?? '')}</p>
+        <div part="modal-panes">
+          ${pane('parsinegar.sync.mine', conflict.local)}
+          ${pane('parsinegar.sync.theirs', conflict.remote)}
+        </div>
+        <div part="modal-actions">
+          <button type="button" part="modal-cancel" data-sync-later>${escapeHtml(translate('parsinegar.sync.later'))}</button>
+          <button type="button" part="modal-confirm" data-sync-resolve="remote" data-sync-collection="${escapeHtml(conflict.collection ?? '')}" data-sync-id="${escapeHtml(conflict.id)}">${escapeHtml(translate('parsinegar.sync.take-theirs'))}</button>
+          <button type="button" part="modal-confirm" data-sync-resolve="local" data-sync-collection="${escapeHtml(conflict.collection ?? '')}" data-sync-id="${escapeHtml(conflict.id)}">${escapeHtml(translate('parsinegar.sync.keep-mine'))}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/**
  * Renders the delete-confirmation modal, or '' when nothing is pending.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.

@@ -28,14 +28,57 @@ function renderOption(translate, group, key, value, labelKey, current) {
 }
 
 /**
+ * Renders the sync section: backend form when unconfigured, status plus
+ * actions when configured. The snapshot arrives preformatted; this module
+ * never touches services or dates.
+ * @param {Function} translate Translation function.
+ * @param {object|null} sync `{ configured, repo, branch, lastSyncText, errorText }`.
+ * @returns {string} Section markup.
+ */
+function renderSyncSection(translate, sync) {
+  const snapshot = sync && typeof sync === 'object' ? sync : null;
+  const status = snapshot?.configured === true
+    ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.backend'))}: ${escapeHtml(snapshot.repo ?? '')} / ${escapeHtml(snapshot.branch ?? '')}</p>
+      <p part="settings-note">${escapeHtml(translate('parsinegar.sync.last-sync'))}: ${escapeHtml(snapshot.lastSyncText ?? translate('parsinegar.sync.never'))}</p>
+      ${snapshot.errorText ? `<p part="settings-error">${escapeHtml(translate('parsinegar.sync.error'))}: ${escapeHtml(snapshot.errorText)}</p>` : ''}
+      <div part="settings-actions">
+        <button type="button" part="settings-button" data-sync-now>${escapeHtml(translate('parsinegar.sync.now'))}</button>
+        <button type="button" part="settings-button" data-sync-remove>${escapeHtml(translate('parsinegar.sync.remove'))}</button>
+      </div>`
+    : `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.unconfigured'))}</p>
+      <label part="settings-field">
+        <span>${escapeHtml(translate('parsinegar.sync.repo'))}</span>
+        <input type="text" dir="ltr" data-sync-field="repo" required autocomplete="off">
+      </label>
+      <label part="settings-field">
+        <span>${escapeHtml(translate('parsinegar.sync.branch'))}</span>
+        <input type="text" dir="ltr" data-sync-field="branch" value="main" autocomplete="off">
+      </label>
+      <label part="settings-field">
+        <span>${escapeHtml(translate('parsinegar.sync.token'))}</span>
+        <input type="password" dir="ltr" data-sync-field="token" required autocomplete="off">
+      </label>
+      <p part="settings-note">${escapeHtml(translate('parsinegar.sync.token-note'))}</p>
+      <div part="settings-actions">
+        <button type="button" part="settings-button" data-sync-save>${escapeHtml(translate('parsinegar.sync.save'))}</button>
+      </div>`;
+  return `
+    <fieldset part="settings-group">
+      <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.title'))}</legend>
+      ${status}
+    </fieldset>`;
+}
+
+/**
  * Renders the preferences controls for the current settings snapshot.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
  * @param {object} options.settings Current `{ theme, direction, fontSize }`.
  * @param {Function} options.formatNumber Number formatter.
+ * @param {object|null} [options.sync] Sync snapshot (see renderSyncSection).
  * @returns {string} Settings view markup.
  */
-export function renderSettingsView({ t, settings, formatNumber }) {
+export function renderSettingsView({ t, settings, formatNumber, sync = null }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const snapshot = settings && typeof settings === 'object' ? settings : {};
   const format = typeof formatNumber === 'function' ? formatNumber : String;
@@ -63,5 +106,6 @@ export function renderSettingsView({ t, settings, formatNumber }) {
           <button type="button" part="settings-more" data-setting-key="fontSize" data-setting-step="1" aria-label="${escapeHtml(translate('parsinegar.settings.increase'))}">+</button>
         </div>
       </fieldset>
+      ${renderSyncSection(translate, sync)}
     </div>`;
 }

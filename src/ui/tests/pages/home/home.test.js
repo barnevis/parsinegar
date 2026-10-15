@@ -1960,3 +1960,145 @@ test('should_return_to_editor_when_builtin_opens_from_mindmap', async () => {
     element.remove();
   }
 });
+
+function createSyncService(overrides = {}) {
+  const calls = [];
+  return {
+    calls,
+    async configureBackend(input) {
+      calls.push(['configureBackend', input]);
+      return { ok: true, kind: 'git', repo: input?.params?.repo ?? null, branch: input?.params?.branch ?? null };
+    },
+    async removeBackend() {
+      calls.push(['removeBackend']);
+      return { ok: true };
+    },
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: null, lastError: null };
+    },
+    async syncNow() {
+      calls.push(['syncNow']);
+      return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+    async resolveConflict(input) {
+      calls.push(['resolveConflict', input]);
+      return { remaining: 0 };
+    },
+    ...overrides,
+  };
+}
+
+test('should_configure_backend_when_sync_form_is_saved', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService();
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', { bubbles: true, detail: { repo: 'u/r', branch: 'main', token: 'tok' } }));
+    await settled();
+    await settled();
+    assert.deepEqual(syncer.calls, [['configureBackend', { kind: 'git', params: { repo: 'u/r', branch: 'main', token: 'tok' } }]]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_ignore_sync_events_without_service_when_dispatched', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.equal(element.value, 'c1');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_conflict_modal_when_sync_reports_conflicts', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async syncNow() {
+      return {
+        pushed: [],
+        pulled: [],
+        deletedRemote: [],
+        deleteLocal: [],
+        relocated: [],
+        skipped: [],
+        conflicts: [{
+          collection: 'documents',
+          id: 'd1',
+          title: 'یادداشت',
+          local: { updatedAt: 2, content: 'نسخه من' },
+          remote: { updatedAt: 3, content: 'نسخه طرف' },
+        }],
+        completed: false,
+      };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.ok(inChild(element, 'parsi-modal-dialog', '[data-sync-resolve="local"]'), 'expected the keep-mine choice');
+    assert.ok(inChild(element, 'parsi-modal-dialog', '[data-sync-resolve="remote"]'), 'expected the take-theirs choice');
+    const text = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]').textContent;
+    assert.ok(text.includes('نسخه من'));
+    assert.ok(text.includes('نسخه طرف'));
+    inChild(element, 'parsi-modal-dialog', '[data-sync-resolve="local"]').click();
+    await settled();
+    await settled();
+    assert.deepEqual(syncer.calls.filter(([name]) => name === 'resolveConflict'), [
+      ['resolveConflict', { collection: 'documents', id: 'd1', choice: 'local' }],
+    ]);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[data-sync-resolve="local"]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_refresh_editor_when_sync_pulls_open_document', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async syncNow() {
+      await documents.saveDocument({ id: 'd1', title: 'یادداشت', content: 'pulled' });
+      return { pushed: [], pulled: [{ collection: 'documents', id: 'd1' }], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    assert.equal(element.value, 'c1');
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.equal(element.value, 'pulled');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_remove_backend_when_remove_is_dispatched', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService();
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-remove', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.deepEqual(syncer.calls, [['removeBackend']]);
+  } finally {
+    element.remove();
+  }
+});
