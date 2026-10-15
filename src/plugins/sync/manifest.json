@@ -45,7 +45,7 @@
             { "name": "scope", "type": "object" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONFLICT_PENDING"]
+          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONFLICT_PENDING", "SYNC_CONCURRENT_CHANGE"]
         },
         {
           "name": "resolveConflict",

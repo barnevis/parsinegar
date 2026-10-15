@@ -61,6 +61,9 @@
 
 ## ۸. خطاها
 `SYNC_NOT_CONFIGURED`، `SYNC_INVALID_CONFIG`، `SYNC_AUTH_FAILED`، `SYNC_TARGET_NOT_FOUND`، `SYNC_NETWORK_FAILED`، `SYNC_RATE_LIMITED`، `SYNC_CORRUPT_MANIFEST`، `SYNC_CONFLICT_PENDING`؛ خطای خام آداپتر هرگز مستقیم بیرون نمی‌رود.
+نوشتن مانیفست روی نسخه دیده‌شده انجام می‌شود؛ اگر مقصد زیر دستمان عوض شده باشد
+(عدم تطابق نسخه)، اجرا با `SYNC_CONCURRENT_CHANGE` می‌ایستد و اجرای بعدی با خوانش
+تازه درست تصمیم می‌گیرد.
 
 ## ۹. ایونت‌ها
 - `sync:changed` پس از هر اجرا (موفق یا ناتمام): `{pushed, pulled, conflicts}`.
