@@ -271,3 +271,56 @@ test('should_keep_tab_indent_when_cursor_is_outside_table', () => {
     host.remove();
   }
 });
+
+test('should_pad_short_rows_when_rendering', () => {
+  const { host, editor } = createEditor('متن\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 |');
+  try {
+    const table = host.querySelector('.parsi-table');
+    assert.ok(table, 'expected a table widget');
+    const cells = [...table.querySelectorAll('tbody tr')][0].querySelectorAll('td');
+    assert.equal(cells.length, 3);
+    assert.equal(cells[2].textContent, '');
+    assert.equal(cells[2].style.textAlign, 'start');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_ignore_clicks_on_padded_cells_when_table_is_clicked', () => {
+  const { host, editor } = createEditor('متن\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 |');
+  try {
+    const before = headOf(host);
+    const padded = [...host.querySelector('.parsi-table').querySelectorAll('tbody td')][2];
+    assert.equal(padded.textContent, '');
+    padded.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    assert.equal(editor.getValue(), 'متن\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 |');
+    assert.equal(headOf(host), before);
+    assert.ok(host.querySelector('.parsi-table'), 'expected the widget undisturbed');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_break_words_whole_when_theme_is_loaded', () => {
+  const { host, editor } = createEditor('متن\n\n| a |\n|---|\n| 1 |');
+  try {
+    // Cells inherit the wrapping editor's break-anywhere rules, which
+    // collapse min-content and let auto layout squeeze columns narrower
+    // than a word; the table restores whole-word breaking instead.
+    const styleSheets = [...document.styleSheets];
+    const has = (selector, property, expected) => styleSheets.some((sheet) => {
+      try {
+        return [...sheet.cssRules].some((rule) => rule.selectorText?.includes(selector) && rule.style?.getPropertyValue(property).includes(expected));
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(has('.parsi-table', 'overflow-wrap', 'normal'));
+    assert.ok(has('.parsi-table', 'word-break', 'normal'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});

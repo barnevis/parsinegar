@@ -427,11 +427,18 @@ class TableWidget extends WidgetType {
     const body = document.createElement('tbody');
     rows.forEach((cells, rowIndex) => {
       const bodyRow = document.createElement('tr');
-      // Cells beyond the header ride the last alignment; missing cells
-      // simply leave the row shorter, like the source does.
+      // Cells beyond the header ride the last alignment; rows shorter than
+      // the header are padded with empty cells (like GFM renderers), so
+      // every row carries the full border frame instead of leaving the row
+      // shorter. Padded cells carry no source range: click mapping already
+      // returns null for them and Tab stops come from the tree, so both
+      // safely skip padded cells.
       cells.forEach((segments, index) => {
         bodyRow.append(buildCell(document, 'td', segments, aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from));
       });
+      for (let index = cells.length; index < header.length; index += 1) {
+        bodyRow.append(buildCell(document, 'td', [], aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from));
+      }
       body.append(bodyRow);
     });
     table.append(body);
@@ -482,6 +489,15 @@ const tableTheme = EditorView.theme({
   '& .parsi-table': {
     borderCollapse: 'collapse',
     minWidth: '60%',
+    // Whole-word breaking only: cells inherit `overflow-wrap: anywhere`
+    // and `word-break: break-word` from the wrapping editor, which collapse
+    // min-content toward zero and let auto layout squeeze columns narrower
+    // than a word (mid-word breaks like «تصمیم»). Both back to `normal`
+    // restores word floors, so columns share the wrapper fairly and wrap at
+    // spaces; unbreakable runs overflow the cell and ride the wrapper
+    // scroll instead.
+    overflowWrap: 'normal',
+    wordBreak: 'normal',
   },
   '& .parsi-table thead th': {
     fontWeight: '700',
