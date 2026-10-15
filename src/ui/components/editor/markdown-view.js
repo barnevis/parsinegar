@@ -189,7 +189,7 @@ export function createMarkdownView(host, options = {}) {
       ...poemViewExtensions(),
       ...imageViewExtensions(),
       ...linkFollowExtensions(),
-      ...tableViewExtensions(),
+      ...tableViewExtensions({ assetBaseUrl: options.assetBaseUrl ?? null }),
        ...listFoldExtensions(),
        ...listHangExtensions(),
        ...indentNormalizeExtensions(),

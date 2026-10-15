@@ -20,7 +20,8 @@
 // other live-preview extensions.
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, WidgetType, keymap } from '@codemirror/view';
-import { EditorSelection, Prec, StateField } from '@codemirror/state';
+import { EditorSelection, Facet, Prec, StateField } from '@codemirror/state';
+import { escapeHtml, iconMarkup } from '../workbench/html.js';
 
 const REMOTE_PATTERN = /^https?:\/\//i;
 // Marks own no content: gaps between children carry the plain text, and
@@ -502,14 +503,38 @@ function wireEditableCell(document, view, cell, segments, row, col, tableFrom) {
   cell.addEventListener('focus', () => {
     cell.textContent = cell.dataset.raw ?? '';
   });
-  cell.addEventListener('blur', () => {
+  cell.addEventListener('blur', (event) => {
     if (cancelled) {
       cancelled = false;
       return;
     }
+    // `relatedTarget` duck-typing (not `instanceof Element`): the test DOM
+    // does not expose the Element global, and only the closest lookup matters.
+    const related = event.relatedTarget;
+    const pending = related && typeof related.closest === 'function'
+      ? related.closest('.parsi-table-source, [data-table-row]')
+      : null;
     if (!commit()) {
       restore();
+      return;
     }
+    if (!pending || pending.isConnected) {
+      return;
+    }
+    queueMicrotask(() => {
+      if (pending.classList.contains('parsi-table-source')) {
+        const table = pending.dataset.tableFrom;
+        const fresh = table === undefined
+          ? null
+          : view.dom.querySelector(`.parsi-table-source[data-table-from="${table}"]`);
+        fresh?.click();
+      } else {
+        const fresh = editableCellsOf(view, pending.dataset.tableFrom)
+          .find((candidate) => candidate.dataset.tableRow === pending.dataset.tableRow
+            && candidate.dataset.tableCol === pending.dataset.tableCol);
+        fresh?.focus({ preventScroll: true });
+      }
+    });
   });
   cell.addEventListener('keydown', (event) => {
     if (event.isComposing) {
@@ -533,6 +558,25 @@ function wireEditableCell(document, view, cell, segments, row, col, tableFrom) {
 }
 
 /**
+ * Lists the editable cells of one table in logical order (header first,
+ * then rows), from the live DOM.
+ * @param {object} view Active editor view.
+ * @param {string} tableFrom Document offset of the Table node, as stored
+ *   in the dataset.
+ * @returns {Array} Cell elements, sorted by row then column.
+ */
+function editableCellsOf(view, tableFrom) {
+  const cells = [...view.dom.querySelectorAll('[data-table-from]')].filter(
+    (cell) => cell.dataset.tableFrom === String(tableFrom)
+      && cell.isConnected
+      && cell.getAttribute('contenteditable') === 'true',
+  );
+  cells.sort((a, b) => Number(a.dataset.tableRow) - Number(b.dataset.tableRow)
+    || Number(a.dataset.tableCol) - Number(b.dataset.tableCol));
+  return cells;
+}
+
+/**
  * Moves focus between the editable cells of one table in logical order
  * (header first, then rows). Eddies out with a blur past either end.
  * Queries the live DOM, since a commit just rebuilt it.
@@ -544,13 +588,7 @@ function wireEditableCell(document, view, cell, segments, row, col, tableFrom) {
  * @returns {void}
  */
 function focusNeighborCell(view, tableFrom, row, col, direction) {
-  const cells = [...view.dom.querySelectorAll('[data-table-from]')].filter(
-    (cell) => cell.dataset.tableFrom === String(tableFrom)
-      && cell.isConnected
-      && cell.getAttribute('contenteditable') === 'true',
-  );
-  cells.sort((a, b) => Number(a.dataset.tableRow) - Number(b.dataset.tableRow)
-    || Number(a.dataset.tableCol) - Number(b.dataset.tableCol));
+  const cells = editableCellsOf(view, tableFrom);
   const index = cells.findIndex(
     (cell) => Number(cell.dataset.tableRow) === row && Number(cell.dataset.tableCol) === col,
   );
@@ -563,7 +601,7 @@ function focusNeighborCell(view, tableFrom, row, col, direction) {
 }
 
 /**
- * Builds the per-table source toggle: a compact corner button that parks
+ * Builds the per-table source toggle: a compact toolbar button that parks
  * the cursor in the first header cell, which reveals the source through
  * the ordinary selection-touch contract. No extra state: leaving the
  * source (clicking elsewhere) returns the rendered table.
@@ -576,8 +614,16 @@ function buildSourceButton(document, view, tableFrom) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'parsi-table-source';
-  button.textContent = 'سورس';
-  button.setAttribute('aria-label', 'نمایش سورس جدول');
+  button.dataset.tableFrom = String(tableFrom);
+  const label = 'نمایش سورس جدول';
+  const icon = iconMarkup(view.state.facet(tableIconBase), 'code');
+  if (icon) {
+    button.innerHTML = icon;
+  } else {
+    button.textContent = 'سورس';
+  }
+  button.setAttribute('aria-label', escapeHtml(label));
+  button.setAttribute('title', escapeHtml(label));
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -623,7 +669,10 @@ class TableWidget extends WidgetType {
     const { header, rows, aligns } = this.table;
     const wrapper = document.createElement('div');
     wrapper.className = 'parsi-table-wrapper';
-    wrapper.append(buildSourceButton(document, view, this.table.from));
+    const bar = document.createElement('div');
+    bar.className = 'parsi-table-bar';
+    bar.append(buildSourceButton(document, view, this.table.from));
+    wrapper.append(bar);
     const table = document.createElement('table');
     table.className = 'parsi-table';
     const head = document.createElement('thead');
@@ -655,6 +704,14 @@ class TableWidget extends WidgetType {
     return wrapper;
   }
 }
+
+/**
+ * Asset base for table chrome icons, provided by tableViewExtensions.
+ * Null (tests, bare mounts) falls back to a text label.
+ */
+const tableIconBase = Facet.define({
+  combine: (values) => (typeof values[0] === 'string' ? values[0] : null),
+});
 
 /**
  * Builds table decorations over the whole document: the field sees state
@@ -692,9 +749,34 @@ export const tableField = StateField.define({
 const tableTheme = EditorView.theme({
   '& .parsi-table-wrapper': {
     display: 'block',
-    position: 'relative',
     overflowX: 'auto',
     marginBlock: '0.5rem',
+  },
+  '& .parsi-table-bar': {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginBlockEnd: '0.25rem',
+  },
+  '& .parsi-table-source': {
+    font: 'inherit',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    inlineSize: '1.75rem',
+    blockSize: '1.75rem',
+    border: '1px solid transparent',
+    borderRadius: '8px',
+    backgroundColor: 'transparent',
+    padding: '0.2rem',
+    cursor: 'pointer',
+    color: 'inherit',
+  },
+  '& .parsi-table-source:hover': {
+    backgroundColor: 'var(--pey-color-surface, #f1f1f5)',
+  },
+  '& .parsi-table-source svg': {
+    inlineSize: '1rem',
+    blockSize: '1rem',
   },
   '& .parsi-table': {
     borderCollapse: 'collapse',
@@ -732,23 +814,6 @@ const tableTheme = EditorView.theme({
     maxWidth: '100%',
     borderRadius: '4px',
     verticalAlign: 'middle',
-  },
-  '& .parsi-table-source': {
-    position: 'absolute',
-    insetBlockStart: '0.25rem',
-    insetInlineStart: '0.25rem',
-    zIndex: 1,
-    font: 'inherit',
-    fontSize: '0.75rem',
-    border: '1px solid var(--pey-color-border, #e2e2e8)',
-    borderRadius: '6px',
-    backgroundColor: 'var(--pey-color-canvas, #ffffff)',
-    color: 'inherit',
-    padding: '0.15rem 0.5rem',
-    cursor: 'pointer',
-  },
-  '& .parsi-table-source:hover': {
-    backgroundColor: 'var(--pey-color-surface, #f1f1f5)',
   },
   '& .parsi-table th[contenteditable="true"]': {
     cursor: 'text',
@@ -873,12 +938,16 @@ function jumpTableCell(forward) {
  * Returns the live-table extensions for the editor. No mouse handling:
  * clicks land natively in the editable cells (the widget ignores
  * CodeMirror events), and the source toggle moves the cursor itself.
+ * @param {object} [options] Extension options.
+ * @param {string|null} [options.assetBaseUrl] Asset directory for the
+ *   source-toggle icon (falls back to a text label without one).
  * @returns {Array} Table field plus theme.
  */
-export function tableViewExtensions() {
+export function tableViewExtensions({ assetBaseUrl = null } = {}) {
   return [
     tableField,
     tableTheme,
+    tableIconBase.of(assetBaseUrl),
     Prec.high(keymap.of([
       { key: 'Tab', run: jumpTableCell(true), shift: jumpTableCell(false) },
     ])),

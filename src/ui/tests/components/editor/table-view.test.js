@@ -496,3 +496,64 @@ test('should_reveal_source_when_source_toggle_is_clicked', () => {
     host.remove();
   }
 });
+
+test('should_refocus_next_cell_when_commit_detaches_it', async () => {
+  // Real-click race: blurring into another cell commits, the commit rebuild
+  // detaches that cell mid-gesture, and the focus must land on its fresh
+  // node instead of falling to the body. (Plain Event with an assigned
+  // relatedTarget: the test DOM exposes no FocusEvent constructor.)
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  try {
+    const first = [...host.querySelectorAll('tbody td')][0];
+    const second = [...host.querySelectorAll('tbody td')][1];
+    first.focus();
+    first.textContent = 'رضا';
+    const blur = new Event('blur');
+    blur.relatedTarget = second;
+    first.dispatchEvent(blur);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(editor.getValue(), 'متن\n\n| نام | سن |\n|:---|---:|\n| رضا | ۳۰ |');
+    const fresh = [...host.querySelectorAll('tbody td')][1];
+    assert.equal(document.activeElement, fresh);
+    assert.equal(fresh.textContent, '۳۰');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_click_source_toggle_when_commit_detaches_it', async () => {
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  try {
+    const first = [...host.querySelectorAll('tbody td')][0];
+    const toggle = host.querySelector('.parsi-table-source');
+    first.focus();
+    first.textContent = 'رضا';
+    const blur = new Event('blur');
+    blur.relatedTarget = toggle;
+    first.dispatchEvent(blur);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(editor.getValue(), 'متن\n\n| نام | سن |\n|:---|---:|\n| رضا | ۳۰ |');
+    assert.equal(host.querySelector('.parsi-table'), null);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_show_icon_toggle_above_table_when_assets_available', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن\n\n| a |\n|---|\n| 1 |', assetBaseUrl: 'http://localhost/assets/' });
+  try {
+    const toggle = host.querySelector('.parsi-table-source');
+    assert.ok(toggle.innerHTML.includes('#code'), 'expected the code icon');
+    const bar = toggle.closest('.parsi-table-bar');
+    assert.ok(bar, 'expected a toolbar row');
+    assert.equal(host.querySelector('.parsi-table-wrapper').firstElementChild, bar);
+    assert.ok(host.querySelector('.parsi-table'), 'expected the table below the bar');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
