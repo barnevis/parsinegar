@@ -222,8 +222,11 @@ test('should_build_versioned_manifest_when_built', () => {
     path: 'a.md',
     updatedAt: 100,
     hash: 'hash-a',
+    title: null,
   }]);
   assert.equal(skipped.length, 1);
+  const titled = buildManifest([entry({ title: 'یادداشت' })]);
+  assert.equal(titled.manifest.records[0].title, 'یادداشت');
 });
 
 test('should_round_trip_valid_manifest_when_parsed', () => {

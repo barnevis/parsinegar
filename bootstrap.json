@@ -66,7 +66,7 @@
     },
     "pey.storage": {
       "databaseName": "parsinegar-db",
-      "schemaVersion": 4,
+      "schemaVersion": 5,
       "stores": [
         {
           "name": "documents",
@@ -85,6 +85,16 @@
         },
         {
           "name": "folders",
+          "keyPath": "id",
+          "indexes": []
+        },
+        {
+          "name": "sync_backends",
+          "keyPath": "id",
+          "indexes": []
+        },
+        {
+          "name": "sync_state",
           "keyPath": "id",
           "indexes": []
         }

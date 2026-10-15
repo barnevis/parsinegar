@@ -55,13 +55,21 @@ test('should_configure_settings_store_when_loaded', async () => {
   // Version 3 adds the disk-drafts store (browser shadows for device
   // entries) the same upgrade way.
   // Version 4 adds the folders store (browser document folders) the same way.
-  assert.equal(bootstrap.config['pey.storage'].schemaVersion, 4);
+  // Version 5 adds the sync_backends and sync_state stores (sync backend
+  // credentials and sync snapshots) the same way.
+  assert.equal(bootstrap.config['pey.storage'].schemaVersion, 5);
   const drafts = stores.find((store) => store.name === 'disk-drafts');
   assert.ok(drafts, 'expected a disk-drafts store');
   assert.equal(drafts.keyPath, 'key');
   const folders = stores.find((store) => store.name === 'folders');
   assert.ok(folders, 'expected a folders store');
   assert.equal(folders.keyPath, 'id');
+  const backends = stores.find((store) => store.name === 'sync_backends');
+  assert.ok(backends, 'expected a sync_backends store');
+  assert.equal(backends.keyPath, 'id');
+  const syncState = stores.find((store) => store.name === 'sync_state');
+  assert.ok(syncState, 'expected a sync_state store');
+  assert.equal(syncState.keyPath, 'id');
 });
 
 test('should_carry_persian_ui_config_when_loaded', async () => {

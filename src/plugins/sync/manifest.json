@@ -22,21 +22,21 @@
             { "name": "params", "type": "object" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_NETWORK_FAILED"]
+          "errors": ["SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_NETWORK_FAILED", "SYNC_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "removeBackend",
           "description": "Clears credentials and sync state without touching local data",
           "params": [],
           "returns": "Promise<object>",
-          "errors": []
+          "errors": ["SYNC_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "getStatus",
           "description": "Configured or not (never the secret), last sync time, last error",
           "params": [],
           "returns": "Promise<object>",
-          "errors": []
+          "errors": ["SYNC_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "syncNow",
@@ -45,7 +45,7 @@
             { "name": "scope", "type": "object" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONFLICT_PENDING", "SYNC_CONCURRENT_CHANGE"]
+          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "resolveConflict",
@@ -56,7 +56,7 @@
             { "name": "choice", "type": "'local' | 'remote'" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_NOT_CONFIGURED"]
+          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_NETWORK_FAILED", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]
         }
       ]
     }

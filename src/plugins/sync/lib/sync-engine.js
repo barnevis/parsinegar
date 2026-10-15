@@ -204,7 +204,9 @@ function movedAside(path, before) {
 }
 
 /**
- * Checks one manifest record carries every field sync needs.
+ * Checks one manifest record carries every field sync needs. Title rides
+ * along as opaque host metadata (round-trip fidelity for name-derived
+ * paths) and is never interpreted here.
  * @param {object} entry Candidate record.
  * @returns {boolean} True when usable.
  */
@@ -221,6 +223,7 @@ function isManifestRecord(entry) {
     && Number.isFinite(entry.updatedAt)
     && typeof entry.hash === 'string'
     && entry.hash.length > 0
+    && (entry.title === undefined || entry.title === null || typeof entry.title === 'string')
   );
 }
 
@@ -240,6 +243,7 @@ export function buildManifest(records) {
         path: entry.path,
         updatedAt: entry.updatedAt,
         hash: entry.hash,
+        title: typeof entry.title === 'string' ? entry.title : null,
       });
     } else {
       skipped.push(entry);
@@ -269,6 +273,7 @@ export function parseManifest(data) {
         path: entry.path,
         updatedAt: entry.updatedAt,
         hash: entry.hash,
+        title: typeof entry.title === 'string' ? entry.title : null,
       });
     } else {
       skipped.push(entry);
