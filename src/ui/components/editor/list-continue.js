@@ -344,24 +344,27 @@ function buildPrefixChanges(state, computed) {
 }
 
 /**
- * Matches user typing transactions that may restructure lists (typed
- * input, deletions, pastes and drops). Programmatic dispatches carry no
- * `userEvent` (Tab handling, toggles, `setDocument`, undo/redo), so they
- * never trigger.
+ * Matches user transactions that may restructure lists (typed input,
+ * deletions, pastes, drops and Alt+Arrow line moves). Programmatic
+ * dispatches carry no `userEvent` (Tab handling, toggles, `setDocument`,
+ * undo/redo), so they never trigger. Shift-Alt-Arrow copies already arrive
+ * as `input.copyline`, covered by the `input` branch.
  * @param {string|null} event `userEvent` annotation value.
  * @returns {boolean} True for user content edits.
  */
 function isUserContentEdit(event) {
-  return typeof event === 'string' && /^(input|delete|paste|drop)/.test(event);
+  return typeof event === 'string' && /^(input|delete|paste|drop|move\.line)/.test(event);
 }
 
 /**
- * Resequences ordered blocks touched by user typing: adding or removing
+ * Resequences ordered blocks touched by user edits: adding or removing
  * lines compacts the numbering (deleting the first line restarts at 1),
  * while text edits keep every number — including an intentional `start`.
- * Runs inside the same transaction (one undo step, cursor mapped along)
- * and never refires on its own output. Locked editors and fenced code
- * stay untouched.
+ * Alt+Arrow line moves keep the line count but reorder content, so they
+ * resequence the runs around both the vacated and the landed range. Runs
+ * inside the same transaction (one undo step, cursor mapped along) and
+ * never refires on its own output. Locked editors and fenced code stay
+ * untouched.
  * @returns {Array} Transaction filter extension.
  */
 export function listResequenceExtension() {
@@ -370,14 +373,15 @@ export function listResequenceExtension() {
     if (!transaction.docChanged || state.readOnly) {
       return transaction;
     }
-    if (!isUserContentEdit(transaction.annotation(Transaction.userEvent))) {
+    const event = transaction.annotation(Transaction.userEvent);
+    if (!isUserContentEdit(event)) {
       return transaction;
     }
     // The filter runs mid-dispatch: the new document does not exist yet,
     // so it is derived by applying the pending changes to the old one.
     const before = transaction.startState.doc;
     const after = transaction.changes.apply(before);
-    if (after.lines === before.lines) {
+    if (after.lines === before.lines && event !== 'move.line') {
       return transaction;
     }
     const seen = new Set();

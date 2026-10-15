@@ -429,3 +429,103 @@ test('should_skip_locked_and_fenced_edits_when_filtering', () => {
     fenced.host.remove();
   }
 });
+
+function moveLine(mounted, line, direction) {
+  mounted.editor.gotoLine(line);
+  press(mounted.host, { key: direction === 'up' ? 'ArrowUp' : 'ArrowDown', code: direction === 'up' ? 'ArrowUp' : 'ArrowDown', altKey: true });
+  return mounted.editor.getValue();
+}
+
+test('should_resequence_when_moving_middle_item_up', () => {
+  const mounted = createWired('1. a\n2. b\n3. c');
+  try {
+    assert.equal(moveLine(mounted, 2, 'up'), '1. b\n2. a\n3. c');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_resequence_when_moving_middle_item_down', () => {
+  const mounted = createWired('1. a\n2. b\n3. c');
+  try {
+    assert.equal(moveLine(mounted, 2, 'down'), '1. a\n2. c\n3. b');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_restart_when_moving_first_item_down', () => {
+  const mounted = createWired('1. a\n2. b\n3. c');
+  try {
+    assert.equal(moveLine(mounted, 1, 'down'), '1. b\n2. a\n3. c');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_resequence_when_moving_last_item_up', () => {
+  const mounted = createWired('1. a\n2. b\n3. c');
+  try {
+    assert.equal(moveLine(mounted, 3, 'up'), '1. a\n2. c\n3. b');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_resequence_persian_digits_when_moving_item', () => {
+  const mounted = createWired('۱. الف\n۲. ب\n۳. ج');
+  try {
+    assert.equal(moveLine(mounted, 2, 'up'), '۱. ب\n۲. الف\n۳. ج');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_restart_detached_item_when_moving_beside_plain_text', () => {
+  const mounted = createWired('1. a\n2. b\nplain');
+  try {
+    // A move is a cut+paste: the detached item restarts at 1 like a pasted
+    // line would, instead of keeping a stray `2.` as its own list.
+    assert.equal(moveLine(mounted, 2, 'down'), '1. a\nplain\n1. b');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_leave_plain_lines_alone_when_moving_them', () => {
+  const mounted = createWired('a\nb');
+  try {
+    assert.equal(moveLine(mounted, 1, 'down'), 'b\na');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_keep_fenced_numbers_when_moving_inside_fence', () => {
+  const mounted = createWired('```\n1. x\n2. y\n```\n1. a');
+  try {
+    assert.equal(moveLine(mounted, 2, 'down'), '```\n2. y\n1. x\n```\n1. a');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
+
+test('should_undo_move_and_resequence_in_one_step', () => {
+  const mounted = createWired('1. a\n2. b\n3. c');
+  try {
+    assert.equal(moveLine(mounted, 2, 'up'), '1. b\n2. a\n3. c');
+    mounted.editor.undo();
+    assert.equal(mounted.editor.getValue(), '1. a\n2. b\n3. c');
+  } finally {
+    mounted.editor.destroy();
+    mounted.host.remove();
+  }
+});
