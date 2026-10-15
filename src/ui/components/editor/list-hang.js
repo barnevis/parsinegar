@@ -291,10 +291,20 @@ const hangDecorationsPlugin = ViewPlugin.fromClass(
       if (forced) {
         this.widths = forced;
         this.decorations = buildHangDecorations(update.view, forced);
-      } else if (update.docChanged || update.viewportChanged || update.selectionSet) {
-        // Selection flips markers between widget and raw text, which have
-        // different widths; remeasure outside this update cycle.
-        this.scheduleMeasure(update.view);
+      } else {
+        if (update.docChanged || update.viewportChanged) {
+          // Rebuild synchronously from the new state before measuring:
+          // returning ranges into the old document crashes the next
+          // empty-changes update in findChangedDeco (select-all plus
+          // delete-all, then blur: `Position N is out of range for
+          // changeset of length 0`). Values catch up on write-back.
+          this.decorations = buildHangDecorations(update.view, this.widths);
+        }
+        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+          // Selection flips markers between widget and raw text, which have
+          // different widths; remeasure outside this update cycle.
+          this.scheduleMeasure(update.view);
+        }
       }
     }
 

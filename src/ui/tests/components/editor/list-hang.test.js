@@ -55,3 +55,37 @@ test('should_skip_fenced_code_when_hanging', () => {
     destroy(mounted);
   }
 });
+
+test('should_survive_select_all_delete_all_when_hung', () => {
+  // The reported crash: a stale hang set met the next empty-changes update
+  // (selection/blur) in findChangedDeco and threw `RangeError: Position N
+  // is out of range for changeset of length 0` (browser-proven with list
+  // lines deep in the document). Here the stale range maps onto the empty
+  // line, so the regression shows as a ghost hang line instead.
+  const mounted = createEditor('1. الف\n2. ب\n3. ج');
+  try {
+    const content = mounted.host.querySelector('.cm-content');
+    const key = (init) => content.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
+    key({ key: 'a', code: 'KeyA', ctrlKey: true });
+    assert.equal(mounted.editor.getValue(), '1. الف\n2. ب\n3. ج');
+    key({ key: 'Backspace', code: 'Backspace' });
+    assert.equal(mounted.editor.getValue(), '');
+    key({ key: 'a', code: 'KeyA', ctrlKey: true });
+    assert.equal(mounted.editor.getValue(), '');
+    assert.equal(hangLines(mounted.host).length, 0);
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_clear_hang_when_lists_are_replaced', () => {
+  const mounted = createEditor('1. a\nplain text');
+  try {
+    assert.equal(hangLines(mounted.host).length, 1);
+    mounted.editor.setDocument('plain text');
+    assert.equal(mounted.editor.getValue(), 'plain text');
+    assert.equal(hangLines(mounted.host).length, 0);
+  } finally {
+    destroy(mounted);
+  }
+});
