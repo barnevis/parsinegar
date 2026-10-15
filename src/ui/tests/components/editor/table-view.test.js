@@ -6,7 +6,7 @@ import { EditorState } from '@codemirror/state';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { EditorView } from 'codemirror';
 import { createMarkdownView } from '../../../components/editor/markdown-view.js';
-import { cellContentStart, collectTablesFrom, findTableCell } from '../../../components/editor/table-view.js';
+import { cellContentEnd, cellContentStart, cellEditRange, collectTablesFrom, escapeCellText, findTableCell } from '../../../components/editor/table-view.js';
 
 function stateWith(text, selection) {
   return EditorState.create({
@@ -197,16 +197,18 @@ function pressKey(host, key, code, shift = false) {
   );
 }
 
-test('should_move_cursor_to_clicked_cell_when_table_is_clicked', () => {
+test('should_keep_cursor_when_table_is_clicked', () => {
+  // Clicking a rendered cell edits it in place instead of revealing the
+  // source: the outer cursor must not move and the widget must persist.
   const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
   try {
+    const before = headOf(host);
     const cells = [...host.querySelectorAll('tbody td')];
     assert.equal(cells.length, 2);
     cells[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
-    const head = headOf(host);
-    const doc = editor.getValue();
-    assert.equal(doc.slice(head, head + 2), '۳۰');
-    assert.equal(host.querySelector('.parsi-table'), null);
+    assert.equal(headOf(host), before);
+    assert.ok(host.querySelector('.parsi-table'), 'expected the widget undisturbed');
+    assert.equal(editor.getValue(), 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
   } finally {
     editor.destroy();
     host.remove();
@@ -216,9 +218,9 @@ test('should_move_cursor_to_clicked_cell_when_table_is_clicked', () => {
 test('should_step_cells_when_tab_moves_inside_table', () => {
   const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
   try {
-    const cells = [...host.querySelectorAll('tbody td')];
-    cells[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    editor.gotoLine(5);
     const doc = editor.getValue();
+    pressKey(host, 'Tab', 'Tab');
     assert.equal(doc.slice(headOf(host), headOf(host) + 3), 'علی');
     pressKey(host, 'Tab', 'Tab');
     assert.equal(doc.slice(headOf(host), headOf(host) + 2), '۳۰');
@@ -234,8 +236,9 @@ test('should_park_past_the_table_when_tab_leaves_the_last_cell', () => {
   const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
   const { host, editor } = createEditor(text);
   try {
-    const cells = [...host.querySelectorAll('tbody td')];
-    cells[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    editor.gotoLine(5);
+    pressKey(host, 'Tab', 'Tab');
+    pressKey(host, 'Tab', 'Tab');
     pressKey(host, 'Tab', 'Tab');
     assert.equal(headOf(host), text.length);
   } finally {
@@ -248,8 +251,7 @@ test('should_park_on_table_start_when_shift_tab_leaves_the_first_cell', () => {
   const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
   const { host, editor } = createEditor(text);
   try {
-    const first = [...host.querySelectorAll('thead th')][0];
-    first.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    editor.gotoLine(3);
     pressKey(host, 'Tab', 'Tab', true);
     assert.equal(headOf(host), text.indexOf('| نام'));
   } finally {
@@ -319,6 +321,176 @@ test('should_break_words_whole_when_theme_is_loaded', () => {
     });
     assert.ok(has('.parsi-table', 'overflow-wrap', 'normal'));
     assert.ok(has('.parsi-table', 'word-break', 'normal'));
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_find_content_end_before_padding_and_pipes', () => {
+  assert.equal(cellContentEnd('| علی |', 0, 7), 5);
+  assert.equal(cellContentEnd('  ۳۰\t|', 0, 6), 4);
+  assert.equal(cellContentEnd('   ', 0, 3), 0);
+  assert.equal(cellContentEnd('', 0, 0), 0);
+});
+
+test('should_escape_pipes_and_fold_lines_when_sanitizing', () => {
+  assert.equal(escapeCellText('a|b'), 'a\\|b');
+  assert.equal(escapeCellText('a\nb\rc'), 'a b c');
+  assert.equal(escapeCellText('ساده'), 'ساده');
+});
+
+test('should_resolve_edit_range_for_real_cells_when_computed', () => {
+  const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
+  const state = stateWith(text);
+  const tableFrom = text.indexOf('| نام');
+  assert.deepEqual(cellEditRange(state, tableFrom, 0, 0), { from: text.indexOf('علی'), to: text.indexOf('علی') + 3 });
+  assert.deepEqual(cellEditRange(state, tableFrom, -1, 1), { from: text.indexOf('سن'), to: text.indexOf('سن') + 2 });
+  assert.equal(cellEditRange(state, tableFrom, 0, 5), null);
+});
+
+test('should_resolve_null_for_rangeless_cells_when_computed', () => {
+  // The parser drops whitespace-only cells, so like padded cells they have
+  // no source range and stay read-only in this version.
+  const empty = stateWith('| a |\n|---|\n|   |');
+  assert.equal(cellEditRange(empty, 0, 0, 0), null);
+  const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
+  const state = stateWith(text);
+  const tableFrom = text.indexOf('| نام');
+  assert.equal(cellEditRange(state, tableFrom, 0, 5), null);
+});
+
+test('should_show_raw_text_when_cell_is_focused', () => {
+  const { host, editor } = createEditor('متن\n\n| نام |\n|---|\n| **علی** |');
+  try {
+    const cell = [...host.querySelectorAll('tbody td')][0];
+    assert.ok(cell.querySelector('strong'), 'expected rendered marks');
+    cell.focus();
+    assert.equal(cell.textContent, '**علی**');
+    cell.blur();
+    assert.ok(cell.querySelector('strong'), 'expected marks restored');
+    assert.equal(editor.getValue(), 'متن\n\n| نام |\n|---|\n| **علی** |');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_commit_surgically_when_cell_is_blurred', () => {
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  try {
+    const cell = [...host.querySelectorAll('tbody td')][0];
+    cell.focus();
+    cell.textContent = 'رضا';
+    cell.blur();
+    assert.equal(editor.getValue(), 'متن\n\n| نام | سن |\n|:---|---:|\n| رضا | ۳۰ |');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_escape_pipes_when_cell_commits', () => {
+  const { host, editor } = createEditor('متن\n\n| a |\n|---|\n| x |');
+  try {
+    const cell = [...host.querySelectorAll('tbody td')][0];
+    cell.focus();
+    cell.textContent = 'a|b';
+    cell.blur();
+    assert.equal(editor.getValue(), 'متن\n\n| a |\n|---|\n| a\\|b |');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_undo_commit_in_one_step_when_undone', () => {
+  const text = 'متن\n\n| a |\n|---|\n| x |';
+  const { host, editor } = createEditor(text);
+  try {
+    const cell = [...host.querySelectorAll('tbody td')][0];
+    cell.focus();
+    cell.textContent = 'y';
+    cell.blur();
+    assert.equal(editor.getValue(), 'متن\n\n| a |\n|---|\n| y |');
+    editor.undo();
+    assert.equal(editor.getValue(), text);
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_commit_on_enter_and_cancel_on_escape_when_keys_pressed', () => {
+  const text = 'متن\n\n| a |\n|---|\n| x |';
+  const { host, editor } = createEditor(text);
+  try {
+    const cell = [...host.querySelectorAll('tbody td')][0];
+    cell.focus();
+    cell.textContent = 'y';
+    cell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+    assert.equal(editor.getValue(), 'متن\n\n| a |\n|---|\n| y |');
+    const fresh = [...host.querySelectorAll('tbody td')][0];
+    fresh.focus();
+    fresh.textContent = 'z';
+    fresh.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+    assert.equal(editor.getValue(), 'متن\n\n| a |\n|---|\n| y |');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_step_cells_in_place_when_tab_moves_inside_rendered_table', () => {
+  const { host, editor } = createEditor('متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  try {
+    const cells = [...host.querySelectorAll('tbody td')];
+    cells[0].focus();
+    cells[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', bubbles: true, cancelable: true }));
+    assert.equal(document.activeElement, cells[1]);
+    assert.equal(editor.getValue(), 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_padded_cells_read_only_when_rendered', () => {
+  const { host, editor } = createEditor('متن\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 |');
+  try {
+    const padded = [...host.querySelectorAll('tbody td')][2];
+    assert.equal(padded.textContent, '');
+    assert.notEqual(padded.getAttribute('contenteditable'), 'true');
+    padded.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+    assert.equal(editor.getValue(), 'متن\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 |');
+    assert.ok(host.querySelector('.parsi-table'), 'expected the widget undisturbed');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_cells_read_only_when_editor_is_locked', () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = createMarkdownView(host, { document: 'متن\n\n| a |\n|---|\n| x |', readOnly: true });
+  try {
+    const cell = [...host.querySelectorAll('tbody td')][0];
+    assert.notEqual(cell.getAttribute('contenteditable'), 'true');
+  } finally {
+    editor.destroy();
+    host.remove();
+  }
+});
+
+test('should_reveal_source_when_source_toggle_is_clicked', () => {
+  const text = 'متن\n\n| نام | سن |\n|:---|---:|\n| علی | ۳۰ |';
+  const { host, editor } = createEditor(text);
+  try {
+    assert.ok(host.querySelector('.parsi-table'), 'expected the rendered table');
+    host.querySelector('.parsi-table-source').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
+    assert.equal(host.querySelector('.parsi-table'), null);
+    assert.equal(editor.getValue().slice(headOf(host), headOf(host) + 3), 'نام');
   } finally {
     editor.destroy();
     host.remove();

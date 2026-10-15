@@ -1,12 +1,17 @@
-// Renders Markdown tables as real tables (live preview).
+// Renders Markdown tables as real tables (live preview), editable in place.
 //
 // Collects `Table` syntax nodes and replaces each whole span with a <table>
 // widget — except where the cursor or a selection touches the span, which
 // keeps the editable source visible (the same reveal contract images and
-// links already have). Column alignment comes from the delimiter row as
-// logical values, so it sits correctly in both directions; cell content
-// keeps its inline marks (strong, emphasis, code, links, images) rendered
-// from the syntax tree, never from reparsed HTML.
+// links already have). Clicking a rendered cell edits it right there
+// (contentEditable with raw-text swap on focus); Enter and blur commit one
+// surgical source edit, Escape cancels, Tab steps between cells. A corner
+// source toggle parks the cursor in the first cell, revealing the source
+// through the ordinary selection-touch contract — no extra mode state.
+// Column alignment comes from the delimiter row as logical values, so it
+// sits correctly in both directions; cell content keeps its inline marks
+// (strong, emphasis, code, links, images) rendered from the syntax tree,
+// never from reparsed HTML.
 //
 // Provisioning note: multi-line replacements and block widgets throw
 // `RangeError` from ViewPlugin decorations, but StateField values travel
@@ -361,8 +366,62 @@ export function cellContentStart(text, from, to) {
 }
 
 /**
+ * Finds the editable end of a cell: last character that is not a space,
+ * tab or pipe. Mirror of cellContentStart for the commit range.
+ * @param {string} text Document text slice covering at least the range.
+ * @param {number} from Range start (offset into text).
+ * @param {number} to Range end (offset into text).
+ * @returns {number} Content end offset (exclusive).
+ */
+export function cellContentEnd(text, from, to) {
+  let pos = to;
+  while (pos > from && (text[pos - 1] === ' ' || text[pos - 1] === '\t' || text[pos - 1] === '|')) {
+    pos -= 1;
+  }
+  return pos;
+}
+
+/**
+ * Sanitizes edited cell text back into a single table cell: pipes are
+ * escaped so the grid survives, line breaks fold to spaces (cells are
+ * single-line; Enter commits instead of inserting).
+ * @param {string} text Raw edited text.
+ * @returns {string} Source-safe cell content.
+ */
+export function escapeCellText(text) {
+  return text.replace(/[\r\n]+/g, ' ').replace(/\|/g, '\\|');
+}
+
+/**
+ * Resolves the source range an in-place cell edit must replace: the cell
+ * content without surrounding padding and pipes. Cells without a source
+ * range (padded cells, and empty cells the parser drops) resolve to null
+ * and stay read-only.
+ * @param {object} state Editor state.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @param {number} row Row index (-1 for the header).
+ * @param {number} col Column index.
+ * @returns {object|null} `{ from, to }` content range, or null.
+ */
+export function cellEditRange(state, tableFrom, row, col) {
+  const range = findTableCell(state, tableFrom, row, col);
+  if (!range) {
+    return null;
+  }
+  const text = state.doc.sliceString(range.from, range.to);
+  const start = range.from + cellContentStart(text, 0, text.length);
+  const end = range.from + cellContentEnd(text, 0, text.length);
+  if (end <= start) {
+    return null;
+  }
+  return { from: start, to: end };
+}
+
+/**
  * Builds one table cell (`th` for headers, `td` for body) with its
- * logical alignment and formatted inline content.
+ * logical alignment and formatted inline content. Cells with an edit
+ * context become in-place editable unless locked; padded (sourceless)
+ * cells are marked and stay read-only.
  * @param {object} document Owner document.
  * @param {string} tag 'th' or 'td'.
  * @param {Array} segments Inline cell segments.
@@ -370,16 +429,163 @@ export function cellContentStart(text, from, to) {
  * @param {number} row Row index (-1 for the header).
  * @param {number} col Column index.
  * @param {number} tableFrom Document offset of the Table node.
+ * @param {object|null} edit `{ view, padded }`, or null without editing.
  * @returns {HTMLElement} Cell element.
  */
-function buildCell(document, tag, segments, align, row, col, tableFrom) {
+function buildCell(document, tag, segments, align, row, col, tableFrom, edit) {
   const cell = document.createElement(tag);
   cell.style.textAlign = align;
   cell.dataset.tableRow = String(row);
   cell.dataset.tableCol = String(col);
   cell.dataset.tableFrom = String(tableFrom);
   renderInline(document, cell, segments);
+  if (edit?.padded === true) {
+    cell.dataset.padded = 'true';
+    return cell;
+  }
+  if (edit && edit.view.state.readOnly !== true) {
+    wireEditableCell(document, edit.view, cell, segments, row, col, tableFrom);
+  }
   return cell;
+}
+
+/**
+ * Makes a rendered cell editable in place: focus swaps the rendered marks
+ * for the raw source text, blur or Enter commits a surgical source edit,
+ * Escape cancels, Tab steps between editable cells. Commits dispatch one
+ * transaction (one undo step); unchanged blurs dispatch nothing. Listeners
+ * are native DOM (the widget ignores CodeMirror events), so typing never
+ * disturbs the outer selection until a commit lands.
+ * @param {object} document Owner document.
+ * @param {object} view Active editor view.
+ * @param {object} cell Rendered cell element.
+ * @param {Array} segments Inline segments for restoring the rendered view.
+ * @param {number} row Row index (-1 for the header).
+ * @param {number} col Column index.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @returns {void}
+ */
+function wireEditableCell(document, view, cell, segments, row, col, tableFrom) {
+  const range = cellEditRange(view.state, tableFrom, row, col);
+  if (!range) {
+    return;
+  }
+  cell.setAttribute('contenteditable', 'true');
+  cell.spellcheck = false;
+  cell.dataset.raw = view.state.doc.sliceString(range.from, range.to);
+  let busy = false;
+  let cancelled = false;
+  const restore = () => {
+    cell.replaceChildren();
+    renderInline(document, cell, segments);
+  };
+  const commit = () => {
+    if (busy || view.state.readOnly === true) {
+      return false;
+    }
+    const current = cell.textContent ?? '';
+    if (current === (cell.dataset.raw ?? '')) {
+      return false;
+    }
+    // Re-entrancy guard: the dispatch below rebuilds the widget and can
+    // blur this node synchronously; the dataset write makes a late blur a
+    // no-op before the stale range is ever touched.
+    busy = true;
+    cell.dataset.raw = current;
+    try {
+      view.dispatch({ changes: { from: range.from, to: range.to, insert: escapeCellText(current) } });
+    } finally {
+      busy = false;
+    }
+    return true;
+  };
+  cell.addEventListener('focus', () => {
+    cell.textContent = cell.dataset.raw ?? '';
+  });
+  cell.addEventListener('blur', () => {
+    if (cancelled) {
+      cancelled = false;
+      return;
+    }
+    if (!commit()) {
+      restore();
+    }
+  });
+  cell.addEventListener('keydown', (event) => {
+    if (event.isComposing) {
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+      cell.blur();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelled = true;
+      restore();
+      cell.blur();
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      commit();
+      focusNeighborCell(view, tableFrom, row, col, event.shiftKey ? -1 : 1);
+    }
+  });
+}
+
+/**
+ * Moves focus between the editable cells of one table in logical order
+ * (header first, then rows). Eddies out with a blur past either end.
+ * Queries the live DOM, since a commit just rebuilt it.
+ * @param {object} view Active editor view.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @param {number} row Row index of the current cell.
+ * @param {number} col Column index of the current cell.
+ * @param {number} direction +1 forward, -1 backward.
+ * @returns {void}
+ */
+function focusNeighborCell(view, tableFrom, row, col, direction) {
+  const cells = [...view.dom.querySelectorAll('[data-table-from]')].filter(
+    (cell) => cell.dataset.tableFrom === String(tableFrom)
+      && cell.isConnected
+      && cell.getAttribute('contenteditable') === 'true',
+  );
+  cells.sort((a, b) => Number(a.dataset.tableRow) - Number(b.dataset.tableRow)
+    || Number(a.dataset.tableCol) - Number(b.dataset.tableCol));
+  const index = cells.findIndex(
+    (cell) => Number(cell.dataset.tableRow) === row && Number(cell.dataset.tableCol) === col,
+  );
+  const next = cells[index + direction];
+  if (next) {
+    next.focus();
+  } else {
+    cells[index]?.blur();
+  }
+}
+
+/**
+ * Builds the per-table source toggle: a compact corner button that parks
+ * the cursor in the first header cell, which reveals the source through
+ * the ordinary selection-touch contract. No extra state: leaving the
+ * source (clicking elsewhere) returns the rendered table.
+ * @param {object} document Owner document.
+ * @param {object} view Active editor view.
+ * @param {number} tableFrom Document offset of the Table node.
+ * @returns {HTMLElement} Toggle button.
+ */
+function buildSourceButton(document, view, tableFrom) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'parsi-table-source';
+  button.textContent = 'سورس';
+  button.setAttribute('aria-label', 'نمایش سورس جدول');
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = tableCellCursor(view.state, tableFrom, -1, 0) ?? tableFrom;
+    view.dispatch({ selection: EditorSelection.cursor(target), scrollIntoView: true });
+    view.focus();
+  });
+  return button;
 }
 
 /**
@@ -402,25 +608,28 @@ class TableWidget extends WidgetType {
   }
 
   ignoreEvent() {
-    // Let mousedown reach the editor so the cell handler runs; the default
-    // swallows widget events before any domEventHandler sees them.
-    return false;
+    // The widget owns its DOM: cell editing, the source toggle and Tab
+    // travel through native listeners, so CodeMirror must not manage
+    // focus, selection or keys inside the table.
+    return true;
   }
 
   /**
    * Builds the table node for the collected header, rows and alignments.
-   * @returns {HTMLElement} Wrapper holding the table.
+   * @param {object} view Active editor view.
+   * @returns {HTMLElement} Wrapper holding the source toggle and the table.
    */
-  toDOM() {
+  toDOM(view) {
     const { header, rows, aligns } = this.table;
     const wrapper = document.createElement('div');
     wrapper.className = 'parsi-table-wrapper';
+    wrapper.append(buildSourceButton(document, view, this.table.from));
     const table = document.createElement('table');
     table.className = 'parsi-table';
     const head = document.createElement('thead');
     const headRow = document.createElement('tr');
     header.forEach((segments, index) => {
-      headRow.append(buildCell(document, 'th', segments, aligns[index] ?? 'start', -1, index, this.table.from));
+      headRow.append(buildCell(document, 'th', segments, aligns[index] ?? 'start', -1, index, this.table.from, { view, padded: false }));
     });
     head.append(headRow);
     table.append(head);
@@ -434,10 +643,10 @@ class TableWidget extends WidgetType {
       // returns null for them and Tab stops come from the tree, so both
       // safely skip padded cells.
       cells.forEach((segments, index) => {
-        bodyRow.append(buildCell(document, 'td', segments, aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from));
+        bodyRow.append(buildCell(document, 'td', segments, aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from, { view, padded: false }));
       });
       for (let index = cells.length; index < header.length; index += 1) {
-        bodyRow.append(buildCell(document, 'td', [], aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from));
+        bodyRow.append(buildCell(document, 'td', [], aligns[Math.min(index, aligns.length - 1)] ?? 'start', rowIndex, index, this.table.from, { view, padded: true }));
       }
       body.append(bodyRow);
     });
@@ -483,6 +692,7 @@ export const tableField = StateField.define({
 const tableTheme = EditorView.theme({
   '& .parsi-table-wrapper': {
     display: 'block',
+    position: 'relative',
     overflowX: 'auto',
     marginBlock: '0.5rem',
   },
@@ -522,6 +732,40 @@ const tableTheme = EditorView.theme({
     maxWidth: '100%',
     borderRadius: '4px',
     verticalAlign: 'middle',
+  },
+  '& .parsi-table-source': {
+    position: 'absolute',
+    insetBlockStart: '0.25rem',
+    insetInlineStart: '0.25rem',
+    zIndex: 1,
+    font: 'inherit',
+    fontSize: '0.75rem',
+    border: '1px solid var(--pey-color-border, #e2e2e8)',
+    borderRadius: '6px',
+    backgroundColor: 'var(--pey-color-canvas, #ffffff)',
+    color: 'inherit',
+    padding: '0.15rem 0.5rem',
+    cursor: 'pointer',
+  },
+  '& .parsi-table-source:hover': {
+    backgroundColor: 'var(--pey-color-surface, #f1f1f5)',
+  },
+  '& .parsi-table th[contenteditable="true"]': {
+    cursor: 'text',
+  },
+  '& .parsi-table td[contenteditable="true"]': {
+    cursor: 'text',
+  },
+  '& .parsi-table th:focus': {
+    outline: '2px solid var(--pey-color-accent, #0e7490)',
+    outlineOffset: '-2px',
+  },
+  '& .parsi-table td:focus': {
+    outline: '2px solid var(--pey-color-accent, #0e7490)',
+    outlineOffset: '-2px',
+  },
+  '& .parsi-table [data-padded]': {
+    cursor: 'default',
   },
 });
 
@@ -626,7 +870,9 @@ function jumpTableCell(forward) {
 }
 
 /**
- * Returns the live-table extensions for the editor.
+ * Returns the live-table extensions for the editor. No mouse handling:
+ * clicks land natively in the editable cells (the widget ignores
+ * CodeMirror events), and the source toggle moves the cursor itself.
  * @returns {Array} Table field plus theme.
  */
 export function tableViewExtensions() {
@@ -636,30 +882,5 @@ export function tableViewExtensions() {
     Prec.high(keymap.of([
       { key: 'Tab', run: jumpTableCell(true), shift: jumpTableCell(false) },
     ])),
-    EditorView.domEventHandlers({
-      mousedown(event, view) {
-        if (event.ctrlKey || event.metaKey) {
-          return false;
-        }
-        const cell = event.target?.closest?.('th,td');
-        if (!cell?.isConnected) {
-          return false;
-        }
-        const row = Number(cell.dataset?.tableRow);
-        const col = Number(cell.dataset?.tableCol);
-        const tableFrom = Number(cell.dataset?.tableFrom);
-        if (!Number.isInteger(row) || !Number.isInteger(col) || !Number.isInteger(tableFrom)) {
-          return false;
-        }
-        const pos = tableCellCursor(view.state, tableFrom, row, col);
-        if (pos === null) {
-          return false;
-        }
-        event.preventDefault();
-        view.dispatch({ selection: EditorSelection.cursor(pos), scrollIntoView: true });
-        view.focus();
-        return true;
-      },
-    }),
   ];
 }

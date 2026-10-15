@@ -62,4 +62,7 @@
   <symbol id="fullscreen-exit" viewBox="0 -960 960 960" fill="currentColor">
     <path d="M253-120v-133H120v-60h193v193h-60Zm394 0v-193h193v60H707v133h-60ZM120-647v-60h133v-133h60v193H120Zm527 0v-193h60v133h133v60H647Z"/>
   </symbol>
+  <symbol id="code" viewBox="0 -960 960 960" fill="currentColor">
+    <path d="M320-242 80-482l242-242 43 43-199 199 197 197-43 43Zm318 2-43-43 199-199-197-197 43-43 240 240-242 242Z"/>
+  </symbol>
 </svg>
