@@ -93,6 +93,27 @@ test('should_map_network_failure_when_opened', async () => {
   await assert.rejects(backend.open(), (error) => error.code === 'GIT_NETWORK_FAILED');
 });
 
+test('should_time_out_when_server_hangs_when_read', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const backend = createGitAdapter({
+      repo: 'user/notes',
+      token: 't',
+      fetchFn: (url, { signal } = {}) => new Promise((_, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }),
+    });
+    const pending = backend.readFile('a.md');
+    // Let the async machinery reach the timer before fast-forwarding it;
+    // setImmediate itself is never mocked.
+    await new Promise((resolve) => setImmediate(resolve));
+    t.mock.timers.tick(30000);
+    await assert.rejects(pending, (error) => error.code === 'GIT_NETWORK_FAILED');
+  } finally {
+    t.mock.timers.reset();
+  }
+});
+
 test('should_list_files_recursively_when_listed', async () => {
   const { backend } = setup([
     {

@@ -47,7 +47,7 @@ function createDocuments(initial = []) {
   };
 }
 
-function createContext({ router, documents, settings, exporter, filesystem } = {}) {
+function createContext({ router, documents, settings, exporter, filesystem, syncer } = {}) {
   return {
     services: {
       [PEY_ROUTER_SERVICE]: router ?? createRouter(),
@@ -55,6 +55,7 @@ function createContext({ router, documents, settings, exporter, filesystem } = {
       'parsinegar.settings.service': settings ?? createSettings(),
       'parsinegar.export.service': exporter ?? createExporter(),
       'pey.filesystem.service': filesystem ?? createFilesystem(),
+      'pey.sync.service': syncer ?? createSyncService(),
     },
     events: createEvents(),
     config: { theme: 'system', language: 'fa', direction: 'rtl', fallbackPath: '/', assetBaseUrl: './assets' },
@@ -113,6 +114,32 @@ function createFilesystem() {
       return null;
     },
     async clearShadow() {},
+  };
+}
+
+function createSyncService() {
+  const calls = [];
+  return {
+    calls,
+    async configureBackend(input) {
+      calls.push(['configureBackend', input]);
+      return { ok: true, kind: 'git', repo: input?.params?.repo ?? null, branch: input?.params?.branch ?? null };
+    },
+    async removeBackend() {
+      calls.push(['removeBackend']);
+      return { ok: true };
+    },
+    async getStatus() {
+      return { configured: false, lastSyncAt: null, lastError: null };
+    },
+    async syncNow() {
+      calls.push(['syncNow']);
+      return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+    async resolveConflict(input) {
+      calls.push(['resolveConflict', input]);
+      return { remaining: 0 };
+    },
   };
 }
 
@@ -241,6 +268,29 @@ test('should_clear_document_theme_when_shutdown_runs', async () => {
   assert.equal(document.documentElement.dataset.theme, undefined);
 });
 
+test('should_deliver_sync_service_when_home_saves_connection', async () => {
+  // Regression: the entry point once forgot pey.sync.service, so the page
+  // silently dropped sync-configure (no network, no console). Saving through
+  // the mounted app must reach the service.
+  const syncer = createSyncService();
+  const context = createContext({ syncer });
+  await setup(context);
+  try {
+    await settled();
+    const home = document.querySelector('parsi-page-home');
+    assert.ok(home, 'expected the home page');
+    home.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(
+      new CustomEvent('sync-configure', { bubbles: true, detail: { repo: 'u/r', branch: 'main', token: 'tok' } }),
+    );
+    await settled();
+    await settled();
+    assert.deepEqual(syncer.calls, [['configureBackend', { kind: 'git', params: { repo: 'u/r', branch: 'main', token: 'tok' } }]]);
+  } finally {
+    context.onShutdown?.();
+    document.querySelector('pey-app-shell')?.remove();
+    document.querySelector('parsi-page-home')?.remove();
+  }
+});
 test('should_require_every_manifest_service_when_started', async () => {
   // The manifest alone does not deliver services to pages: setup mirrors
   // its required list into requiredServices. A missing mirror fails silently

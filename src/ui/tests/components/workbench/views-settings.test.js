@@ -87,6 +87,47 @@ test('should_render_sync_error_when_present', () => {
   assert.ok(markup.includes('boom'));
 });
 
+test('should_render_sync_error_when_unconfigured', () => {
+  const markup = renderSettingsView({
+    t: (key) => key,
+    settings,
+    formatNumber: String,
+    sync: { configured: false, repo: 'u/r', branch: 'dev', lastSyncText: null, errorText: 'boom', busy: false },
+  });
+  assert.ok(markup.includes('boom'));
+});
+
+test('should_disable_actions_and_rename_labels_when_busy', () => {
+  const busy = renderSettingsView({
+    t: (key) => key,
+    settings,
+    formatNumber: String,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null, busy: true },
+  });
+  assert.ok(busy.includes('data-sync-now disabled'));
+  assert.ok(busy.includes('parsinegar.sync.syncing'));
+  const connecting = renderSettingsView({
+    t: (key) => key,
+    settings,
+    formatNumber: String,
+    sync: { configured: false, repo: null, branch: null, lastSyncText: null, errorText: null, busy: true },
+  });
+  assert.ok(connecting.includes('data-sync-save disabled'));
+  assert.ok(connecting.includes('parsinegar.sync.connecting'));
+});
+
+test('should_repopulate_attempt_without_token_when_unconfigured', () => {
+  const markup = renderSettingsView({
+    t: (key) => key,
+    settings,
+    formatNumber: String,
+    sync: { configured: false, repo: 'u/r', branch: 'dev', lastSyncText: null, errorText: null, busy: false },
+  });
+  assert.ok(markup.includes('value="u/r"'));
+  assert.ok(markup.includes('value="dev"'));
+  assert.ok(!markup.includes('value="tok"'), 'token must never echo back');
+});
+
 test('should_offer_four_themes_when_rendered', () => {
   const markup = renderSettingsView({
     t: (key) => key,

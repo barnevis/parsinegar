@@ -5,6 +5,10 @@
 const API_BASE = 'https://api.github.com';
 const API_VERSION = '2022-11-28';
 const DEFAULT_BRANCH = 'main';
+// Sanctioned/blackholed networks hang instead of refusing: without a
+// deadline the UI stalls forever with zero feedback. t.mock.timers drives
+// this timer in tests; real clocks everywhere else.
+const REQUEST_TIMEOUT_MS = 30000;
 
 /**
  * Builds a backend error: machine code, safe message, no secrets.
@@ -72,10 +76,23 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
 
   async function request(path, options = {}) {
     let response = null;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      try {
+        controller?.abort(new Error('Git backend request timed out'));
+      } catch {
+        // Aborting is best effort; the mapping below still applies.
+      }
+    }, REQUEST_TIMEOUT_MS);
     try {
-      response = await fetchFn(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options.headers ?? {}) } });
+      response = await fetchFn(`${API_BASE}${path}`, { ...options, ...(controller ? { signal: controller.signal } : {}), headers: { ...headers, ...(options.headers ?? {}) } });
     } catch (error) {
+      if (controller?.signal.aborted === true) {
+        throw gitError('GIT_NETWORK_FAILED', 'Git backend request timed out', { repo });
+      }
       throw gitError('GIT_NETWORK_FAILED', `Git backend unreachable: ${error?.message ?? 'network error'}`, { repo });
+    } finally {
+      clearTimeout(timer);
     }
     return response;
   }

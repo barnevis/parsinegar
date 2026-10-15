@@ -125,6 +125,8 @@ class ParsiPageHome extends PeyElement {
   #syncer = null;
   #syncConflicts = [];
   #syncStatus = null;
+  #syncBusy = false;
+  #syncAttempt = null;
   #searchSpec = null;
   #builtIn = null;
   #guides = null;
@@ -974,12 +976,20 @@ class ParsiPageHome extends PeyElement {
     if (repo.length === 0 || token.length === 0) {
       return;
     }
+    // The attempt survives a failed configure so the form repopulates
+    // (repo and branch only — the token is never echoed back).
+    this.#syncAttempt = { repo, branch };
+    this.#syncBusy = true;
+    await this.#refreshSyncStatus();
     try {
       await this.#syncer.configureBackend({ kind: 'git', params: { repo, branch, token } });
+      this.#syncAttempt = null;
     } catch {
       // Failure lands in status via getStatus on refresh below.
+    } finally {
+      this.#syncBusy = false;
+      await this.#refreshSyncStatus();
     }
-    await this.#refreshSyncStatus();
   }
 
   /**
@@ -1011,13 +1021,17 @@ class ParsiPageHome extends PeyElement {
     if (!this.isConnected) {
       return;
     }
+    this.#syncBusy = true;
+    await this.#refreshSyncStatus();
     let report = null;
     try {
       report = await this.#syncer.syncNow({ scope: SYNC_SCOPE });
     } catch {
+      this.#syncBusy = false;
       await this.#refreshSyncStatus();
       return;
     }
+    this.#syncBusy = false;
     this.#syncConflicts = Array.isArray(report?.conflicts) ? report.conflicts : [];
     await this.#reloadLibrary();
     await this.#refreshSyncStatus();
@@ -1099,12 +1113,14 @@ class ParsiPageHome extends PeyElement {
     try {
       const status = await this.#syncer?.getStatus();
       if (status) {
+        const attempt = this.#syncAttempt;
         snapshot = {
           configured: status.configured === true,
-          repo: status.repo ?? null,
-          branch: status.branch ?? null,
+          repo: status.repo ?? attempt?.repo ?? null,
+          branch: status.branch ?? attempt?.branch ?? null,
           lastSyncText: typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null,
           errorText: status.lastError?.message ?? null,
+          busy: this.#syncBusy,
         };
       }
     } catch {

@@ -2109,3 +2109,67 @@ test('should_remove_backend_when_remove_is_dispatched', async () => {
     element.remove();
   }
 });
+
+test('should_show_busy_state_while_configure_is_pending', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async configureBackend() {
+      return new Promise(() => {});
+    },
+    async getStatus() {
+      return { configured: false, lastSyncAt: null, lastError: null };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'settings' } }));
+    await settled();
+    await settled();
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', {
+      bubbles: true,
+      detail: { repo: 'u/r', branch: 'main', token: 'tok' },
+    }));
+    await settled();
+    await settled();
+    const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
+    assert.ok(panel().querySelector('[data-sync-save]').disabled, 'expected the save button disabled while busy');
+    assert.ok(panel().innerHTML.includes('در حال اتصال'), 'expected the connecting label');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_repopulate_form_after_failed_configure_when_refreshed', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async configureBackend() {
+      throw { code: 'SYNC_AUTH_FAILED' };
+    },
+    async getStatus() {
+      return { configured: false, lastSyncAt: null, lastError: { code: 'SYNC_AUTH_FAILED', message: 'nope', at: 1 } };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'settings' } }));
+    await settled();
+    await settled();
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', {
+      bubbles: true,
+      detail: { repo: 'u/r', branch: 'dev', token: 'tok' },
+    }));
+    await settled();
+    await settled();
+    const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
+    assert.equal(panel().querySelector('[data-sync-field="repo"]').value, 'u/r');
+    assert.equal(panel().querySelector('[data-sync-field="branch"]').value, 'dev');
+    assert.equal(panel().querySelector('[data-sync-field="token"]').value, '');
+    assert.ok(panel().innerHTML.includes('nope'));
+  } finally {
+    element.remove();
+  }
+});

@@ -9,7 +9,8 @@
       "parsinegar.documents.service",
       "parsinegar.settings.service",
       "parsinegar.export.service",
-      "pey.filesystem.service"
+      "pey.filesystem.service",
+      "pey.sync.service"
     ],
     "optional": []
   },

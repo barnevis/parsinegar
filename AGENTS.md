@@ -38,7 +38,10 @@ Requirements: Node >= 20. The server must serve the repo root so that `node_modu
 
 - `node:test` + `jsdom`. Every behavior gets a test; the suite must be green before finishing (pre-existing skips stay skipped).
 - jsdom cannot do layout: coordinate/visual behavior (click mapping, caret placement, floats, wrapping) is verified with throwaway headless-Chromium probes against a local static server — then **delete the probe files and kill the servers**.
+- Probe hygiene (learned the hard way): run Chromium with an isolated `--user-data-dir` (never the real profile); close every tab (`/json/close`) when done — stale tabs plus toggle-style UI caused phantom failures; cache-bust probe URLs or clear the browser cache (stale modules served silently); poll with wait-for-condition helpers, never fixed sleeps.
+- jsdom DOM gaps: the `Element` and `FocusEvent` globals do not exist in the test DOM. Duck-type in code under test (`typeof node.closest === 'function'`, never `instanceof Element`); synthesize blur-with-target in tests with a plain `Event` plus an assigned `relatedTarget`.
 - Prefer position-free assertions (ranges, classes, decoration sets) over DOM measurement; never assert on hashed/generated class names (use the stable `parsi-*` classes).
+- Pin caller→service call shapes in integration tests (a wrong envelope passes unit tests on both sides and only surfaces in a full-app probe).
 
 ## Docs to keep in sync
 
@@ -51,5 +54,7 @@ Requirements: Node >= 20. The server must serve the repo root so that `node_modu
 
 - Verify through execution (run tests, probe visuals); do not claim fixes from reading code alone.
 - Keep diffs minimal and scoped; prefer editing existing files over creating new ones.
+- Never edit files with `sed`/`awk`/redirection — always use the dedicated file tools (a wrong-file slip costs more than it saves).
+- `pkill -f <pattern>` matches your own shell command line and kills it — stop probe servers with `pkill -x <name>` or `fuser -k <port>/tcp` instead.
 - The agent proposes a **one-line commit message**; it never commits, pushes, or opens PRs unless explicitly asked.
 - Never commit secrets; check `git status`/`git diff` before proposing a message so only intended files are included.

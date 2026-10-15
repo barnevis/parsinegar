@@ -30,29 +30,33 @@ function renderOption(translate, group, key, value, labelKey, current) {
 /**
  * Renders the sync section: backend form when unconfigured, status plus
  * actions when configured. The snapshot arrives preformatted; this module
- * never touches services or dates.
+ * never touches services or dates. While busy the actions disable and the
+ * buttons name the running operation; failed attempts keep their repo and
+ * branch (never the token) so the user does not retype everything.
  * @param {Function} translate Translation function.
- * @param {object|null} sync `{ configured, repo, branch, lastSyncText, errorText }`.
+ * @param {object|null} sync `{ configured, repo, branch, lastSyncText, errorText, busy }`.
  * @returns {string} Section markup.
  */
 function renderSyncSection(translate, sync) {
   const snapshot = sync && typeof sync === 'object' ? sync : null;
+  const busy = snapshot?.busy === true;
   const status = snapshot?.configured === true
     ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.backend'))}: ${escapeHtml(snapshot.repo ?? '')} / ${escapeHtml(snapshot.branch ?? '')}</p>
       <p part="settings-note">${escapeHtml(translate('parsinegar.sync.last-sync'))}: ${escapeHtml(snapshot.lastSyncText ?? translate('parsinegar.sync.never'))}</p>
       ${snapshot.errorText ? `<p part="settings-error">${escapeHtml(translate('parsinegar.sync.error'))}: ${escapeHtml(snapshot.errorText)}</p>` : ''}
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-sync-now>${escapeHtml(translate('parsinegar.sync.now'))}</button>
-        <button type="button" part="settings-button" data-sync-remove>${escapeHtml(translate('parsinegar.sync.remove'))}</button>
+        <button type="button" part="settings-button" data-sync-now${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.syncing' : 'parsinegar.sync.now'))}</button>
+        <button type="button" part="settings-button" data-sync-remove${busy ? ' disabled' : ''}>${escapeHtml(translate('parsinegar.sync.remove'))}</button>
       </div>`
     : `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.unconfigured'))}</p>
+      ${snapshot?.errorText ? `<p part="settings-error">${escapeHtml(translate('parsinegar.sync.error'))}: ${escapeHtml(snapshot.errorText)}</p>` : ''}
       <label part="settings-field">
         <span>${escapeHtml(translate('parsinegar.sync.repo'))}</span>
-        <input type="text" dir="ltr" data-sync-field="repo" required autocomplete="off">
+        <input type="text" dir="ltr" data-sync-field="repo" required autocomplete="off" value="${escapeHtml(snapshot?.repo ?? '')}">
       </label>
       <label part="settings-field">
         <span>${escapeHtml(translate('parsinegar.sync.branch'))}</span>
-        <input type="text" dir="ltr" data-sync-field="branch" value="main" autocomplete="off">
+        <input type="text" dir="ltr" data-sync-field="branch" value="${escapeHtml(snapshot?.branch ?? 'main')}" autocomplete="off">
       </label>
       <label part="settings-field">
         <span>${escapeHtml(translate('parsinegar.sync.token'))}</span>
@@ -60,7 +64,7 @@ function renderSyncSection(translate, sync) {
       </label>
       <p part="settings-note">${escapeHtml(translate('parsinegar.sync.token-note'))}</p>
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-sync-save>${escapeHtml(translate('parsinegar.sync.save'))}</button>
+        <button type="button" part="settings-button" data-sync-save${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.connecting' : 'parsinegar.sync.save'))}</button>
       </div>`;
   return `
     <fieldset part="settings-group">
