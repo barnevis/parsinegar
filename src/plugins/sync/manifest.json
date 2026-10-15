@@ -1,0 +1,83 @@
+{
+  "name": "pey.sync",
+  "version": "0.1.0",
+  "architecture": "0.11",
+  "description": "Generic user-configured sync for pey.storage collections (first backend: git)",
+  "type": "infrastructure",
+  "adapterType": "sync-target",
+  "dependencies": {
+    "required": ["pey.storage.service"],
+    "optional": []
+  },
+  "provides": [
+    {
+      "name": "pey.sync.service",
+      "description": "Manual, backend-neutral sync of storage collections to user-chosen remotes",
+      "methods": [
+        {
+          "name": "configureBackend",
+          "description": "Validates and stores one backend (kind plus its params); reports without secrets",
+          "params": [
+            { "name": "kind", "type": "string" },
+            { "name": "params", "type": "object" }
+          ],
+          "returns": "Promise<object>",
+          "errors": ["SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_NETWORK_FAILED"]
+        },
+        {
+          "name": "removeBackend",
+          "description": "Clears credentials and sync state without touching local data",
+          "params": [],
+          "returns": "Promise<object>",
+          "errors": []
+        },
+        {
+          "name": "getStatus",
+          "description": "Configured or not (never the secret), last sync time, last error",
+          "params": [],
+          "returns": "Promise<object>",
+          "errors": []
+        },
+        {
+          "name": "syncNow",
+          "description": "Pushes local news, pulls remote news, stops on first conflicts",
+          "params": [
+            { "name": "scope", "type": "object" }
+          ],
+          "returns": "Promise<object>",
+          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONFLICT_PENDING"]
+        },
+        {
+          "name": "resolveConflict",
+          "description": "Applies one side for a single conflict; clock advances when none remain",
+          "params": [
+            { "name": "collection", "type": "string" },
+            { "name": "id", "type": "string" },
+            { "name": "choice", "type": "'local' | 'remote'" }
+          ],
+          "returns": "Promise<object>",
+          "errors": ["SYNC_NOT_CONFIGURED"]
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "sync:changed",
+      "description": "Published after every run, complete or partial.",
+      "data": [
+        { "name": "pushed", "type": "object[]" },
+        { "name": "pulled", "type": "object[]" },
+        { "name": "conflicts", "type": "object[]" }
+      ]
+    },
+    {
+      "name": "sync:conflicts",
+      "description": "Published when a run stops on conflicts, for the host prompt.",
+      "data": [
+        { "name": "conflicts", "type": "object[]" }
+      ]
+    }
+  ],
+  "config": {}
+}

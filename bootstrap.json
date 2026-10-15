@@ -6,7 +6,8 @@
   },
   "adapters": {
     "router": "BrowserHistoryAdapter",
-    "storage": "IndexedDBAdapter"
+    "storage": "IndexedDBAdapter",
+    "sync-target": "GitAdapter"
   },
   "ui": {
     "path": "./src/ui"
@@ -21,6 +22,11 @@
       "name": "pey.storage",
       "version": "0.4.0",
       "path": "./node_modules/pey.storage"
+    },
+    {
+      "name": "pey.sync",
+      "version": "0.1.0",
+      "path": "./src/plugins/sync"
     },
     {
       "name": "parsinegar.app",
