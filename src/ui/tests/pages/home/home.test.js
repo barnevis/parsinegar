@@ -2069,8 +2069,10 @@ test('should_refresh_editor_when_sync_pulls_open_document', async () => {
   const documents = createDocuments([
     { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
   ]);
+  const syncCalls = [];
   const syncer = createSyncService({
-    async syncNow() {
+    async syncNow(input) {
+      syncCalls.push(input);
       await documents.saveDocument({ id: 'd1', title: 'یادداشت', content: 'pulled' });
       return { pushed: [], pulled: [{ collection: 'documents', id: 'd1' }], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
     },
@@ -2082,6 +2084,11 @@ test('should_refresh_editor_when_sync_pulls_open_document', async () => {
     await settled();
     await settled();
     assert.equal(element.value, 'pulled');
+    assert.equal(syncCalls.length, 1);
+    assert.deepEqual(
+      syncCalls[0].scope.collections.map(({ collection }) => collection).sort(),
+      ['documents', 'folders'],
+    );
   } finally {
     element.remove();
   }

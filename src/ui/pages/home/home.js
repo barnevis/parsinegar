@@ -1013,7 +1013,7 @@ class ParsiPageHome extends PeyElement {
     }
     let report = null;
     try {
-      report = await this.#syncer.syncNow(SYNC_SCOPE);
+      report = await this.#syncer.syncNow({ scope: SYNC_SCOPE });
     } catch {
       await this.#refreshSyncStatus();
       return;
