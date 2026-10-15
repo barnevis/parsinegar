@@ -9,9 +9,11 @@
 import { renderFilesView } from './views-files.js';
 import { renderOutlineView } from './views-outline.js';
 import { renderSettingsView } from './views-settings.js';
+import { renderSyncView } from './views-sync.js';
 
 const FILES_VIEW = 'files';
 const OUTLINE_VIEW = 'outline';
+const SYNC_VIEW = 'sync';
 const SETTINGS_VIEW = 'settings';
 const MINDMAP_VIEW = 'mindmap';
 
@@ -19,6 +21,7 @@ const registry = [
   { id: FILES_VIEW, icon: 'file-copy', labelKey: 'parsinegar.views.files', render: renderFilesView },
   { id: OUTLINE_VIEW, icon: 'toc', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
   { id: MINDMAP_VIEW, icon: 'account-tree', labelKey: 'parsinegar.views.mindmap', area: 'center' },
+  { id: SYNC_VIEW, icon: 'github', labelKey: 'parsinegar.views.sync', render: renderSyncView },
   { id: SETTINGS_VIEW, icon: 'settings', labelKey: 'parsinegar.views.settings', render: renderSettingsView, align: 'end' },
 ];
 
@@ -39,4 +42,4 @@ export function getView(id) {
   return registry.find((view) => view.id === id && view.area !== 'center') ?? null;
 }
 
-export { FILES_VIEW, MINDMAP_VIEW, OUTLINE_VIEW, SETTINGS_VIEW };
+export { FILES_VIEW, MINDMAP_VIEW, OUTLINE_VIEW, SETTINGS_VIEW, SYNC_VIEW };

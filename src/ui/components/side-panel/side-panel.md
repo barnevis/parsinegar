@@ -61,4 +61,4 @@
 ## تصمیم‌ها و جریان‌های مرتبط
 
 - `../../../../docs/decisions.md` §۸ (ترکیب میزکار)، §۹ (کش نکردن داده کسب‌وکار)، §۱۱ (استثنای ترکیب فرزند).
-- `../workbench/workbench.md`: قراردادهای `views.js` و `views-files.js` و `views-outline.js` و `outline.js`.
+- `../workbench/workbench.md`: قراردادهای `views.js` و `views-files.js` و `views-outline.js` و `views-sync.js` و `outline.js`.

@@ -406,6 +406,7 @@ class ParsiPageHome extends PeyElement {
       if (event.type === 'sync-later') {
         this.#syncConflicts = [];
         this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
+        void this.#refreshSyncStatus();
         return;
       }
     }
@@ -1130,8 +1131,32 @@ class ParsiPageHome extends PeyElement {
     if (!this.isConnected) {
       return;
     }
+    this.#railEl?.configure({ syncDot: this.#syncDot() });
     this.#sideEl?.configure({ sync: snapshot });
     this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() });
+  }
+
+  /**
+   * Derives the rail sync dot from the latest snapshot: blinking orange
+   * while an operation runs, red on error or pending conflict, green once a
+   * clean sync completed, steady orange otherwise (including unconfigured).
+   * @returns {string} 'ok', 'stale', 'busy' or 'bad'.
+   */
+  #syncDot() {
+    if (this.#syncBusy) {
+      return 'busy';
+    }
+    if (this.#syncConflicts.length > 0) {
+      return 'bad';
+    }
+    const status = this.#syncStatus;
+    if (!status || status.configured !== true) {
+      return 'stale';
+    }
+    if (status.errorText) {
+      return 'bad';
+    }
+    return status.lastSyncText ? 'ok' : 'stale';
   }
 
   /**
@@ -1195,8 +1220,9 @@ class ParsiPageHome extends PeyElement {
         assetBaseUrl: this.#assetBaseUrl,
         views: listViews(),
         activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView,
+        syncDot: this.#syncDot(),
       },
-      configure: (element) => element.configure({ views: listViews(), activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView }),
+      configure: (element) => element.configure({ views: listViews(), activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView, syncDot: this.#syncDot() }),
     });
     if (this.#sideOpen) {
       this.#sideEl = mountComponent({

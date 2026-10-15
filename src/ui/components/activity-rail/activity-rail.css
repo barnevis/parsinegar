@@ -14,6 +14,7 @@
 }
 [part="rail-button"] {
   font: inherit;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,6 +35,39 @@
 }
 [part="rail-fallback"] {
   display: none;
+}
+/* Sync status dot: a color corner on the sync button only. Meaning rides the
+ * data attribute (asserted in tests), never the pixel position. */
+[part="rail-dot"] {
+  position: absolute;
+  inset-block-start: 0.45rem;
+  inset-inline-end: 0.45rem;
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
+  border-radius: 50%;
+}
+[part="rail-dot"][data-sync-dot="ok"] {
+  background-color: #22c55e;
+}
+[part="rail-dot"][data-sync-dot="stale"] {
+  background-color: #f59e0b;
+}
+[part="rail-dot"][data-sync-dot="busy"] {
+  background-color: #f59e0b;
+  animation: parsi-sync-blink 1s ease-in-out infinite;
+}
+[part="rail-dot"][data-sync-dot="bad"] {
+  background-color: #ef4444;
+}
+@keyframes parsi-sync-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [part="rail-dot"][data-sync-dot="busy"] {
+    animation: none;
+  }
 }
 [part="rail-button"][aria-pressed="true"] {
   color: var(--pey-color-accent, #5eead4);

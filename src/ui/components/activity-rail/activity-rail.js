@@ -14,6 +14,9 @@ class ParsiActivityRail extends PeyElement {
   #assetBaseUrl = null;
   #views = [];
   #activeView = null;
+  // Sync status dot: 'ok' (synced), 'stale' (not yet synced), 'busy'
+  // (operation running), 'bad' (error or conflict), null (no sync view).
+  #syncDot = null;
 
   onConnect(refs = {}) {
     if (typeof refs.t === 'function') {
@@ -26,6 +29,7 @@ class ParsiActivityRail extends PeyElement {
     if (typeof refs.activeView === 'string') {
       this.#activeView = refs.activeView;
     }
+    this.#storeSyncDot(refs.syncDot);
   }
 
   /**
@@ -42,13 +46,15 @@ class ParsiActivityRail extends PeyElement {
    * @param {object} data New data.
    * @param {Array<object>} [data.views] View entries.
    * @param {string} [data.activeView] Active view id.
+   * @param {string|null} [data.syncDot] Sync dot state for the sync button.
    * @returns {void}
    */
-  configure({ views, activeView } = {}) {
+  configure({ views, activeView, syncDot } = {}) {
     this.#storeViews(views);
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
+    this.#storeSyncDot(syncDot);
     this.requestRender();
   }
 
@@ -102,8 +108,28 @@ class ParsiActivityRail extends PeyElement {
    * @returns {string} Button markup.
    */
   #renderButton(view) {
+    const dot = view.id === 'sync' ? this.#renderSyncDot() : '';
     return `
-      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${iconMarkup(this.#assetBaseUrl, view.icon)}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`;
+      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(this.#t(view.labelKey))}" title="${escapeHtml(this.#t(view.labelKey))}">${iconMarkup(this.#assetBaseUrl, view.icon)}${dot}<span part="rail-fallback">${escapeHtml(this.#t(view.labelKey))}</span></button>`;
+  }
+
+  /**
+   * Renders the sync status dot, if the page reported a state.
+   * @returns {string} Dot markup or empty.
+   */
+  #renderSyncDot() {
+    if (this.#syncDot !== 'ok' && this.#syncDot !== 'stale' && this.#syncDot !== 'busy' && this.#syncDot !== 'bad') {
+      return '';
+    }
+    const label = escapeHtml(this.#t(`parsinegar.sync.dot-${this.#syncDot}`));
+    return `<span part="rail-dot" data-sync-dot="${this.#syncDot}" role="img" aria-label="${label}"></span>`;
+  }
+
+  #storeSyncDot(syncDot) {
+    if (syncDot === undefined) {
+      return;
+    }
+    this.#syncDot = typeof syncDot === 'string' ? syncDot : null;
   }
 
   #storeViews(views) {

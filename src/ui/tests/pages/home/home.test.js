@@ -801,7 +801,7 @@ test('should_render_rail_with_views_when_mounted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const rail = inChildAll(element, 'parsi-activity-rail', '[data-view]');
-    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'mindmap', 'settings']);
+    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'mindmap', 'sync', 'settings']);
     assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="files"]').getAttribute('aria-pressed'), 'true');
     assert.ok(child(element, 'parsi-side-panel'), 'expected the side panel');
   } finally {
@@ -2124,7 +2124,7 @@ test('should_show_busy_state_while_configure_is_pending', async () => {
   });
   const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
   try {
-    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'settings' } }));
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
     await settled();
     await settled();
     element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', {
@@ -2155,7 +2155,7 @@ test('should_repopulate_form_after_failed_configure_when_refreshed', async () =>
   });
   const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
   try {
-    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'settings' } }));
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
     await settled();
     await settled();
     element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', {
@@ -2169,6 +2169,104 @@ test('should_repopulate_form_after_failed_configure_when_refreshed', async () =>
     assert.equal(panel().querySelector('[data-sync-field="branch"]').value, 'dev');
     assert.equal(panel().querySelector('[data-sync-field="token"]').value, '');
     assert.ok(panel().innerHTML.includes('nope'));
+  } finally {
+    element.remove();
+  }
+});
+
+function syncDot(element) {
+  return inChild(element, 'parsi-activity-rail', '[data-view="sync"] [data-sync-dot]')?.getAttribute('data-sync-dot') ?? null;
+}
+
+test('should_show_sync_view_with_form_when_rail_selects_it', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: false, lastSyncAt: null, lastError: null };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('aria-pressed'), 'true');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-sync-field="repo"]'), 'expected the sync form');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-sync-save]'), 'expected the save action');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_stale_dot_when_never_synced', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': createSyncService() });
+  try {
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'stale');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_ok_dot_after_clean_sync', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'ok');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_bad_dot_when_last_sync_failed', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: null, lastError: { code: 'SYNC_NETWORK_FAILED', message: 'nope', at: 1 } };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'bad');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_busy_dot_while_sync_runs', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async syncNow() {
+      return new Promise(() => {});
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'busy');
   } finally {
     element.remove();
   }

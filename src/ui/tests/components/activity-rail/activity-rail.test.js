@@ -156,3 +156,25 @@ test('should_emit_view_select_when_mindmap_button_is_clicked', async () => {
     element.remove();
   }
 });
+
+test('should_show_sync_dot_only_on_sync_button_when_reported', async () => {
+  const element = mount({
+    views: [...VIEWS, { id: 'sync', icon: 'github', labelKey: 'parsinegar.views.sync' }],
+    activeView: 'files',
+    syncDot: 'bad',
+  });
+  try {
+    await flush();
+    const dot = element.shadowRoot.querySelector('[data-view="sync"] [data-sync-dot]');
+    assert.equal(dot?.getAttribute('data-sync-dot'), 'bad');
+    assert.equal(element.shadowRoot.querySelector('[data-view="files"] [data-sync-dot]'), null);
+    element.configure({ syncDot: 'ok' });
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-view="sync"] [data-sync-dot]')?.getAttribute('data-sync-dot'), 'ok');
+    element.configure({ syncDot: null });
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-sync-dot]'), null);
+  } finally {
+    element.remove();
+  }
+});

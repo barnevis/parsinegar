@@ -49,7 +49,7 @@ test('should_render_files_view_when_mounted', async () => {
 });
 
 test('should_emit_sync_configure_when_save_is_clicked', async () => {
-  const element = mount({ activeView: 'settings', sync: null });
+  const element = mount({ activeView: 'sync', sync: null });
   try {
     await flush();
     const seen = [];
@@ -67,7 +67,7 @@ test('should_emit_sync_configure_when_save_is_clicked', async () => {
 
 test('should_emit_sync_actions_when_configured_buttons_are_clicked', async () => {
   const element = mount({
-    activeView: 'settings',
+    activeView: 'sync',
     sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null },
   });
   try {
