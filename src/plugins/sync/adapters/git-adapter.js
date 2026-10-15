@@ -22,6 +22,22 @@ function gitError(code, message, detail = {}) {
 }
 
 /**
+ * Builds the permission-denied error for HTTP 403: the token is valid but
+ * cannot touch this repository (repo not selected, or Contents permission
+ * missing on fine-grained tokens). Surfaced as auth, not network, so the
+ * UI can point at the token instead of the connection.
+ * @param {object} [detail] Safe metadata (never the token).
+ * @returns {Error} Coded error.
+ */
+function accessDenied(detail = {}) {
+  return gitError(
+    'GIT_AUTH_FAILED',
+    'Git backend token cannot access this repository (check repository access and Contents permission)',
+    detail,
+  );
+}
+
+/**
  * Encodes text to base64 without blowing the stack on long files.
  * @param {string} content UTF-8 text.
  * @returns {string} Base64.
@@ -121,6 +137,9 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       if (rateLimited(response)) {
         throw gitError('GIT_RATE_LIMITED', 'Git backend rate limit exhausted', { repo });
       }
+      if (response.status === 403) {
+        throw accessDenied({ repo, path });
+      }
       throw gitError('GIT_REQUEST_FAILED', `Git backend list failed: HTTP ${response.status}`, { repo, path });
     }
     const payload = await response.json();
@@ -146,6 +165,9 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
     if (rateLimited(response)) {
       throw gitError('GIT_RATE_LIMITED', 'Git backend rate limit exhausted', { repo });
     }
+    if (response.status === 403) {
+      throw accessDenied({ repo, path });
+    }
     if (!response.ok) {
       throw gitError('GIT_REQUEST_FAILED', `Git backend read failed: HTTP ${response.status}`, { repo, path });
     }
@@ -167,12 +189,18 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       if (rateLimited(repoResponse)) {
         throw gitError('GIT_RATE_LIMITED', 'Git backend rate limit exhausted', { repo });
       }
+      if (repoResponse.status === 403) {
+        throw accessDenied({ repo });
+      }
       if (!repoResponse.ok) {
         throw gitError('GIT_REQUEST_FAILED', `Git backend check failed: HTTP ${repoResponse.status}`, { repo });
       }
       const branchResponse = await request(`/repos/${repo}/branches/${encodeURIComponent(branch)}`);
       if (branchResponse.status === 404) {
         throw gitError('GIT_NOT_FOUND', 'Git branch not found', { repo, branch });
+      }
+      if (branchResponse.status === 403) {
+        throw accessDenied({ repo, branch });
       }
       if (!branchResponse.ok) {
         throw gitError('GIT_REQUEST_FAILED', `Git backend check failed: HTTP ${branchResponse.status}`, { repo, branch });
@@ -211,6 +239,9 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       if (rateLimited(response)) {
         throw gitError('GIT_RATE_LIMITED', 'Git backend rate limit exhausted', { repo });
       }
+      if (response.status === 403) {
+        throw accessDenied({ repo, path });
+      }
       if (!response.ok) {
         throw gitError('GIT_REQUEST_FAILED', `Git backend write failed: HTTP ${response.status}`, { repo, path });
       }
@@ -234,6 +265,9 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       });
       if (response.status === 404) {
         return { ok: true };
+      }
+      if (response.status === 403) {
+        throw accessDenied({ repo, path });
       }
       if (!response.ok) {
         throw gitError('GIT_REQUEST_FAILED', `Git backend delete failed: HTTP ${response.status}`, { repo, path });

@@ -70,7 +70,7 @@ await sync.removeBackend(); // → { ok: true } (داده محلی دست نمی
 |---|---|
 | `SYNC_NOT_CONFIGURED` | فراخوانی sync/resolve بدون بک‌اند |
 | `SYNC_INVALID_CONFIG` | kind ناشناس، اسکوپ بد، choice بد، تعارض ناموجود |
-| `SYNC_AUTH_FAILED` | رد توکن (۴۰۱) |
+| `SYNC_AUTH_FAILED` | رد توکن (۴۰۱) یا دسترسی ناکافی (۴۰۳: مخزن انتخاب نشده یا مجوز Contents کم است) |
 | `SYNC_REPO_NOT_FOUND` | نبود مخزن/شاخه |
 | `SYNC_NETWORK_FAILED` | قطع شبکه، خطای HTTP متفرقه یا تمام‌شدن مهلت ۳۰ ثانیه‌ای درخواست |
 | `SYNC_RATE_LIMITED` | سقف نرخ (۴۰۳ + هدر) |

@@ -223,6 +223,29 @@ test('should_map_rate_limit_when_throttled', async () => {
   await assert.rejects(backend.readFile('a.md'), (error) => error.code === 'GIT_RATE_LIMITED');
 });
 
+test('should_map_forbidden_as_auth_when_denied', async () => {
+  // GitHub answers 403 "Resource not accessible by personal access token"
+  // when the token is valid but cannot touch the repo (unselected repo or
+  // missing Contents permission): auth, not network.
+  const denied = setup([{
+    match: () => true,
+    reply: () => response(403, { message: 'Resource not accessible by personal access token' }),
+  }]);
+  const openError = await denied.backend.open().catch((error) => error);
+  assert.equal(openError.code, 'GIT_AUTH_FAILED');
+  assert.ok(openError.message.includes('Contents'), 'expected the permission hint');
+  assert.ok(!openError.message.includes('secret-token'), 'token stays out of messages');
+  await assert.rejects(denied.backend.readFile('a.md'), (error) => error.code === 'GIT_AUTH_FAILED');
+  await assert.rejects(
+    denied.backend.writeFile('a.md', 'x'),
+    (error) => error.code === 'GIT_AUTH_FAILED',
+  );
+  await assert.rejects(
+    denied.backend.deleteFile('a.md', 'sha-1'),
+    (error) => error.code === 'GIT_AUTH_FAILED',
+  );
+});
+
 test('should_delete_with_known_rev_when_deleted', async () => {
   const { backend, calls } = setup([{
     match: (url, options) => options.method === 'DELETE',
