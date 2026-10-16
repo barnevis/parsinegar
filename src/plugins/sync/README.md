@@ -6,7 +6,7 @@
 
 - `manifest.json` — قرارداد معتبر افزونه.
 - `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
-- `lib/` — سرویس، موتور تصمیم خالص، سریالایزرها، خطاها.
+- `lib/` — سرویس لاغر + ماژول‌های متمرکز (scope، paths، collect، remote، round، backend، store، state)، موتور تصمیم خالص، سریالایزرها، خطاها.
 - `adapters/` — بک‌اندها (`git`) + قرارداد kind تازه.
 - `tests/` — تست هر فایل سورس (از جمله سوئیت قرارداد kind در `sync-target-contract.test.js`).
 - `docs/requirements.md` — تنها منبع حقیقت پیاده‌سازی.

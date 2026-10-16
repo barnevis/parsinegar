@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { hashRecord } from '../../lib/sync-engine.js';
 import { createService } from '../../lib/sync-service.js';
+import { memoryStorage } from './fake-storage.js';
 
 function encode(text) {
   return Buffer.from(text, 'utf8').toString('base64');
@@ -11,32 +12,6 @@ function encode(text) {
 
 function decode(payload) {
   return Buffer.from(String(payload ?? '').replace(/\s/g, ''), 'base64').toString('utf8');
-}
-
-function memoryStorage(initial = {}) {
-  const data = new Map();
-  for (const [collection, records] of Object.entries(initial)) {
-    data.set(collection, new Map((records ?? []).map((record) => [record.id ?? record.key, structuredClone(record)])));
-  }
-  const keyOf = (record) => record.id ?? record.key;
-  return {
-    async read(collection, key) {
-      return structuredClone(data.get(collection)?.get(key) ?? null);
-    },
-    async write(collection, record) {
-      if (!data.has(collection)) {
-        data.set(collection, new Map());
-      }
-      data.get(collection).set(keyOf(record), structuredClone(record));
-      return structuredClone(record);
-    },
-    async delete(collection, key) {
-      data.get(collection)?.delete(key);
-    },
-    async query(collection) {
-      return [...(data.get(collection)?.values() ?? [])].map((record) => structuredClone(record));
-    },
-  };
 }
 
 function fakeGitHub({ files = {}, failOpen = null, forceManifestConflict = false } = {}) {

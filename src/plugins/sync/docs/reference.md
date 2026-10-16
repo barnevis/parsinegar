@@ -8,10 +8,18 @@
 
 - `manifest.json` — قرارداد معتبر افزونه.
 - `index.js` — نقطه‌های ورود `prepare` و `activate` بنیان (فقط سیم‌کشی).
-- `lib/error.js` — خطای ساخت‌یافته (`syncError`).
-- `lib/sync-engine.js` — منطق تصمیم خالص (diff، plan، مانیفست، هش).
+- `lib/error.js` — خطاهای ساخت‌یافته (`syncError`، `syncStartupError`، `syncCriticalError`).
+- `lib/sync-engine.js` — منطق تصمیم خالص (diff، plan، مانیفست، هش، مچ ignore).
 - `lib/serializers.js` — کدک‌های `json` و `markdown` + قانون نام فایل.
-- `lib/sync-service.js` — پیاده‌سازی سرویس.
+- `lib/sync-scope.js` — اعتبارسنجی دامنه و شکل‌دهی رکورد (فیلدها، سریالایز تکی).
+- `lib/sync-paths.js` — نگاشت پوشه‌ها و ساخت مسیر ریموت.
+- `lib/sync-collect.js` — فهرست محلی و فیلتر ignore.
+- `lib/sync-remote.js` — خواندن/نوشتن مانیفست و فایل ریموت، ساخت رکورد pullشده.
+- `lib/sync-round.js` — یک دور اجرا (plan/apply/finalize) و شمارش تعارض باقی‌مانده.
+- `lib/sync-backend.js` — رجیستری kindها و نگاشت خطای آداپتر.
+- `lib/sync-state.js` — نگه‌داری محلی (گاردها، خطاها، اسکوپ، عکس آخر).
+- `lib/sync-store.js` — نگهبان قطع استوریج.
+- `lib/sync-service.js` — شش متد سرویس (مونتاژ لاغر روی ماژول‌ها).
 - `adapters/git-adapter.js` — بک‌اند گیت روی GitHub Contents API.
 - `adapters/README.md` — قرارداد kind تازه برای ذخیره‌سازهای بعدی.
 - `tests/` — تست هر فایل سورس.
