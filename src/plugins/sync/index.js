@@ -1,10 +1,13 @@
 // Pey sync plugin: entry point wiring prepare/activate.
+import { gitAdapterDescriptor } from './adapters/git-adapter.js';
+import { syncCriticalError, syncStartupError } from './lib/error.js';
 import { SERVICE_NAME, createService } from './lib/sync-service.js';
 
 const STORAGE_SERVICE = 'pey.storage.service';
 
-const state = { storage: null, events: null, fetchFn: globalThis.fetch };
+const state = { storage: null, events: null, fetchFn: globalThis.fetch, adapters: { git: gitAdapterDescriptor } };
 let savedContext = null;
+let unsubscribeUnavailable = null;
 
 /**
  * Reports a critical error when the required storage service disappears
@@ -16,13 +19,11 @@ function handleServiceUnavailable(event) {
   if (event?.data?.serviceName !== STORAGE_SERVICE || !savedContext) {
     return;
   }
-  savedContext.reportCriticalError({
-    code: 'REQUIRED_DEPENDENCY_LOST',
-    message: `Required service ${STORAGE_SERVICE} is no longer available`,
-    source: SERVICE_NAME,
-    type: 'critical',
-    timestamp: new Date().toISOString(),
-  });
+  savedContext.reportCriticalError(syncCriticalError(
+    'REQUIRED_DEPENDENCY_LOST',
+    `Required service ${STORAGE_SERVICE} is no longer available`,
+    { service: STORAGE_SERVICE },
+  ));
 }
 
 /**
@@ -36,11 +37,28 @@ export async function prepare(prepareContext) {
   state.storage = null;
   state.events = prepareContext.events ?? null;
   savedContext = prepareContext;
-  prepareContext.events?.subscribe('core:service-unavailable', handleServiceUnavailable);
+  if (typeof unsubscribeUnavailable === 'function') {
+    try {
+      unsubscribeUnavailable();
+    } catch {
+      // Re-prepare after a failed subscribe is best effort.
+    }
+    unsubscribeUnavailable = null;
+  }
+  const subscribed = prepareContext.events?.subscribe('core:service-unavailable', handleServiceUnavailable);
+  unsubscribeUnavailable = typeof subscribed === 'function' ? subscribed : null;
   prepareContext.onDeactivated = () => {
     state.storage = null;
   };
   prepareContext.onShutdown = async () => {
+    if (typeof unsubscribeUnavailable === 'function') {
+      try {
+        unsubscribeUnavailable();
+      } catch {
+        // Shutdown unsubscribe is best effort.
+      }
+      unsubscribeUnavailable = null;
+    }
     state.storage = null;
   };
   return [{ name: SERVICE_NAME, object: createService(state) }];
@@ -54,7 +72,11 @@ export async function prepare(prepareContext) {
 export async function activate(services) {
   const storage = services[STORAGE_SERVICE];
   if (!storage) {
-    throw new Error(`Required service is unavailable: ${STORAGE_SERVICE}`);
+    throw syncStartupError(
+      'SYNC_STORAGE_UNAVAILABLE',
+      `Required service is unavailable: ${STORAGE_SERVICE}`,
+      { service: STORAGE_SERVICE },
+    );
   }
   state.storage = storage;
 }

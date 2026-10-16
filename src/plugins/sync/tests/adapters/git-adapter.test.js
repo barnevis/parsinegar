@@ -1,7 +1,7 @@
 // Verifies the git backend over a fake fetch (never the network).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGitAdapter } from '../adapters/git-adapter.js';
+import { createGitAdapter } from '../../adapters/git-adapter.js';
 
 function encode(text) {
   return Buffer.from(text, 'utf8').toString('base64');
@@ -109,6 +109,36 @@ test('should_time_out_when_server_hangs_when_read', async (t) => {
     await new Promise((resolve) => setImmediate(resolve));
     t.mock.timers.tick(30000);
     await assert.rejects(pending, (error) => error.code === 'GIT_NETWORK_FAILED');
+  } finally {
+    t.mock.timers.reset();
+  }
+});
+
+test('should_never_abort_after_success_when_completed', async (t) => {
+  // Pins the clearTimeout half of the deadline: without it the timer
+  // survives success and aborts a settled controller.
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    let aborted = false;
+    const backend = createGitAdapter({
+      repo: 'user/notes',
+      token: 't',
+      fetchFn: (url, { signal } = {}) => {
+        signal?.addEventListener('abort', () => {
+          aborted = true;
+        });
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          headers: { get: () => null },
+          json: async () => ({}),
+        });
+      },
+    });
+    await backend.open();
+    t.mock.timers.tick(60000);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(aborted, false);
   } finally {
     t.mock.timers.reset();
   }

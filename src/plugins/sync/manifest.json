@@ -1,6 +1,6 @@
 {
   "name": "pey.sync",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "architecture": "0.11",
   "description": "Generic user-configured sync for pey.storage collections (first backend: git)",
   "type": "infrastructure",
@@ -54,7 +54,7 @@
             { "name": "scope", "type": "object" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]
+          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_REPO_NOT_FOUND", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]
         },
         {
           "name": "resolveConflict",
@@ -65,7 +65,7 @@
             { "name": "choice", "type": "'local' | 'remote'" }
           ],
           "returns": "Promise<object>",
-          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_NETWORK_FAILED", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]
+          "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_REPO_NOT_FOUND", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_CORRUPT_MANIFEST", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]
         }
       ]
     }

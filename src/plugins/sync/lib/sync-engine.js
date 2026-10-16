@@ -357,19 +357,32 @@ function matchOne(path, pattern) {
 
 /**
  * Reports whether a synced path is ignored by the given patterns. Document
- * paths are matched extension-free (the host never asks users to type the
- * mandated `.md`), falling back to the full path so a typed suffix still
- * hits instead of silently missing.
+ * paths are matched extension-free (hosts map their own extensions; the
+ * default covers the mandated `.md`), falling back to the full path so a
+ * typed suffix still hits instead of silently missing.
  * @param {string} path Relative synced path.
  * @param {Array<string>} patterns Ignore patterns.
+ * @param {Array<string>} [extensions] Suffixes to strip before matching.
  * @returns {boolean} True when ignored.
  */
-export function matchesIgnore(path, patterns) {
+export function matchesIgnore(path, patterns, extensions = ['md']) {
   if (typeof path !== 'string' || path.length === 0 || !Array.isArray(patterns)) {
     return false;
   }
-  const stripped = path.replace(/\.md$/i, '');
-  const candidates = stripped !== path && stripped.length > 0 ? [stripped, path] : [path];
+  const suffixes = Array.isArray(extensions) && extensions.length > 0 ? extensions : [];
+  let stripped = path;
+  const lowered = path.toLowerCase();
+  for (const extension of suffixes) {
+    if (typeof extension !== 'string' || extension.length === 0) {
+      continue;
+    }
+    const suffix = `.${extension.toLowerCase()}`;
+    if (lowered.endsWith(suffix) && stripped.length > suffix.length) {
+      stripped = stripped.slice(0, -suffix.length);
+      break;
+    }
+  }
+  const candidates = stripped !== path ? [stripped, path] : [path];
   for (const raw of patterns) {
     if (typeof raw !== 'string') {
       continue;

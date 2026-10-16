@@ -8,8 +8,8 @@
 
 import { syncError } from './error.js';
 import { buildManifest, hashRecord, matchesIgnore, parseManifest, planSync, snapshotDiff } from './sync-engine.js';
-import { json, markdown, sanitizePathSegment } from './serializers.js';
-import { createGitAdapter } from '../adapters/git-adapter.js';
+import { FALLBACK_SEGMENT, json, markdown, sanitizePathSegment } from './serializers.js';
+import { gitAdapterDescriptor } from '../adapters/git-adapter.js';
 
 const SERVICE_NAME = 'pey.sync.service';
 const BACKENDS_COLLECTION = 'sync_backends';
@@ -17,7 +17,10 @@ const STATE_COLLECTION = 'sync_state';
 const BACKEND_ID = 'active';
 const MANIFEST_PATH = 'sync-manifest.json';
 const SERIALIZERS = { json, markdown };
-const ADAPTER_FACTORIES = { git: createGitAdapter };
+// Backend kinds register here by default; a host entry point may pass its
+// own `adapters` map on the service state to add kinds (e.g. WebDAV)
+// without touching this file. See adapters/README.md for the descriptor.
+const DEFAULT_ADAPTERS = { git: gitAdapterDescriptor };
 
 /**
  * Wraps storage access: any outage becomes a structured error callers
@@ -37,36 +40,54 @@ async function store(task) {
 }
 
 /**
- * Maps a backend failure to the sync error contract. Adapter messages are
- * safe by contract (no secrets, no content); codes translate one to one.
+ * Maps a backend failure to the sync error contract through the backend
+ * descriptor, preserving the adapter code for diagnosis. Adapter messages
+ * are safe by contract (no secrets, no content).
+ * @param {object} descriptor Backend descriptor (kind, errorMap).
  * @param {object} error Adapter error with a code.
  * @returns {object} Structured sync error.
  */
-function toSyncError(error) {
+function mapAdapterError(descriptor, error) {
   if (error?.code && String(error.code).startsWith('SYNC_')) {
     return error;
   }
-  const mapping = {
-    GIT_AUTH_FAILED: 'SYNC_AUTH_FAILED',
-    GIT_NOT_FOUND: 'SYNC_REPO_NOT_FOUND',
-    GIT_RATE_LIMITED: 'SYNC_RATE_LIMITED',
-    GIT_REV_MISMATCH: 'SYNC_CONCURRENT_CHANGE',
-    GIT_NETWORK_FAILED: 'SYNC_NETWORK_FAILED',
-    GIT_REQUEST_FAILED: 'SYNC_NETWORK_FAILED',
-    GIT_INVALID_CONFIG: 'SYNC_INVALID_CONFIG',
-  };
-  const code = mapping[error?.code] ?? 'SYNC_NETWORK_FAILED';
-  return syncError(code, error?.message ?? 'Sync backend failed', {});
+  const code = descriptor?.errorMap?.[error?.code] ?? 'SYNC_NETWORK_FAILED';
+  return syncError(code, error?.message ?? 'Sync backend failed', {
+    adapterCode: error?.code ?? null,
+    kind: descriptor?.kind ?? null,
+  });
 }
 
 /**
- * Throws the mapped sync error (for promise-catch chains).
- * @param {object} error Adapter error with a code.
- * @returns {object} Never returns.
- * @throws {object} Always.
+ * Resolves the backend descriptor for a kind from the state registry.
+ * @param {object} state Activation state with optional adapters map.
+ * @param {unknown} kind Backend kind.
+ * @returns {object} Backend descriptor.
+ * @throws {object} SYNC_INVALID_CONFIG for unknown kinds.
  */
-function mapAdapterError(error) {
-  throw toSyncError(error);
+function descriptorFor(state, kind) {
+  const registry = state.adapters ?? DEFAULT_ADAPTERS;
+  const descriptor = registry[kind];
+  if (!descriptor || typeof descriptor.create !== 'function') {
+    throw syncError('SYNC_INVALID_CONFIG', `Unknown sync backend: ${String(kind)}`, {});
+  }
+  return descriptor;
+}
+
+/**
+ * Lists the file extensions of the scope serializers for ignore matching.
+ * @param {Array} configs Normalized scope.
+ * @returns {Array<string>} Unique extensions.
+ */
+function extensionsOf(configs) {
+  const seen = [];
+  for (const config of configs ?? []) {
+    const extension = SERIALIZERS[config.serializer]?.extension;
+    if (typeof extension === 'string' && extension.length > 0 && !seen.includes(extension)) {
+      seen.push(extension);
+    }
+  }
+  return seen;
 }
 
 /**
@@ -110,6 +131,7 @@ function normalizeScope(scope) {
       updatedAtField: entry.updatedAtField ?? 'updatedAt',
       serializer,
       titleField: entry.titleField ?? 'title',
+      contentField: entry.contentField ?? 'content',
       ignore: ignore.map((pattern) => pattern.trim()),
       folders: folders === null ? null : {
         collection: folders.collection,
@@ -182,7 +204,8 @@ function pathForRecord(record, config, folderMaps) {
     return { path: `${config.collection}/${sanitizePathSegment(record[config.idField])}.json`, relocated: false };
   }
   const title = record[config.titleField];
-  const file = `${sanitizePathSegment(typeof title === 'string' && title.length > 0 ? title : 'untitled')}.md`;
+  const segment = sanitizePathSegment(typeof title === 'string' && title.length > 0 ? title : FALLBACK_SEGMENT);
+  const file = `${segment}.${SERIALIZERS[config.serializer]?.extension ?? 'md'}`;
   if (!config.folders) {
     return { path: file, relocated: false };
   }
@@ -237,16 +260,17 @@ function isIgnoredFolderDisplay(folderIgnores, collection, id) {
  * @param {Array} records `{ collection, id, path }` entries.
  * @param {Array} configs Normalized scope.
  * @param {Map} folderIgnores Folders collection name to { byId, mapping, patterns }.
+ * @param {Array<string>} extensions Suffixes to strip before matching.
  * @returns {Array} Kept entries (same references).
  */
-function withoutIgnored(records, configs, folderIgnores) {
+function withoutIgnored(records, configs, folderIgnores, extensions = ['md']) {
   const byCollection = new Map(configs.map((config) => [config.collection, config]));
   return (records ?? []).filter((item) => {
     const config = byCollection.get(item?.collection);
     if (!config) {
       return true;
     }
-    if (matchesIgnore(item?.path ?? '', config.ignore)) {
+    if (matchesIgnore(item?.path ?? '', config.ignore, extensions)) {
       return false;
     }
     const known = folderIgnores.get(item?.collection);
@@ -270,6 +294,7 @@ function withoutIgnored(records, configs, folderIgnores) {
  */
 async function collectLocal(storage, configs) {
   const folderMaps = await loadFolderMaps(storage, configs);
+  const extensions = extensionsOf(configs);
   // Union of ignore patterns per folders collection, keyed from the
   // referencing document configs (plus the folders collection's own).
   const folderIgnores = new Map();
@@ -311,13 +336,13 @@ async function collectLocal(storage, configs) {
       const updatedAt = typeof record[config.updatedAtField] === 'number' ? record[config.updatedAtField] : 0;
       let content = null;
       try {
-        content = serialize(stripVolatile(record, config.updatedAtField));
+        content = serialize(stripVolatile(record, config.updatedAtField), config.contentField);
       } catch {
         skipped.push({ collection: config.collection, id });
         continue;
       }
       const placed = pathForRecord(record, config, folderMaps);
-      if (matchesIgnore(placed.path, config.ignore)
+      if (matchesIgnore(placed.path, config.ignore, extensions)
         || isIgnoredFolderDisplay(folderIgnores, config.collection, id)) {
         skipped.push({ collection: config.collection, id });
         continue;
@@ -357,7 +382,7 @@ function buildPulledRecord(folders, configs, item, content) {
   }
   let partial = null;
   try {
-    partial = SERIALIZERS[config.serializer].deserialize(content);
+    partial = SERIALIZERS[config.serializer].deserialize(content, config.contentField);
   } catch {
     return null;
   }
@@ -367,9 +392,10 @@ function buildPulledRecord(folders, configs, item, content) {
   if (config.serializer === 'markdown') {
     const parts = item.path.split('/');
     const file = parts.pop() ?? '';
+    const extension = SERIALIZERS[config.serializer]?.extension ?? 'md';
     const title = typeof item.title === 'string' && item.title.length > 0
       ? item.title
-      : file.replace(/\.md$/, '');
+      : file.replace(new RegExp(`\\.${extension}$`, 'i'), '');
     let folderId = null;
     let relocated = false;
     if (config.folders && parts.length > 0) {
@@ -383,7 +409,7 @@ function buildPulledRecord(folders, configs, item, content) {
         [config.idField]: item.id,
         [config.titleField]: title,
         [config.folders?.folderField ?? 'folderId']: folderId,
-        content: typeof partial.content === 'string' ? partial.content : '',
+        [config.contentField]: typeof partial[config.contentField] === 'string' ? partial[config.contentField] : '',
         [config.updatedAtField]: item.updatedAt,
       },
       relocated,
@@ -490,7 +516,7 @@ function contentOf(configs, collection, record) {
     return '';
   }
   try {
-    return SERIALIZERS[config.serializer].serialize(stripVolatile(record, config.updatedAtField));
+    return SERIALIZERS[config.serializer].serialize(stripVolatile(record, config.updatedAtField), config.contentField);
   } catch {
     return '';
   }
@@ -531,6 +557,129 @@ function carryManifest(previous, plan, pulledRecords, pruned) {
 }
 
 /**
+ * Fetches one sync round plan: remembers the scope, lists local entries,
+ * reads the remote manifest and diffs all three sides. Pure reads, no
+ * writes — safe to retry.
+ * @param {object} round Round context (storage, configs, adapter,
+ *   descriptor, manifestPath, failMapped, report).
+ * @returns {object} `{ plan, manifestRead, local }`.
+ */
+async function fetchRoundPlan(round) {
+  const { storage, configs, adapter, report } = round;
+  await rememberScope(storage, configs);
+  const local = await collectLocal(storage, configs);
+  report.relocated.push(...local.relocated);
+  report.skipped.push(...local.skipped.map((item) => ({ collection: item.collection, id: item.id })));
+  const manifestRead = await readManifest(adapter, round.manifestPath).catch(round.failMapped);
+  const remote = withoutIgnored(manifestRead.manifest.records, configs, local.folderIgnores, extensionsOf(configs));
+  for (const item of manifestRead.manifest.records) {
+    if (!remote.includes(item)) {
+      report.skipped.push({ collection: item?.collection ?? null, id: item?.id ?? null });
+    }
+  }
+  const savedBefore = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
+  const snapshot = Array.isArray(savedBefore.snapshot) ? savedBefore.snapshot : [];
+  const plan = planSync(snapshot, local.entries, remote);
+  report.skipped.push(...plan.skipped.map((item) => ({ collection: item?.collection ?? null, id: item?.id ?? null })));
+  return { plan, manifestRead, local };
+}
+
+/**
+ * Applies one planned round: pushes, pulls, propagates deletions, then
+ * rewrites the remote manifest when it changed. Idempotent per item.
+ * @param {object} round Round context (see fetchRoundPlan).
+ * @param {object} plan Engine plan.
+ * @param {object} manifestRead Current `{ manifest, rev }`.
+ * @param {object} local Collected local entries.
+ * @returns {Promise<void>}
+ */
+async function applyRoundPlan(round, plan, manifestRead, local) {
+  const { storage, configs, adapter, descriptor, report } = round;
+  const revs = await readRevs(adapter).catch(round.failMapped);
+  for (const item of plan.push) {
+    const held = local.byKey.get(`${item.collection}::${item.id}`);
+    const content = serializeRecord(configs, item, held?.record);
+    await adapter.writeFile(item.path, content, revs.get(item.path) ?? null).catch(round.failMapped);
+    report.pushed.push({ collection: item.collection, id: item.id });
+  }
+  const pulledRecords = [];
+  const pruned = [];
+  for (const item of plan.pull) {
+    const file = await adapter.readFile(item.path).catch(round.failMapped);
+    if (!file) {
+      pruned.push({ collection: item.collection, id: item.id });
+      report.skipped.push({ collection: item.collection, id: item.id });
+      continue;
+    }
+    // Folder maps reload per item: earlier pulls in this same loop may
+    // have just created the folders this path resolves through.
+    const folderMaps = await loadFolderMaps(storage, configs);
+    const built = buildPulledRecord(folderMaps, configs, item, file.content);
+    if (!built) {
+      report.skipped.push({ collection: item.collection, id: item.id });
+      continue;
+    }
+    await store(storage.write(built.collection, built.record));
+    if (built.relocated) {
+      report.relocated.push({ collection: item.collection, id: item.id, path: item.path });
+    }
+    pulledRecords.push(item);
+    report.pulled.push({ collection: item.collection, id: item.id });
+  }
+  for (const item of plan.deleteRemote) {
+    await adapter.deleteFile(item.path).catch(round.failMapped);
+    report.deletedRemote.push({ collection: item.collection, id: item.id });
+  }
+  for (const item of plan.deleteLocal) {
+    await store(storage.delete(item.collection, item.id));
+    report.deleteLocal.push({ collection: item.collection, id: item.id });
+  }
+  const enriched = await enrichConflicts(storage, configs, adapter, plan.conflicts, local.byKey).catch(round.failMapped);
+  report.conflicts.push(...enriched);
+  const carried = carryManifest(manifestRead.manifest.records, plan, pulledRecords, pruned);
+  const { manifest } = buildManifest(carried);
+  // Skip the rewrite when nothing changed: keeps revs stable and repeat
+  // runs write-free (idempotent).
+  if (JSON.stringify(manifest.records) !== JSON.stringify(manifestRead.manifest.records)) {
+    await adapter.writeFile(descriptor.manifestPath ?? MANIFEST_PATH, JSON.stringify(manifest), manifestRead.rev).catch((error) => {
+      if (descriptor.revMismatchCode && error?.code === descriptor.revMismatchCode) {
+        throw syncError('SYNC_CONCURRENT_CHANGE', 'Remote changed underneath this sync; run again', {});
+      }
+      throw mapAdapterError(descriptor, error);
+    });
+  }
+}
+
+/**
+ * Finalizes one round: advances the snapshot only on clean completion,
+ * stamps the report and publishes the outcome.
+ * @param {object} state Activation state (event bus).
+ * @param {object} storage Storage service.
+ * @param {Array} configs Normalized scope.
+ * @param {object} plan Engine plan.
+ * @param {object} report Mutable report.
+ * @returns {object} Completed report.
+ */
+async function finalizeRound(state, storage, configs, plan, report) {
+  if (plan.conflicts.length === 0) {
+    await advanceSnapshot(storage, configs);
+    await clearError(storage);
+  }
+  report.completed = plan.conflicts.length === 0;
+  publish(state, 'sync:changed', {
+    pushed: report.pushed,
+    pulled: report.pulled,
+    conflicts: report.conflicts.map((conflict) => ({ collection: conflict.collection, id: conflict.id })),
+  });
+  if (plan.conflicts.length > 0) {
+    publish(state, 'sync:conflicts', {
+      conflicts: report.conflicts.map((conflict) => ({ collection: conflict.collection, id: conflict.id })),
+    });
+  }
+  return report;
+}
+
+/**
  * Creates the service closing over activation-bound references.
  * @param {object} state References ({ storage, events, fetchFn? }).
  * @returns {object} Service implementation.
@@ -542,19 +691,16 @@ function createService(state) {
       const kind = source.kind;
       const params = source.params && typeof source.params === 'object' ? source.params : {};
       requireStorage(state);
-      const factory = ADAPTER_FACTORIES[kind];
-      if (typeof factory !== 'function') {
-        throw syncError('SYNC_INVALID_CONFIG', `Unknown sync backend: ${String(kind)}`, {});
-      }
+      const descriptor = descriptorFor(state, kind);
       let backend = null;
       try {
-        backend = factory({ ...params, fetchFn: state.fetchFn ?? globalThis.fetch });
+        backend = descriptor.create({ kind, ...params }, state.fetchFn ?? globalThis.fetch);
         await backend.open();
       } catch (error) {
         if (error?.code && String(error.code).startsWith('SYNC_')) {
           throw error;
         }
-        const mapped = toSyncError(error);
+        const mapped = mapAdapterError(descriptor, error);
         try {
           const storage = requireStorage(state);
           await recordError(storage, mapped);
@@ -612,7 +758,7 @@ function createService(state) {
       const local = await collectLocal(storage, configs);
       const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
       const rawSnapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];
-      const snapshot = withoutIgnored(rawSnapshot, configs, local.folderIgnores);
+      const snapshot = withoutIgnored(rawSnapshot, configs, local.folderIgnores, extensionsOf(configs));
       const diff = snapshotDiff(snapshot, local.entries);
       return {
         pending: diff.created.length > 0
@@ -625,128 +771,51 @@ function createService(state) {
     async syncNow(input = {}) {
       const configs = normalizeScope(input?.scope);
       const { backend, storage } = await requireBackend(state);
-      const adapter = instantiateBackend(backend, state.fetchFn ?? globalThis.fetch);
-      const report = {
-        pushed: [],
-        pulled: [],
-        deletedRemote: [],
-        deleteLocal: [],
-        relocated: [],
-        skipped: [],
-        conflicts: [],
-        completed: false,
+      const { adapter, descriptor } = instantiateBackend(state, backend);
+      const round = {
+        state,
+        storage,
+        configs,
+        adapter,
+        descriptor,
+        manifestPath: descriptor.manifestPath ?? MANIFEST_PATH,
+        failMapped: (error) => {
+          throw mapAdapterError(descriptor, error);
+        },
+        report: {
+          pushed: [],
+          pulled: [],
+          deletedRemote: [],
+          deleteLocal: [],
+          relocated: [],
+          skipped: [],
+          conflicts: [],
+          completed: false,
+        },
       };
       const fail = async (error) => {
         await recordError(storage, error);
         publish(state, 'sync:changed', {
-          pushed: report.pushed,
-          pulled: report.pulled,
-          conflicts: report.conflicts.map((conflict) => ({ collection: conflict.collection, id: conflict.id })),
+          pushed: round.report.pushed,
+          pulled: round.report.pulled,
+          conflicts: round.report.conflicts.map((conflict) => ({ collection: conflict.collection, id: conflict.id })),
         });
         throw error;
       };
       try {
-        await rememberScope(storage, configs);
-        const local = await collectLocal(storage, configs);
-        report.relocated.push(...local.relocated);
-        report.skipped.push(...local.skipped.map((item) => ({ collection: item.collection, id: item.id })));
-        const manifestRead = await readManifest(adapter).catch(mapAdapterError);
-        const remote = withoutIgnored(manifestRead.manifest.records, configs, local.folderIgnores);
-        for (const item of manifestRead.manifest.records) {
-          if (!remote.includes(item)) {
-            report.skipped.push({ collection: item?.collection ?? null, id: item?.id ?? null });
-          }
-        }
-        const savedBefore = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
-        const snapshot = Array.isArray(savedBefore.snapshot) ? savedBefore.snapshot : [];
-        const plan = planSync(
-          snapshot,
-          local.entries,
-          remote,
-        );
-        report.skipped.push(...plan.skipped.map((item) => ({ collection: item?.collection ?? null, id: item?.id ?? null })));
-        const revs = await readRevs(adapter).catch(mapAdapterError);
-        for (const item of plan.push) {
-          const held = local.byKey.get(`${item.collection}::${item.id}`);
-          const content = serializeRecord(configs, item, held?.record);
-          await adapter.writeFile(item.path, content, revs.get(item.path) ?? null).catch(mapAdapterError);
-          report.pushed.push({ collection: item.collection, id: item.id });
-        }
-        const pulledRecords = [];
-        const pruned = [];
-        for (const item of plan.pull) {
-          const file = await adapter.readFile(item.path).catch(mapAdapterError);
-          if (!file) {
-            pruned.push({ collection: item.collection, id: item.id });
-            report.skipped.push({ collection: item.collection, id: item.id });
-            continue;
-          }
-          // Folder maps reload per item: earlier pulls in this same loop may
-          // have just created the folders this path resolves through.
-          const folderMaps = await loadFolderMaps(storage, configs);
-          const built = buildPulledRecord(folderMaps, configs, item, file.content);
-          if (!built) {
-            report.skipped.push({ collection: item.collection, id: item.id });
-            continue;
-          }
-          await store(storage.write(built.collection, built.record));
-          if (built.relocated) {
-            report.relocated.push({ collection: item.collection, id: item.id, path: item.path });
-          }
-          pulledRecords.push(item);
-          report.pulled.push({ collection: item.collection, id: item.id });
-        }
-        for (const item of plan.deleteRemote) {
-          await adapter.deleteFile(item.path).catch(mapAdapterError);
-          report.deletedRemote.push({ collection: item.collection, id: item.id });
-        }
-        for (const item of plan.deleteLocal) {
-          await store(storage.delete(item.collection, item.id));
-          report.deleteLocal.push({ collection: item.collection, id: item.id });
-        }
-        const enriched = await enrichConflicts(storage, configs, adapter, plan.conflicts, local.byKey).catch(mapAdapterError);
-        report.conflicts.push(...enriched);
-        const carried = carryManifest(manifestRead.manifest.records, plan, pulledRecords, pruned);
-        const { manifest } = buildManifest(carried);
-        // Skip the rewrite when nothing changed: keeps revs stable and
-        // repeat runs write-free (idempotent).
-        let manifestRev = manifestRead.rev;
-        if (JSON.stringify(manifest.records) !== JSON.stringify(manifestRead.manifest.records)) {
-          const written = await adapter.writeFile(MANIFEST_PATH, JSON.stringify(manifest), manifestRead.rev).catch((error) => {
-            if (error?.code === 'GIT_REV_MISMATCH') {
-              throw syncError('SYNC_CONCURRENT_CHANGE', 'Remote changed underneath this sync; run again', {});
-            }
-            throw mapAdapterError(error);
-          });
-          manifestRev = written.rev;
-        }
-        void manifestRev;
-        if (plan.conflicts.length === 0) {
-          await advanceSnapshot(storage, configs);
-          await clearError(storage);
-        }
-        report.completed = plan.conflicts.length === 0;
-        publish(state, 'sync:changed', {
-          pushed: report.pushed,
-          pulled: report.pulled,
-          conflicts: report.conflicts.map((conflict) => ({ collection: conflict.collection, id: conflict.id })),
-        });
-        if (plan.conflicts.length > 0) {
-          publish(state, 'sync:conflicts', {
-            conflicts: report.conflicts.map((conflict) => ({ collection: conflict.collection, id: conflict.id })),
-          });
-        }
-        return report;
+        const { plan, manifestRead, local } = await fetchRoundPlan(round);
+        await applyRoundPlan(round, plan, manifestRead, local);
+        return finalizeRound(state, storage, configs, plan, round.report);
       } catch (error) {
         if (error?.code && String(error.code).startsWith('SYNC_')) {
           return fail(error);
         }
-        await recordError(storage, syncError('SYNC_NETWORK_FAILED', 'Sync run failed', {}));
-        publish(state, 'sync:changed', { pushed: report.pushed, pulled: report.pulled, conflicts: [] });
-        throw error;
+        const mapped = mapAdapterError(descriptor, error);
+        await recordError(storage, mapped);
+        publish(state, 'sync:changed', { pushed: round.report.pushed, pulled: round.report.pulled, conflicts: [] });
+        throw mapped;
       }
     },
-
     async resolveConflict(input = {}) {
       const source = input && typeof input === 'object' ? input : {};
       const { collection, id, choice } = source;
@@ -754,10 +823,13 @@ function createService(state) {
         throw syncError('SYNC_INVALID_CONFIG', 'Conflict resolution needs collection, id and local|remote', {});
       }
       const { backend, storage } = await requireBackend(state);
-      const adapter = instantiateBackend(backend, state.fetchFn ?? globalThis.fetch);
+      const { adapter, descriptor } = instantiateBackend(state, backend);
+      const manifestPath = descriptor.manifestPath ?? MANIFEST_PATH;
+      const failMapped = (error) => {
+        throw mapAdapterError(descriptor, error);
+      };
       const configs = await readScopeForResolve(storage);
-      const manifestRead = await readManifest(adapter).catch(mapAdapterError);
-        console.log('DBG manifest:', JSON.stringify(manifestRead.manifest.records));
+      const manifestRead = await readManifest(adapter, manifestPath).catch(failMapped);
       const local = await collectLocal(storage, configs);
       const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
       const snapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];
@@ -778,18 +850,18 @@ function createService(state) {
         if (!path) {
           throw syncError('SYNC_INVALID_CONFIG', 'Local record vanished mid-resolution', { collection, id });
         }
-        const revs = await readRevs(adapter).catch(mapAdapterError);
-        await adapter.writeFile(path, content, revs.get(path) ?? null).catch(mapAdapterError);
+        const revs = await readRevs(adapter).catch(failMapped);
+        await adapter.writeFile(path, content, revs.get(path) ?? null).catch(failMapped);
         if (before && typeof before.path === 'string' && before.path !== path) {
-          await adapter.deleteFile(before.path).catch(mapAdapterError);
+          await adapter.deleteFile(before.path).catch(failMapped);
         }
         const entry = local.entries.find((item) => item.collection === collection && item.id === id);
-        await writeManifestEntry(adapter, manifestRead, { ...entry, path });
+        await writeManifestEntry(adapter, descriptor, manifestRead, { ...entry, path });
         await writeSnapshotEntry(storage, saved, { ...entry, path });
       } else {
-        const file = conflict.remote ? await adapter.readFile(conflict.remote.path).catch(mapAdapterError) : null;
+        const file = conflict.remote ? await adapter.readFile(conflict.remote.path).catch(failMapped) : null;
         if (!file) {
-          await writeManifestEntry(adapter, manifestRead, null, { collection, id });
+          await writeManifestEntry(adapter, descriptor, manifestRead, null, { collection, id });
           await writeSnapshotEntry(storage, saved, null, { collection, id });
         } else {
           const folderMaps = await loadFolderMaps(storage, configs);
@@ -797,7 +869,7 @@ function createService(state) {
           if (built) {
             await store(storage.write(built.collection, built.record));
           }
-          await writeManifestEntry(adapter, manifestRead, conflict.remote);
+          await writeManifestEntry(adapter, descriptor, manifestRead, conflict.remote);
           await writeSnapshotEntry(storage, saved, {
             collection,
             id,
@@ -806,7 +878,7 @@ function createService(state) {
           });
         }
       }
-      const remaining = await countRemaining(storage, configs, adapter);
+      const remaining = await countRemaining(storage, configs, adapter, descriptor);
       if (remaining === 0) {
         await advanceSnapshot(storage, configs);
         await clearError(storage);
@@ -848,17 +920,17 @@ async function requireBackend(state) {
 
 /**
  * Instantiates the backend adapter for a stored config.
+ * @param {object} state Activation state with optional adapters map.
  * @param {object} backend Stored backend record.
- * @param {Function} fetchFn Fetch implementation.
- * @returns {object} Backend adapter.
+ * @returns {object} `{ adapter, descriptor }`.
  * @throws {object} SYNC_INVALID_CONFIG.
  */
-function instantiateBackend(backend, fetchFn) {
-  const factory = ADAPTER_FACTORIES[backend?.kind];
-  if (typeof factory !== 'function') {
-    throw syncError('SYNC_INVALID_CONFIG', `Unknown sync backend: ${String(backend?.kind)}`, {});
-  }
-  return factory({ repo: backend.repo, branch: backend.branch, token: backend.token, fetchFn });
+function instantiateBackend(state, backend) {
+  const descriptor = descriptorFor(state, backend?.kind);
+  return {
+    adapter: descriptor.create({ ...backend }, state.fetchFn ?? globalThis.fetch),
+    descriptor,
+  };
 }
 
 /**
@@ -939,16 +1011,17 @@ async function advanceSnapshot(storage, configs) {
 /**
  * Reads the remote manifest, tolerating a first-run absence.
  * @param {object} adapter Backend adapter.
+ * @param {string} manifestPath Engine manifest path on this backend.
  * @returns {object} `{ manifest, rev }`.
  * @throws {object} SYNC_CORRUPT_MANIFEST.
  */
-async function readManifest(adapter) {
+async function readManifest(adapter, manifestPath) {
   const files = await adapter.listDir('');
-  const entry = (files ?? []).find((item) => item?.path === MANIFEST_PATH);
+  const entry = (files ?? []).find((item) => item?.path === manifestPath);
   if (!entry) {
     return { manifest: { version: 1, records: [] }, rev: null };
   }
-  const file = await adapter.readFile(MANIFEST_PATH);
+  const file = await adapter.readFile(manifestPath);
   if (!file) {
     return { manifest: { version: 1, records: [] }, rev: null };
   }
@@ -996,7 +1069,7 @@ function serializeRecord(configs, item, record) {
       id: item.id,
     });
   }
-  return SERIALIZERS[config.serializer].serialize(record);
+  return SERIALIZERS[config.serializer].serialize(record, config.contentField);
 }
 
 /**
@@ -1016,13 +1089,14 @@ async function readScopeForResolve(storage) {
 /**
  * Upserts or drops one manifest entry and rewrites the remote manifest.
  * @param {object} adapter Backend adapter.
+ * @param {object} descriptor Backend descriptor (manifest path, rev code).
  * @param {object} manifestRead Current `{ manifest, rev }`.
  * @param {object|null} entry Entry to upsert, or null.
  * @param {object|null} drop Entry to drop, or null.
  * @returns {object} Fresh `{ manifest, rev }`.
  * @throws {object} SYNC_CONCURRENT_CHANGE on rev mismatch.
  */
-async function writeManifestEntry(adapter, manifestRead, entry, drop) {
+async function writeManifestEntry(adapter, descriptor, manifestRead, entry, drop) {
   const records = manifestRead.manifest.records.filter((item) => {
     if (!item) {
       return false;
@@ -1037,13 +1111,13 @@ async function writeManifestEntry(adapter, manifestRead, entry, drop) {
   }
   const { manifest } = buildManifest(records);
   try {
-    const written = await adapter.writeFile(MANIFEST_PATH, JSON.stringify(manifest), manifestRead.rev);
+    const written = await adapter.writeFile(descriptor.manifestPath ?? MANIFEST_PATH, JSON.stringify(manifest), manifestRead.rev);
     return { manifest, rev: written.rev };
   } catch (error) {
-    if (error?.code === 'GIT_REV_MISMATCH') {
+    if (descriptor.revMismatchCode && error?.code === descriptor.revMismatchCode) {
       throw syncError('SYNC_CONCURRENT_CHANGE', 'Remote changed underneath this sync; run again', {});
     }
-    throw mapAdapterError(error);
+    throw mapAdapterError(descriptor, error);
   }
 }
 
@@ -1077,11 +1151,13 @@ async function writeSnapshotEntry(storage, saved, entry, drop) {
  * @param {object} storage Storage service.
  * @param {Array} configs Normalized scope.
  * @param {object} adapter Backend adapter.
+ * @param {object} descriptor Backend descriptor.
  * @returns {number} Open conflict count.
  */
-async function countRemaining(storage, configs, adapter) {
-  const manifestRead = await readManifest(adapter).catch(mapAdapterError);
-        console.log('DBG manifest:', JSON.stringify(manifestRead.manifest.records));
+async function countRemaining(storage, configs, adapter, descriptor) {
+  const manifestRead = await readManifest(adapter, descriptor.manifestPath ?? MANIFEST_PATH).catch((error) => {
+    throw mapAdapterError(descriptor, error);
+  });
   const local = await collectLocal(storage, configs);
   const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
   const snapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];

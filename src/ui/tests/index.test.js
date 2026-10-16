@@ -132,6 +132,9 @@ function createSyncService() {
     async getStatus() {
       return { configured: false, lastSyncAt: null, lastError: null };
     },
+    async hasPendingChanges() {
+      return { pending: false };
+    },
     async syncNow() {
       calls.push(['syncNow']);
       return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };

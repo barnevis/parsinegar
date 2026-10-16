@@ -39,16 +39,17 @@ await sync.configureBackend({
 // ۲. اجرا با دامنه صریح
 const report = await sync.syncNow({
   scope: { collections: [
-    { collection: 'folders', serializer: 'json' },
-    { collection: 'docs', serializer: 'markdown', titleField: 'title',
-      folders: { collection: 'folders', nameField: 'name' } },
+    { collection: 'projects', serializer: 'json' },
+    { collection: 'tasks', serializer: 'markdown', titleField: 'name',
+      contentField: 'body', folders: { collection: 'projects', nameField: 'name' },
+      ignore: ['scratch'] },
   ] },
 });
 // → { pushed, pulled, deletedRemote, deleteLocal, relocated, skipped,
 //     conflicts: [{ collection, id, title, local, remote }], completed }
 
 // ۳. resolve تکی (بازگرداندن باقیمانده)
-await sync.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' });
+await sync.resolveConflict({ collection: 'tasks', id: 't1', choice: 'local' });
 // → { remaining: 0 } (در صفر، ساعت جلو می‌رود)
 
 // ۴. وضعیت و حذف
@@ -62,7 +63,20 @@ await sync.hasPendingChanges({ scope });
 // پیکربندی‌نشده همیشه false است، نه خطا)
 ```
 
-نکته‌ها: `syncNow` اول draft معلق را نمی‌شناسد — میزبان قبلش flush کند. `resolveConflict` دامنه را از اجرای قبلی می‌خواند (نیازی به scope دوباره نیست). `title` مانیفست فقط فراداده وفاداری نام‌هاست. `hasPendingChanges` همان مقایسه مهری `syncNow` است بدون شبکه: «ارسال‌نشده محلی» را می‌فهمد ولی عقب‌ماندگی از ریموت را نه — نقطه «کثیف» ادعای بیشتری ندارد.
+نکته‌ها: موتور رکوردهای در حال ویرایش میزبان را نمی‌شناسد — میزبان قبل از اجرا ذخیره معلق را flush کند. `resolveConflict` دامنه را از اجرای قبلی می‌خواند (نیازی به scope دوباره نیست). `title` مانیفست فقط فراداده وفاداری نام‌هاست. `hasPendingChanges` همان مقایسه مهری `syncNow` است بدون شبکه: «خبر محلی» را می‌فهمد ولی عقب‌ماندگی از ریموت را نه.
+
+## دامنه (فیلدهای هر کالکشن)
+
+- `collection` (الزامی): نام کالکشن استوریج.
+- `serializer`: ‏`json` (پیش‌فرض) یا `markdown`.
+- `idField` (پیش‌فرض `id`)، `updatedAtField` (پیش‌فرض `updatedAt`)، `titleField` (پیش‌فرض `title`)، `contentField` (پیش‌فرض `content`): نام فیلدهای رکورد میزبان — میزبانی با شکل دیگر، همین‌جا نگاشت می‌کند.
+- `folders`: ‏`{ collection, nameField, idField?, parentField?, folderField? }` برای مسیرسازی از زنجیره نام‌ها.
+- `ignore`: آرایه الگوهای gitignore-گونه (پیش‌فرض `[]`).
+- پسوند فایل از سریالایزر می‌آید (`md`/`json`) و مچ الگوها همان پسوندها را نادیده می‌گیرد؛ `title` خالی به `untitled` می‌افتد.
+
+## ثبت بک‌اند تازه
+
+موتور kindای که دیسکریپتورش ثبت نشده باشد را با `SYNC_INVALID_CONFIG` رد می‌کند. دیسکریپتور (`kind`، `create(params, fetchFn)`، `errorMap`، `manifestPath`، `revMismatchCode` اختیاری) در `adapters/README.md` تعریف شده؛ میزبان آن را روی `adapters` استیت سرویس می‌دهد و هسته نیازی به ویرایش ندارد (`git` پیش‌فرضِ همراه است).
 
 ## نادیده گرفتن (gitignore-گونه)
 
@@ -86,6 +100,8 @@ await sync.syncNow({
 - `sync:conflicts` — هنگام توقف روی تعارض: `{ conflicts: [{ collection, id }] }`.
 
 ## مرجع خطاها (همه operational)
+
+خطاها آبجکت ساده‌اند (`code`/`message`/`source`/`type`/`timestamp`/`detail`، مثل خانواده Pey) نه نمونه `Error`؛ `detail` پیش‌فرض `null` است و کد آداپتر در `detail.adapterCode` می‌ماند.
 
 | کد | کی |
 |---|---|

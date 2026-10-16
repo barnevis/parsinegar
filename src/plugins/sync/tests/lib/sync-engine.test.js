@@ -8,7 +8,7 @@ import {
   parseManifest,
   planSync,
   snapshotDiff,
-} from '../lib/sync-engine.js';
+} from '../../lib/sync-engine.js';
 
 function entry(overrides = {}) {
   return {

@@ -1979,6 +1979,9 @@ function createSyncService(overrides = {}) {
     async getStatus() {
       return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: null, lastError: null };
     },
+    async hasPendingChanges() {
+      return { pending: false };
+    },
     async syncNow() {
       calls.push(['syncNow']);
       return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };

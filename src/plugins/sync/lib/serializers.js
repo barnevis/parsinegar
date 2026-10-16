@@ -61,28 +61,31 @@ function deserializeJson(content) {
  * Serializes a record to raw Markdown: the content field verbatim, so a
  * round trip never reformats the user's bytes.
  * @param {object} record Storage record with string content.
+ * @param {string} [contentField] Record field holding the text.
  * @returns {string} File text.
  * @throws {TypeError} When content is not a string.
  */
-function serializeMarkdown(record) {
-  if (!record || typeof record.content !== 'string') {
+function serializeMarkdown(record, contentField = 'content') {
+  const text = record?.[contentField];
+  if (!record || typeof text !== 'string') {
     throw new TypeError('serializeMarkdown requires a string content field');
   }
-  return record.content;
+  return text;
 }
 
 /**
  * Parses Markdown file text back to a partial record. Title and folder
  * come from the path and manifest, never from the text.
  * @param {string} content File text.
- * @returns {object} `{ content }`.
+ * @param {string} [contentField] Record field holding the text.
+ * @returns {object} Partial record keyed by content field.
  * @throws {TypeError} When content is not a string.
  */
-function deserializeMarkdown(content) {
+function deserializeMarkdown(content, contentField = 'content') {
   if (typeof content !== 'string') {
     throw new TypeError('deserializeMarkdown requires a string');
   }
-  return { content };
+  return { [contentField]: content };
 }
 
 /**
@@ -104,11 +107,13 @@ function sanitizePathSegment(name) {
 }
 
 const json = {
+  extension: 'json',
   serialize: serializeJson,
   deserialize: deserializeJson,
 };
 
 const markdown = {
+  extension: 'md',
   serialize: serializeMarkdown,
   deserialize: deserializeMarkdown,
 };

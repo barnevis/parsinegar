@@ -5,6 +5,28 @@
 const API_BASE = 'https://api.github.com';
 const API_VERSION = '2022-11-28';
 const DEFAULT_BRANCH = 'main';
+
+/**
+ * Backend descriptor registering the GitHub Contents backend with the sync
+ * engine: factory, error translation, engine-manifest location and the
+ * concurrent-write signal. New backends (e.g. WebDAV) register their own
+ * descriptor without touching the engine; see adapters/README.md.
+ */
+export const gitAdapterDescriptor = {
+  kind: 'git',
+  create: (params, fetchFn) => createGitAdapter({ ...params, fetchFn }),
+  errorMap: {
+    GIT_AUTH_FAILED: 'SYNC_AUTH_FAILED',
+    GIT_NOT_FOUND: 'SYNC_REPO_NOT_FOUND',
+    GIT_RATE_LIMITED: 'SYNC_RATE_LIMITED',
+    GIT_REV_MISMATCH: 'SYNC_CONCURRENT_CHANGE',
+    GIT_NETWORK_FAILED: 'SYNC_NETWORK_FAILED',
+    GIT_REQUEST_FAILED: 'SYNC_NETWORK_FAILED',
+    GIT_INVALID_CONFIG: 'SYNC_INVALID_CONFIG',
+  },
+  manifestPath: 'sync-manifest.json',
+  revMismatchCode: 'GIT_REV_MISMATCH',
+};
 // Sanctioned/blackholed networks hang instead of refusing: without a
 // deadline the UI stalls forever with zero feedback. t.mock.timers drives
 // this timer in tests; real clocks everywhere else.

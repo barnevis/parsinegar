@@ -45,7 +45,10 @@ test('should_register_service_when_prepared', async () => {
 
 test('should_fail_clearly_when_storage_is_missing', async () => {
   await prepare(createPrepareContext());
-  await assert.rejects(activate({}), /pey\.storage\.service/);
+  const error = await activate({}).catch((caught) => caught);
+  assert.equal(error?.code, 'SYNC_STORAGE_UNAVAILABLE');
+  assert.equal(error?.type, 'startup');
+  assert.match(error?.message ?? '', /pey\.storage\.service/);
 });
 
 test('should_fail_service_calls_when_called_before_activation', async () => {

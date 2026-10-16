@@ -6,7 +6,7 @@ import {
   json,
   markdown,
   sanitizePathSegment,
-} from '../lib/serializers.js';
+} from '../../lib/serializers.js';
 
 test('should_round_trip_records_when_json_codec_is_used', () => {
   const record = { id: 'a', title: 'یادداشت', updatedAt: 5, extra: { z: 1, a: 2 } };

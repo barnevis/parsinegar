@@ -30,3 +30,26 @@ property (backend-prefixed, e.g. `GIT_AUTH_FAILED`) and a safe message —
 no secrets, no file contents. Network failures and rate limits get their
 own codes, distinct from auth/data errors, so the engine maps them
 correctly.
+
+## Registering a kind
+
+Backends register through a descriptor — no engine edit needed:
+
+```js
+export const webdavAdapterDescriptor = {
+  kind: 'webdav',
+  create: (params, fetchFn) => createWebdavAdapter({ ...params, fetchFn }),
+  errorMap: { DAV_AUTH_FAILED: 'SYNC_AUTH_FAILED' /* … */ },
+  manifestPath: 'sync-manifest.json',
+  revMismatchCode: 'DAV_REV_MISMATCH', // optional; without it every
+                                       // failure maps through errorMap
+};
+```
+
+Pass `{ webdav: webdavAdapterDescriptor }` (plus `git`) as `adapters` on
+the service state from the host entry point. `errorMap` translates every
+adapter code the backend throws; unmapped codes become
+`SYNC_NETWORK_FAILED` with the adapter code preserved in
+`detail.adapterCode`. `manifestPath` is where the engine manifest lives on
+that backend; `revMismatchCode` names the concurrent-write signal the
+engine turns into `SYNC_CONCURRENT_CHANGE`.
