@@ -188,3 +188,21 @@ test('should_ignore_files_sort_without_api_or_mode_when_requested', async () => 
   assert.equal(await applier.saveFilesSort(''), 'ignored');
   assert.equal(await applier.saveFilesSort(null), 'ignored');
 });
+
+test('should_save_cleaned_ignore_patterns_when_requested', async () => {
+  const service = createService();
+  const applier = createSettingsApplier({ settingsApi: service });
+  await applier.load();
+  assert.equal(await applier.saveSyncIgnore(['  پیش‌نویس  ', '', '# نظر', 42, 'کار/']), 'applied');
+  assert.deepEqual(service.calls, [{ syncIgnore: ['پیش‌نویس', 'کار/'] }]);
+  assert.deepEqual(applier.getState().settings.syncIgnore, ['پیش‌نویس', 'کار/']);
+});
+
+test('should_ignore_ignore_patterns_without_api_or_list_when_requested', async () => {
+  const missing = createSettingsApplier({});
+  assert.equal(await missing.saveSyncIgnore(['x']), 'ignored');
+  const applier = createSettingsApplier({ settingsApi: createService() });
+  await applier.load();
+  assert.equal(await applier.saveSyncIgnore('nope'), 'ignored');
+  assert.equal(await applier.saveSyncIgnore(null), 'ignored');
+});

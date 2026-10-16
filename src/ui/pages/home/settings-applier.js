@@ -156,6 +156,36 @@ export function createSettingsApplier({
       }
     },
     /**
+     * Persists the sync ignore patterns without touching editor traits (no
+     * remount follows; the page only rechecks dirtiness). Cleans like the
+     * view does (trimmed, no blanks or comments) so the service validator
+     * never sees UI-shaped input.
+     * @param {unknown} patterns Raw pattern list from the ignore form.
+     * @returns {Promise<string>} 'applied', 'ignored' or 'failed'.
+     */
+    async saveSyncIgnore(patterns) {
+      if (!api || !Array.isArray(patterns)) {
+        return 'ignored';
+      }
+      const cleaned = patterns
+        .filter((pattern) => typeof pattern === 'string')
+        .map((pattern) => pattern.trim())
+        .filter((pattern) => pattern.length > 0 && !pattern.startsWith('#'));
+      try {
+        return await chainWrite(async () => {
+          const saved = await api.saveSettings({ syncIgnore: cleaned });
+          if (!isLive()) {
+            return 'failed';
+          }
+          settings = saved;
+          return 'applied';
+        });
+      } catch (error) {
+        console.error('[parsi-settings-applier] sync ignore save failed');
+        return 'failed';
+      }
+    },
+    /**
      * Starts watching the operating-system color scheme so a `device` theme
      * flips the editor when the system changes between light and dark.
      * @param {Function} onFlip Called on system flips while the theme is `device`.

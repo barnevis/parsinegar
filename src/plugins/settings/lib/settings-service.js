@@ -17,8 +17,12 @@ const FONT_SIZE_MAX = 24;
 // (`FILES_SORT_MODES`): plugins must not import UI code, and a contract
 // test pins both lists together.
 const FILES_SORTS = ['name', 'name-desc', 'updated-desc', 'updated-asc', 'created-desc', 'created-asc'];
+// Sync ignore patterns (gitignore-style, matched extension-free downstream):
+// capped so one wild paste cannot bloat every settings read.
+const SYNC_IGNORE_MAX = 50;
+const SYNC_IGNORE_PATTERN_MAX = 200;
 
-const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc' };
+const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc', syncIgnore: [] };
 
 /**
  * Builds a standard Bonyan boundary error.
@@ -55,6 +59,23 @@ function requireStorage(state) {
 }
 
 /**
+ * Sanitizes stored or incoming ignore patterns: keeps valid strings within
+ * caps, drops the rest (the UI cleans before saving; this guards old junk).
+ * @param {unknown} value Raw value.
+ * @returns {Array<string>} Valid patterns.
+ */
+function sanitizeSyncIgnore(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((pattern) => typeof pattern === 'string')
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0 && pattern.length <= SYNC_IGNORE_PATTERN_MAX)
+    .slice(0, SYNC_IGNORE_MAX);
+}
+
+/**
  * Sanitizes one stored or incoming value per field, falling back per field.
  * @param {object} input Raw values.
  * @returns {object} Complete valid settings.
@@ -69,6 +90,7 @@ function sanitizeSettings(input = {}) {
       ? fontSize
       : DEFAULT_SETTINGS.fontSize,
     filesSort: FILES_SORTS.includes(source.filesSort) ? source.filesSort : DEFAULT_SETTINGS.filesSort,
+    syncIgnore: sanitizeSyncIgnore(source.syncIgnore),
   };
 }
 
@@ -94,6 +116,15 @@ function validatePatch(patch) {
   }
   if ('filesSort' in source && !FILES_SORTS.includes(source.filesSort)) {
     throw settingsError('SETTINGS_INVALID_VALUE', `Invalid filesSort value: ${String(source.filesSort)}`, { field: 'filesSort' });
+  }
+  if ('syncIgnore' in source) {
+    const patterns = source.syncIgnore;
+    const bad = !Array.isArray(patterns)
+      || patterns.length > SYNC_IGNORE_MAX
+      || patterns.some((pattern) => typeof pattern !== 'string' || pattern.trim().length === 0 || pattern.trim().length > SYNC_IGNORE_PATTERN_MAX);
+    if (bad) {
+      throw settingsError('SETTINGS_INVALID_VALUE', 'Invalid syncIgnore value', { field: 'syncIgnore' });
+    }
   }
 }
 
@@ -131,6 +162,8 @@ export {
   RECORD_ID,
   SERVICE_NAME,
   STORAGE_SERVICE,
+  SYNC_IGNORE_MAX,
+  SYNC_IGNORE_PATTERN_MAX,
   THEMES,
   createService,
 };

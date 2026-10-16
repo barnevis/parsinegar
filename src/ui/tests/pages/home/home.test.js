@@ -1113,7 +1113,7 @@ function createSettings(initial = { theme: 'device', direction: 'auto', fontSize
   return service;
 }
 
-async function mountWithSettings(documents, settings) {
+async function mountWithSettings(documents, settings, extraServices = {}) {
   const element = document.createElement(TAG);
   element.connect({
     infrastructure: { events: createEvents() },
@@ -1124,6 +1124,7 @@ async function mountWithSettings(documents, settings) {
       services: {
         'parsinegar.documents.service': documents,
         'parsinegar.settings.service': settings,
+        ...extraServices,
       },
     },
   });
@@ -2335,6 +2336,57 @@ test('should_clear_dirty_dot_after_clean_sync', async () => {
     await settled();
     assert.equal(syncDot(element), 'ok');
     assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('title'), 'همگام‌سازی');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_carry_ignore_patterns_in_sync_scope_when_synced', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16, syncIgnore: ['پیش‌نویس'] });
+  const syncCalls = [];
+  const syncer = createSyncService({
+    async syncNow(input) {
+      syncCalls.push(input);
+      return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+  });
+  const element = await mountWithSettings(documents, settings, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    const docsScope = syncCalls[0].scope.collections.find(({ collection }) => collection === 'documents');
+    assert.deepEqual(docsScope.ignore, ['پیش‌نویس']);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_save_ignore_patterns_and_repopulate_when_saved', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: false, lastSyncAt: null, lastError: null };
+    },
+  });
+  const element = await mountWithSettings(documents, settings, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    inChild(element, 'parsi-side-panel', '[data-sync-field="ignore"]').value = 'a\n\n# نظر\nb';
+    inChild(element, 'parsi-side-panel', '[data-sync-ignore-save]').click();
+    await settled();
+    await settled();
+    await settled();
+    assert.ok(settings.calls.some((patch) => JSON.stringify(patch) === JSON.stringify({ syncIgnore: ['a', 'b'] })));
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-sync-field="ignore"]').value, 'a\nb');
   } finally {
     element.remove();
   }

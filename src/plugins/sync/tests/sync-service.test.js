@@ -310,6 +310,94 @@ test('should_pull_remote_tree_when_synced', async () => {
   assert.equal(doc.folderId, 'f1');
 });
 
+function scopeWithIgnore(patterns) {
+  return {
+    collections: [
+      { collection: 'folders', serializer: 'json' },
+      {
+        collection: 'docs',
+        serializer: 'markdown',
+        titleField: 'title',
+        folders: { collection: 'folders', nameField: 'name' },
+        ignore: patterns,
+      },
+    ],
+  };
+}
+
+test('should_skip_ignored_documents_and_folders_when_synced', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      folders: [{ id: 'f1', name: 'کار', parentId: null, updatedAt: 10 }],
+      docs: [
+        { id: 'd1', title: 'یادداشت', content: 'سلام', folderId: 'f1', updatedAt: 20 },
+        { id: 'd2', title: 'پیش‌نویس', content: 'موقت', folderId: null, updatedAt: 20 },
+      ],
+    },
+  });
+  await configure(service);
+  const scope = scopeWithIgnore(['پیش‌نویس', 'کار/']);
+  const report = await service.syncNow({ scope });
+  assert.equal(report.completed, true);
+  assert.deepEqual(report.pushed, []);
+  assert.deepEqual(report.pulled, []);
+  assert.ok(
+    ![...remote.files.keys()].some((key) => key !== 'sync-manifest.json'),
+    'expected nothing pushed',
+  );
+  assert.deepEqual(await service.hasPendingChanges({ scope }), { pending: false });
+});
+
+test('should_leave_ignored_remote_files_alone_when_synced', async () => {
+  const manifest = {
+    version: 1,
+    records: [
+      { collection: 'docs', id: 'd1', path: 'پیش‌نویس.md', updatedAt: 20, hash: 'h', title: 'پیش‌نویس' },
+    ],
+  };
+  const { service, storage, remote } = setup({
+    files: {
+      'sync-manifest.json': { content: Buffer.from(JSON.stringify(manifest)).toString('base64'), rev: 'm1' },
+      'پیش‌نویس.md': { content: Buffer.from('متن').toString('base64'), rev: 'd1' },
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: scopeWithIgnore(['پیش‌نویس']) });
+  assert.equal(report.completed, true);
+  assert.deepEqual(report.pulled, []);
+  assert.deepEqual(report.deletedRemote, []);
+  assert.ok(remote.files.has('پیش‌نویس.md'), 'expected the ignored file untouched');
+  assert.equal(await storage.read('docs', 'd1'), null);
+});
+
+test('should_not_delete_previously_synced_when_ignored', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
+    },
+  });
+  await configure(service);
+  const first = await service.syncNow({ scope: SCOPE });
+  assert.equal(first.completed, true);
+  assert.ok(remote.files.has('یادداشت.md'));
+  const scope = scopeWithIgnore(['یادداشت']);
+  const second = await service.syncNow({ scope });
+  assert.equal(second.completed, true);
+  assert.deepEqual(second.deletedRemote, []);
+  assert.deepEqual(second.pushed, []);
+  assert.ok(remote.files.has('یادداشت.md'), 'expected the ignored file kept');
+  assert.deepEqual(await service.hasPendingChanges({ scope }), { pending: false });
+});
+
+test('should_reject_bad_ignore_when_synced', async () => {
+  const { service } = setup();
+  await configure(service);
+  const error = await service.syncNow({
+    scope: { collections: [{ collection: 'docs', serializer: 'markdown', ignore: 'nope' }] },
+  }).catch((caught) => caught);
+  assert.equal(error?.code, 'SYNC_INVALID_CONFIG');
+});
+
 test('should_relocate_when_folder_chain_breaks_when_synced', async () => {
   const manifest = {
     version: 1,

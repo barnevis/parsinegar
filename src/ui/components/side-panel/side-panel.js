@@ -328,6 +328,22 @@ class ParsiSidePanel extends PeyElement {
       );
       return;
     }
+    const ignoreSave = event.target?.closest?.('[data-sync-ignore-save]');
+    if (ignoreSave) {
+      const area = this.shadowRoot?.querySelector('[data-sync-field="ignore"]');
+      const patterns = String(area?.value ?? '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith('#'));
+      this.dispatchEvent(
+        new CustomEvent('sync-ignore-save', {
+          bubbles: true,
+          composed: true,
+          detail: { patterns },
+        }),
+      );
+      return;
+    }
     const syncRemove = event.target?.closest?.('[data-sync-remove]');
     if (syncRemove) {
       this.dispatchEvent(new CustomEvent('sync-remove', { bubbles: true, composed: true, detail: {} }));

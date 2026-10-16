@@ -65,6 +65,21 @@ test('should_emit_sync_configure_when_save_is_clicked', async () => {
   }
 });
 
+test('should_emit_sync_ignore_save_with_cleaned_patterns_when_clicked', async () => {
+  const element = mount({ activeView: 'sync', sync: null });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('sync-ignore-save', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-sync-field="ignore"]').value = '  پیش‌نویس  \n\n# نظر\nکار/';
+    element.shadowRoot.querySelector('[data-sync-ignore-save]').click();
+    await flush();
+    assert.deepEqual(seen, [{ patterns: ['پیش‌نویس', 'کار/'] }]);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_emit_sync_actions_when_configured_buttons_are_clicked', async () => {
   const element = mount({
     activeView: 'sync',

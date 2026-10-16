@@ -283,6 +283,108 @@ export function parseManifest(data) {
 }
 
 /**
+ * Escapes one glob segment to a full-match regex (`*` stays inside its
+ * segment, `?` is one non-slash character).
+ * @param {string} segment Glob segment.
+ * @returns {RegExp} Full-match pattern.
+ */
+function segmentPattern(segment) {
+  let out = '';
+  for (const character of segment) {
+    if (character === '*') {
+      out += '[^/]*';
+    } else if (character === '?') {
+      out += '[^/]';
+    } else {
+      out += character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return new RegExp(`^${out}$`);
+}
+
+/**
+ * Matches path segments against pattern segments (`**` spans zero or more
+ * whole segments on either side).
+ * @param {Array<string>} patternSegs Pattern segments.
+ * @param {Array<string>} pathSegs Path segments.
+ * @returns {boolean} True on full match.
+ */
+function matchSegments(patternSegs, pathSegs) {
+  if (patternSegs.length === 0) {
+    return pathSegs.length === 0;
+  }
+  const [head, ...tail] = patternSegs;
+  if (head === '**') {
+    for (let skip = 0; skip <= pathSegs.length; skip += 1) {
+      if (matchSegments(tail, pathSegs.slice(skip))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  if (pathSegs.length === 0 || !segmentPattern(head).test(pathSegs[0])) {
+    return false;
+  }
+  return matchSegments(tail, pathSegs.slice(1));
+}
+
+/**
+ * Matches one synced path against one pattern, gitignore-style subset:
+ * `*`/`?` inside a segment, `**` across segments, a slashless pattern hits
+ * any single segment at any depth, and a trailing slash takes the whole
+ * subtree. No negation (`!` is literal). Case-sensitive, like the host.
+ * @param {string} path Relative synced path.
+ * @param {string} pattern Single pattern.
+ * @returns {boolean} True when ignored.
+ */
+function matchOne(path, pattern) {
+  const dir = pattern.endsWith('/');
+  const base = pattern.replace(/^\/+/, '').replace(/\/+$/, '');
+  if (base.length === 0) {
+    return false;
+  }
+  const pathSegs = path.split('/');
+  if (!base.includes('/')) {
+    const segment = segmentPattern(base);
+    return pathSegs.some((part) => segment.test(part));
+  }
+  const patternSegs = base.split('/');
+  if (dir) {
+    patternSegs.push('**');
+  }
+  return matchSegments(patternSegs, pathSegs);
+}
+
+/**
+ * Reports whether a synced path is ignored by the given patterns. Document
+ * paths are matched extension-free (the host never asks users to type the
+ * mandated `.md`), falling back to the full path so a typed suffix still
+ * hits instead of silently missing.
+ * @param {string} path Relative synced path.
+ * @param {Array<string>} patterns Ignore patterns.
+ * @returns {boolean} True when ignored.
+ */
+export function matchesIgnore(path, patterns) {
+  if (typeof path !== 'string' || path.length === 0 || !Array.isArray(patterns)) {
+    return false;
+  }
+  const stripped = path.replace(/\.md$/i, '');
+  const candidates = stripped !== path && stripped.length > 0 ? [stripped, path] : [path];
+  for (const raw of patterns) {
+    if (typeof raw !== 'string') {
+      continue;
+    }
+    const pattern = raw.trim();
+    if (pattern.length === 0) {
+      continue;
+    }
+    if (candidates.some((candidate) => matchOne(candidate, pattern))) {
+      return true;
+    }
+  }
+  return false;
+}
+/**
  * Hashes file content for change comparison (FNV-1a, synchronous).
  * @param {string} content Serialized file content.
  * @returns {string} Eight hex characters.

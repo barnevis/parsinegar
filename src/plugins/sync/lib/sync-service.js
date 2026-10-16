@@ -7,7 +7,7 @@
 // (all remote operations are idempotent).
 
 import { syncError } from './error.js';
-import { buildManifest, hashRecord, parseManifest, planSync, snapshotDiff } from './sync-engine.js';
+import { buildManifest, hashRecord, matchesIgnore, parseManifest, planSync, snapshotDiff } from './sync-engine.js';
 import { json, markdown, sanitizePathSegment } from './serializers.js';
 import { createGitAdapter } from '../adapters/git-adapter.js';
 
@@ -98,12 +98,19 @@ function normalizeScope(scope) {
         collection: entry.collection,
       });
     }
+    const ignore = entry.ignore ?? [];
+    if (!Array.isArray(ignore) || ignore.some((pattern) => typeof pattern !== 'string' || pattern.trim().length === 0)) {
+      throw syncError('SYNC_INVALID_CONFIG', 'Sync ignore needs an array of non-empty patterns', {
+        collection: entry.collection,
+      });
+    }
     return {
       collection: entry.collection,
       idField: entry.idField ?? 'id',
       updatedAtField: entry.updatedAtField ?? 'updatedAt',
       serializer,
       titleField: entry.titleField ?? 'title',
+      ignore: ignore.map((pattern) => pattern.trim()),
       folders: folders === null ? null : {
         collection: folders.collection,
         idField: folders.idField ?? 'id',
@@ -201,6 +208,60 @@ function stripVolatile(record, updatedAtField) {
 }
 
 /**
+ * Reports whether a folders-collection record is ignored by display path
+ * (sanitized folder chain, e.g. `آموزش/زیر`), so ignoring a folder drops
+ * the folder itself and not just the documents under it. The id-based
+ * placed path can never match a name pattern.
+ * @param {Map} folderIgnores Folders collection name to { byId, mapping, patterns }.
+ * @param {string} collection Record collection.
+ * @param {string} id Record id.
+ * @returns {boolean} True when ignored.
+ */
+function isIgnoredFolderDisplay(folderIgnores, collection, id) {
+  const known = folderIgnores.get(collection);
+  if (!known || known.patterns.length === 0) {
+    return false;
+  }
+  const resolved = folderParts(known.byId, known.mapping, id);
+  if (resolved.parts.length === 0) {
+    return false;
+  }
+  return matchesIgnore(resolved.parts.map(sanitizePathSegment).join('/'), known.patterns);
+}
+
+/**
+ * Drops ignored records from plan inputs (remote manifest or stored
+ * snapshot): own-collection patterns against the placed path, plus folder
+ * display paths resolved through local folder state. Unknown collections
+ * pass through untouched, as before.
+ * @param {Array} records `{ collection, id, path }` entries.
+ * @param {Array} configs Normalized scope.
+ * @param {Map} folderIgnores Folders collection name to { byId, mapping, patterns }.
+ * @returns {Array} Kept entries (same references).
+ */
+function withoutIgnored(records, configs, folderIgnores) {
+  const byCollection = new Map(configs.map((config) => [config.collection, config]));
+  return (records ?? []).filter((item) => {
+    const config = byCollection.get(item?.collection);
+    if (!config) {
+      return true;
+    }
+    if (matchesIgnore(item?.path ?? '', config.ignore)) {
+      return false;
+    }
+    const known = folderIgnores.get(item?.collection);
+    if (known && known.patterns.length > 0 && typeof item?.id === 'string') {
+      const resolved = folderParts(known.byId, known.mapping, item.id);
+      if (resolved.parts.length > 0
+        && matchesIgnore(resolved.parts.map(sanitizePathSegment).join('/'), known.patterns)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+/**
  * Builds plan-ready local entries with hashes, paths and titles.
  * @param {object} storage Storage service.
  * @param {Array} configs Normalized scope.
@@ -209,6 +270,30 @@ function stripVolatile(record, updatedAtField) {
  */
 async function collectLocal(storage, configs) {
   const folderMaps = await loadFolderMaps(storage, configs);
+  // Union of ignore patterns per folders collection, keyed from the
+  // referencing document configs (plus the folders collection's own).
+  const folderIgnores = new Map();
+  for (const config of configs) {
+    if (!config.folders) {
+      continue;
+    }
+    const maps = folderMaps.get(config.folders.collection);
+    if (!maps) {
+      continue;
+    }
+    const known = folderIgnores.get(config.folders.collection);
+    if (known) {
+      known.patterns.push(...config.ignore);
+    } else {
+      folderIgnores.set(config.folders.collection, { byId: maps.byId, mapping: config.folders, patterns: [...config.ignore] });
+    }
+  }
+  for (const config of configs) {
+    const known = folderIgnores.get(config.collection);
+    if (known && config.ignore.length > 0) {
+      known.patterns.push(...config.ignore);
+    }
+  }
   const entries = [];
   const byKey = new Map();
   const relocated = [];
@@ -232,6 +317,11 @@ async function collectLocal(storage, configs) {
         continue;
       }
       const placed = pathForRecord(record, config, folderMaps);
+      if (matchesIgnore(placed.path, config.ignore)
+        || isIgnoredFolderDisplay(folderIgnores, config.collection, id)) {
+        skipped.push({ collection: config.collection, id });
+        continue;
+      }
       if (placed.relocated) {
         relocated.push({ collection: config.collection, id, path: placed.path });
       }
@@ -248,7 +338,7 @@ async function collectLocal(storage, configs) {
       byKey.set(`${config.collection}::${id}`, { record, config });
     }
   }
-  return { entries, byKey, relocated, skipped };
+  return { entries, byKey, relocated, skipped, folderIgnores };
 }
 
 /**
@@ -521,7 +611,8 @@ function createService(state) {
       }
       const local = await collectLocal(storage, configs);
       const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
-      const snapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];
+      const rawSnapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];
+      const snapshot = withoutIgnored(rawSnapshot, configs, local.folderIgnores);
       const diff = snapshotDiff(snapshot, local.entries);
       return {
         pending: diff.created.length > 0
@@ -560,12 +651,18 @@ function createService(state) {
         report.relocated.push(...local.relocated);
         report.skipped.push(...local.skipped.map((item) => ({ collection: item.collection, id: item.id })));
         const manifestRead = await readManifest(adapter).catch(mapAdapterError);
+        const remote = withoutIgnored(manifestRead.manifest.records, configs, local.folderIgnores);
+        for (const item of manifestRead.manifest.records) {
+          if (!remote.includes(item)) {
+            report.skipped.push({ collection: item?.collection ?? null, id: item?.id ?? null });
+          }
+        }
         const savedBefore = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
         const snapshot = Array.isArray(savedBefore.snapshot) ? savedBefore.snapshot : [];
         const plan = planSync(
           snapshot,
           local.entries,
-          manifestRead.manifest.records,
+          remote,
         );
         report.skipped.push(...plan.skipped.map((item) => ({ collection: item?.collection ?? null, id: item?.id ?? null })));
         const revs = await readRevs(adapter).catch(mapAdapterError);

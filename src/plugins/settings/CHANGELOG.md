@@ -1,5 +1,13 @@
 # Changelog — parsinegar.settings
 
+## [Unreleased]
+
+### Added
+
+- Accepted `syncIgnore` preference (up to 50 gitignore-style sync-exclude
+  patterns of 200 characters, defaulting to `[]`); malformed values reject,
+  old records backfill.
+
 ## [0.3.0]
 
 ### Added

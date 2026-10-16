@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildManifest,
   hashRecord,
+  matchesIgnore,
   parseManifest,
   planSync,
   snapshotDiff,
@@ -255,4 +256,35 @@ test('should_hash_deterministically_when_hashed', () => {
   assert.equal(hashRecord('سلام دنیا'), first);
   assert.notEqual(hashRecord('سلام دنیا!'), first);
   assert.throws(() => hashRecord(42), TypeError);
+});
+
+test('should_match_extension_free_names_at_any_depth_when_ignored', () => {
+  // Users never type the mandated `.md`: matching runs extension-free.
+  assert.equal(matchesIgnore('یادداشت.md', ['یادداشت']), true);
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['یادداشت']), true);
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['دیگر']), false);
+  assert.equal(matchesIgnore('پیش‌نویس.md', ['پیش*']), true);
+  assert.equal(matchesIgnore('پیش‌نویس.md', ['?????']), false);
+});
+
+test('should_match_paths_and_subtrees_when_ignored', () => {
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['کار/یادداشت']), true);
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['کار/دیگر']), false);
+  assert.equal(matchesIgnore('کار/زیر/یادداشت.md', ['کار/**']), true);
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['کار/']), true);
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['کار']), true);
+  assert.equal(matchesIgnore('دیگر/یادداشت.md', ['کار/']), false);
+  assert.equal(matchesIgnore('یادداشت.md', ['**/یادداشت']), true);
+  assert.equal(matchesIgnore('کار/یادداشت.md', ['*/یادداشت']), true);
+  assert.equal(matchesIgnore('کار/زیر/یادداشت.md', ['*/یادداشت']), false);
+});
+
+test('should_tolerate_typed_suffix_and_junk_when_ignored', () => {
+  // A typed `.md` still hits via the full-path fallback instead of missing.
+  assert.equal(matchesIgnore('یادداشت.md', ['یادداشت.md']), true);
+  assert.equal(matchesIgnore('یادداشت.md', []), false);
+  assert.equal(matchesIgnore('یادداشت.md', ['', '  ', null, 42]), false);
+  assert.equal(matchesIgnore('یادداشت.md', ['!یادداشت']), false);
+  assert.equal(matchesIgnore('', ['یادداشت']), false);
+  assert.equal(matchesIgnore('یادداشت.md', null), false);
 });

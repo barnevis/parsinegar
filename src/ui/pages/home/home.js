@@ -236,6 +236,7 @@ class ParsiPageHome extends PeyElement {
       'sync-configure',
       'sync-remove',
       'sync-now',
+      'sync-ignore-save',
       'sync-resolve',
       'sync-later',
     ];
@@ -400,6 +401,10 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'sync-now') {
         void this.#runSyncNow();
+        return;
+      }
+      if (event.type === 'sync-ignore-save') {
+        void this.#saveSyncIgnore(event.detail?.patterns);
         return;
       }
       if (event.type === 'sync-resolve') {
@@ -997,6 +1002,47 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
+   * Builds the sync scope with the stored ignore patterns on the documents
+   * collection (folders stay fully mapped; the service drops ignored folder
+   * records by display path itself).
+   * @returns {object} Scope for syncNow and hasPendingChanges.
+   */
+  #syncScope() {
+    const stored = this.#prefs?.getState().settings?.syncIgnore;
+    const ignore = Array.isArray(stored) ? stored.filter((pattern) => typeof pattern === 'string') : [];
+    return {
+      collections: SYNC_SCOPE.collections.map((entry) => entry.collection === 'documents'
+        ? { ...entry, ignore }
+        : entry),
+    };
+  }
+
+  /**
+   * Reads the stored ignore patterns as textarea text for the sync view.
+   * @returns {string} Patterns joined by newlines.
+   */
+  #syncIgnoreText() {
+    const stored = this.#prefs?.getState().settings?.syncIgnore;
+    return Array.isArray(stored) ? stored.filter((pattern) => typeof pattern === 'string').join('\n') : '';
+  }
+
+  /**
+   * Persists the ignore patterns from the sync view (no editor remount:
+   * only dirtiness and the panel refresh), then rechecks.
+   * @param {unknown} patterns Raw pattern list from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #saveSyncIgnore(patterns) {
+    const cleaned = Array.isArray(patterns) ? patterns.filter((pattern) => typeof pattern === 'string') : [];
+    const outcome = await this.#prefs?.saveSyncIgnore(cleaned);
+    if (!this.isConnected || outcome !== 'applied') {
+      return;
+    }
+    await this.#updateSyncDirty();
+    await this.#refreshSyncStatus();
+  }
+
+  /**
    * Removes the sync backend and closes any pending conflict view.
    * @returns {Promise<void>}
    */
@@ -1030,7 +1076,7 @@ class ParsiPageHome extends PeyElement {
     await this.#refreshSyncStatus();
     let report = null;
     try {
-      report = await this.#syncer.syncNow({ scope: SYNC_SCOPE });
+      report = await this.#syncer.syncNow({ scope: this.#syncScope() });
     } catch {
       this.#syncBusy = false;
       await this.#refreshSyncStatus();
@@ -1128,6 +1174,7 @@ class ParsiPageHome extends PeyElement {
           lastSyncText: typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null,
           errorText: status.lastError?.message ?? null,
           busy: this.#syncBusy,
+          ignoreText: this.#syncIgnoreText(),
         };
       }
     } catch {
@@ -1196,7 +1243,7 @@ class ParsiPageHome extends PeyElement {
       let dirty = false;
       try {
         if (this.#syncer && typeof this.#syncer.hasPendingChanges === 'function' && this.isConnected) {
-          const checked = await this.#syncer.hasPendingChanges({ scope: SYNC_SCOPE });
+          const checked = await this.#syncer.hasPendingChanges({ scope: this.#syncScope() });
           dirty = checked?.pending === true;
         }
       } catch {

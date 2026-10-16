@@ -13,7 +13,7 @@ import { escapeHtml } from './html.js';
  * and the single-repo advice always stay visible above the token field.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
- * @param {object|null} [options.sync] `{ configured, repo, branch, lastSyncText, errorText, busy }`.
+ * @param {object|null} [options.sync] `{ configured, repo, branch, lastSyncText, errorText, busy, ignoreText }`.
  * @returns {string} Sync view markup.
  */
 export function renderSyncView({ t, sync = null }) {
@@ -55,6 +55,16 @@ export function renderSyncView({ t, sync = null }) {
       <fieldset part="settings-group">
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.title'))}</legend>
         ${status}
+      </fieldset>
+      <fieldset part="settings-group">
+        <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.ignore-title'))}</legend>
+        <p part="settings-note">${escapeHtml(translate('parsinegar.sync.ignore-note'))}</p>
+        <label part="settings-field">
+          <textarea dir="auto" rows="3" data-sync-field="ignore" autocomplete="off" spellcheck="false">${escapeHtml(snapshot?.ignoreText ?? '')}</textarea>
+        </label>
+        <div part="settings-actions">
+          <button type="button" part="settings-button" data-sync-ignore-save>${escapeHtml(translate('parsinegar.sync.ignore-save'))}</button>
+        </div>
       </fieldset>
     </div>`;
 }

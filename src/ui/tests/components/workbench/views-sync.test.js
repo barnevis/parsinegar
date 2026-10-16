@@ -70,3 +70,15 @@ test('should_repopulate_attempt_without_token_when_unconfigured', () => {
   assert.ok(markup.includes('value="dev"'));
   assert.ok(!markup.includes('value="tok"'), 'token must never echo back');
 });
+
+test('should_render_ignore_form_with_current_patterns', () => {
+  const markup = renderSyncView({
+    t: (key) => key,
+    sync: { configured: false, repo: null, branch: null, lastSyncText: null, errorText: null, busy: false, ignoreText: 'پیش‌نویس\nکار/' },
+  });
+  assert.ok(markup.includes('data-sync-field="ignore"'));
+  assert.ok(markup.includes('data-sync-ignore-save'));
+  assert.ok(markup.includes('پیش‌نویس\nکار/'));
+  assert.ok(markup.includes('parsinegar.sync.single-repo'));
+  assert.ok(markup.includes('parsinegar.sync.ignore-note'));
+});

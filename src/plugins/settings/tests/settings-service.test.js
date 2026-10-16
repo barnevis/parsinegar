@@ -63,7 +63,7 @@ test('should_save_valid_patch_and_publish_change_when_saving', async () => {
 
 test('should_keep_current_values_for_absent_fields_when_saving', async () => {
   const service = createService(createState([{ id: 'preferences', theme: 'dark', direction: 'rtl', fontSize: 18 }]));
-  assert.deepEqual(await service.saveSettings({ theme: 'light' }), { theme: 'light', direction: 'rtl', fontSize: 18, filesSort: 'updated-desc' });
+  assert.deepEqual(await service.saveSettings({ theme: 'light' }), { theme: 'light', direction: 'rtl', fontSize: 18, filesSort: 'updated-desc', syncIgnore: [] });
 });
 
 test('should_accept_valid_files_sort_when_saving', async () => {
@@ -119,4 +119,32 @@ test('should_fail_with_structured_error_when_storage_is_missing', async () => {
 test('should_save_sepia_theme_when_saving', async () => {
   const service = createService(createState());
   assert.deepEqual(await service.saveSettings({ theme: 'sepia' }), { ...DEFAULT_SETTINGS, theme: 'sepia' });
+});
+
+test('should_accept_valid_ignore_patterns_when_saving', async () => {
+  const service = createService(createState());
+  const saved = await service.saveSettings({ syncIgnore: ['پیش‌نویس', 'کار/'] });
+  assert.deepEqual(saved.syncIgnore, ['پیش‌نویس', 'کار/']);
+  assert.deepEqual((await service.getSettings()).syncIgnore, ['پیش‌نویس', 'کار/']);
+});
+
+test('should_backfill_ignore_patterns_for_old_records_when_reading', async () => {
+  const service = createService(createState([{ id: 'preferences', theme: 'dark' }]));
+  assert.deepEqual((await service.getSettings()).syncIgnore, []);
+});
+
+test('should_sanitize_junk_ignore_patterns_when_reading', async () => {
+  const service = createService(createState([
+    { id: 'preferences', syncIgnore: ['ok', '', 42, null, 'x'.repeat(201)] },
+  ]));
+  assert.deepEqual((await service.getSettings()).syncIgnore, ['ok']);
+});
+
+test('should_reject_invalid_ignore_patterns_when_saving', async () => {
+  const service = createService(createState());
+  for (const syncIgnore of ['nope', ['ok', ''], ['ok', 42], ['x'.repeat(201)], new Array(51).fill('x')]) {
+    const error = await service.saveSettings({ syncIgnore }).catch((caught) => caught);
+    assert.equal(error?.code, 'SETTINGS_INVALID_VALUE', 'expected rejection');
+    assert.deepEqual(error?.detail, { field: 'syncIgnore' });
+  }
 });
