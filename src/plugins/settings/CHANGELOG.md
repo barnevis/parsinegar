@@ -1,6 +1,6 @@
 # Changelog — parsinegar.settings
 
-## [Unreleased]
+## [0.4.0]
 
 ### Added
 
