@@ -440,6 +440,7 @@
 }
 [part="settings-button"] {
   font: inherit;
+  font-size: 0.8rem;
   flex: none;
   border: 1px solid var(--pey-color-border, #d8d8de);
   border-radius: 8px;

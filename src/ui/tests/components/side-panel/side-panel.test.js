@@ -587,6 +587,8 @@ test('should_outline_primary_actions_when_rendered', async () => {
       style.textContent.includes('[part="settings-button"][data-primary]'),
       'expected the primary settings rule',
     );
+    const buttonRule = style.textContent.slice(style.textContent.indexOf('[part="settings-button"] {'));
+    assert.ok(buttonRule.includes('font-size: 0.8rem'), 'expected text-sized action buttons');
   } finally {
     element.remove();
   }
