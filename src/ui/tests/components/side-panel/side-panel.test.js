@@ -575,6 +575,21 @@ test('should_lock_ignore_box_width_with_vertical_growth_when_rendered', async ()
   }
 });
 
+test('should_tint_experimental_notice_when_rendered', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    const text = style.textContent;
+    const rule = text.slice(text.indexOf('[part="settings-notice"]'));
+    assert.ok(rule.includes('background-color'), 'expected the soft tint');
+    assert.ok(rule.includes('border'), 'expected the matching edge');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_anchor_files_bar_tooltips_below_buttons_when_rendered', async () => {
   const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
   try {

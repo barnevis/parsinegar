@@ -501,6 +501,17 @@
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
 }
+/* Soft experimental banner: accent wash with a matching edge, calm in
+ * all themes (error red would misread as failure). */
+[part="settings-notice"] {
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--pey-color-accent, #0f766e) 35%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--pey-color-accent, #0f766e) 10%, transparent);
+  overflow-wrap: anywhere;
+}
 /* About hero: the themed logotype, sized once here (inline SVG inherits
  * the theme text color, so it reads on every theme with no per-theme
  * asset). Help rows pair a label with a literal sample. */
