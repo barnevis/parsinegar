@@ -341,17 +341,6 @@
 [part="search-button"]:hover {
   background-color: var(--pey-color-surface, #f1f1f5);
 }
-/* Primary search step: outlined accent like the panel primaries (canonical
- * copy lives in side-panel.css). */
-[part="search-button"][data-primary] {
-  border-color: var(--pey-color-accent, #0f766e);
-  color: var(--pey-color-accent, #0f766e);
-  font-weight: 700;
-}
-[part="search-button"][data-primary]:hover {
-  border-color: var(--pey-color-accent, #0f766e);
-  background-color: color-mix(in srgb, var(--pey-color-accent, #0f766e) 12%, transparent);
-}
 [part="search-message"] {
   margin: 0;
   min-block-size: 1em;

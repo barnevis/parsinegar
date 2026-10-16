@@ -24,9 +24,8 @@ test('should_render_fields_and_flags_when_rendered', () => {
     assert.ok(markup.includes(`data-search-action="${action}"`), `expected action: ${action}`);
   }
   const actionTag = (markup, action) => markup.match(new RegExp(`<button[^>]*data-search-action="${action}"[^>]*>`))?.[0] ?? '';
-  assert.ok(actionTag(markup, 'next').includes('data-primary'), 'expected the next step primary');
-  for (const action of ['previous', 'replace-one', 'replace-all']) {
-    assert.ok(!actionTag(markup, action).includes('data-primary'), `expected no primary: ${action}`);
+  for (const action of ['previous', 'next', 'replace-one', 'replace-all']) {
+    assert.ok(!actionTag(markup, action).includes('data-primary'), `expected no primary (peer actions): ${action}`);
   }
   assert.ok(markup.includes('parsinegar.search.scope-note'));
   assert.ok(markup.includes('data-pey-preserve="search-query"'));
