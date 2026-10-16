@@ -399,21 +399,21 @@ class ParsiMenuBar extends PeyElement {
     return `
       <div part="menubar" role="menubar">${markup}
         <div part="mode">
-          <button type="button" part="mode-toggle" data-mode-toggle data-pey-preserve="mode-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(modeLabel))}" title="${escapeHtml(this.#t(modeLabel))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#readOnly ? 'visibility' : 'edit')}</button>
+          <button type="button" part="mode-toggle" data-mode-toggle data-pey-preserve="mode-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(modeLabel))}" data-tooltip="${escapeHtml(this.#t(modeLabel))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#readOnly ? 'visibility' : 'edit')}</button>
         </div>
         <div part="download">
-          <button type="button" part="download-toggle" data-download-toggle data-pey-preserve="download-toggle" data-pey-preserve-state="focus" aria-haspopup="true" aria-expanded="${this.#downloadOpen}" aria-label="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" title="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, 'download')}</button>
+          <button type="button" part="download-toggle" data-download-toggle data-pey-preserve="download-toggle" data-pey-preserve-state="focus" aria-haspopup="true" aria-expanded="${this.#downloadOpen}" aria-label="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" data-tooltip="${escapeHtml(this.#t('parsinegar.documents.downloadMenu'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, 'download')}</button>
           <div part="download-dropdown" role="menu" ${this.#downloadOpen ? '' : 'hidden'}>
             <button type="button" part="download-option" role="menuitem" data-download-option="markdown"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.download'))}</span></button>
             <button type="button" part="download-option" role="menuitem" data-download-option="html"><span part="download-option-label">${escapeHtml(this.#t('parsinegar.documents.downloadHtml'))}</span></button>
           </div>
         </div>
         <div part="search">
-          <button type="button" part="search-toggle" data-search-toggle data-pey-preserve="search-toggle" data-pey-preserve-state="focus" aria-expanded="${this.#searchOpen}" aria-label="${escapeHtml(this.#t('parsinegar.search.button'))}" title="${escapeHtml(this.#t('parsinegar.search.button'))}" ${this.#hasDocument ? '' : 'disabled'}>${iconMarkup(this.#assetBaseUrl, 'search')}</button>
+          <button type="button" part="search-toggle" data-search-toggle data-pey-preserve="search-toggle" data-pey-preserve-state="focus" aria-expanded="${this.#searchOpen}" aria-label="${escapeHtml(this.#t('parsinegar.search.button'))}" data-tooltip="${escapeHtml(this.#t('parsinegar.search.button'))}" ${this.#hasDocument ? '' : 'disabled'}>${iconMarkup(this.#assetBaseUrl, 'search')}</button>
           <div part="search-dropdown" ${this.#searchOpen ? '' : 'hidden'}>${renderSearchForm({ t: this.#t, state: this.#search, formatNumber: this.#formatNumber })}</div>
         </div>
         <div part="fullscreen">
-          <button type="button" part="fullscreen-toggle" data-fullscreen-toggle data-pey-preserve="fullscreen-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(this.#fullscreen ? 'parsinegar.view.exitFullscreen' : 'parsinegar.view.fullscreen'))}" title="${escapeHtml(this.#t(this.#fullscreen ? 'parsinegar.view.exitFullscreen' : 'parsinegar.view.fullscreen'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#fullscreen ? 'fullscreen-exit' : 'fullscreen')}</button>
+          <button type="button" part="fullscreen-toggle" data-fullscreen-toggle data-pey-preserve="fullscreen-toggle" data-pey-preserve-state="focus" aria-label="${escapeHtml(this.#t(this.#fullscreen ? 'parsinegar.view.exitFullscreen' : 'parsinegar.view.fullscreen'))}" data-tooltip="${escapeHtml(this.#t(this.#fullscreen ? 'parsinegar.view.exitFullscreen' : 'parsinegar.view.fullscreen'))}" ${modeDisabled ? 'disabled' : ''}>${iconMarkup(this.#assetBaseUrl, this.#fullscreen ? 'fullscreen-exit' : 'fullscreen')}</button>
         </div>
       </div>`;
   }

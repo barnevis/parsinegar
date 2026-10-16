@@ -258,16 +258,16 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
   const sortIcon = iconMarkup(assetBaseUrl, 'sort') || sortLabel;
   const sortBit = `
         <div part="docs-sort-wrap">
-          <button type="button" part="docs-sort" data-doc-sort aria-haspopup="true" aria-expanded="${sortMenuOpen === true}" aria-label="${sortLabel}" title="${sortLabel}">${sortIcon}</button>
+          <button type="button" part="docs-sort" data-doc-sort aria-haspopup="true" aria-expanded="${sortMenuOpen === true}" aria-label="${sortLabel}" data-tooltip="${sortLabel}">${sortIcon}</button>
           ${sortMenuOpen === true ? renderSortMenu(translate, activeSort) : ''}
         </div>`;
   const mindmapNewLabel = escapeHtml(translate('parsinegar.views.mindmap-new'));
   const mindmapNewIcon = iconMarkup(assetBaseUrl, 'account-tree') || mindmapNewLabel;
   const createBit = mindmap === true
-    ? `<button type="button" part="docs-mindmap-new" data-mindmap-new aria-label="${mindmapNewLabel}" title="${mindmapNewLabel}">${mindmapNewIcon}</button>`
-    : `<button type="button" part="docs-new" aria-label="${newLabel}" title="${newLabel}">${newIcon}</button>
-        <button type="button" part="docs-folder-new" aria-label="${newFolderLabel}" title="${newFolderLabel}">${newFolderIcon}</button>
-        <button type="button" part="docs-import" aria-label="${importLabel}" title="${importLabel}">${importIcon}</button>`;
+    ? `<button type="button" part="docs-mindmap-new" data-mindmap-new aria-label="${mindmapNewLabel}" data-tooltip="${mindmapNewLabel}">${mindmapNewIcon}</button>`
+    : `<button type="button" part="docs-new" aria-label="${newLabel}" data-tooltip="${newLabel}">${newIcon}</button>
+        <button type="button" part="docs-folder-new" aria-label="${newFolderLabel}" data-tooltip="${newFolderLabel}">${newFolderIcon}</button>
+        <button type="button" part="docs-import" aria-label="${importLabel}" data-tooltip="${importLabel}">${importIcon}</button>`;
   return `
     <div part="files-view">
       <div part="files-bar">

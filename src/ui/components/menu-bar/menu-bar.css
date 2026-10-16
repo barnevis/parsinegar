@@ -349,3 +349,30 @@
 [part="search-message"]:empty {
   display: none;
 }
+/* Custom tooltip replacing native `title` (OS font): below the button on
+ * hover and keyboard focus, in the inherited page font. */
+[part="menubar"] [data-tooltip]:not([data-tooltip=""]) {
+  position: relative;
+}
+[part="menubar"] [data-tooltip]:not([data-tooltip=""])::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset-block-start: calc(100% + 0.35rem);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  display: none;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--pey-color-text, #1a1a1a);
+  background-color: var(--pey-color-canvas, #ffffff);
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  z-index: 70;
+  pointer-events: none;
+}
+[part="menubar"] [data-tooltip]:not([data-tooltip=""]):hover::after,
+[part="menubar"] [data-tooltip]:not([data-tooltip=""]):focus-visible::after {
+  display: block;
+}

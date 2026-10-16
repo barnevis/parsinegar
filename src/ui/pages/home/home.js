@@ -829,7 +829,7 @@ class ParsiPageHome extends PeyElement {
    */
   #fullscreenExitMarkup() {
     const label = this.#t('parsinegar.view.exitFullscreen');
-    return `<button type="button" part="fullscreen-exit" data-fullscreen-exit aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${iconMarkup(this.#assetBaseUrl, 'fullscreen-exit')}</button>`;
+    return `<button type="button" part="fullscreen-exit" data-fullscreen-exit aria-label="${escapeHtml(label)}" data-tooltip="${escapeHtml(label)}">${iconMarkup(this.#assetBaseUrl, 'fullscreen-exit')}</button>`;
   }
 
   /**

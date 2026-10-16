@@ -419,6 +419,23 @@ test('should_emit_toggle_lock_when_mode_toggle_is_clicked', async () => {
   }
 });
 
+test('should_expose_custom_tooltips_without_native_titles_when_mounted', async () => {
+  const element = mount();
+  try {
+    await flush();
+    const buttons = [...element.shadowRoot.querySelectorAll('[data-mode-toggle], [data-download-toggle], [data-search-toggle], [data-fullscreen-toggle]')];
+    assert.equal(buttons.length, 4);
+    for (const button of buttons) {
+      assert.equal(button.getAttribute('title'), null, 'expected no native tooltip');
+      assert.equal(button.getAttribute('data-tooltip'), button.getAttribute('aria-label'));
+    }
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style?.textContent.includes('[data-tooltip]:not([data-tooltip=""])::after'), 'expected the tooltip rule');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_disable_mode_toggle_without_document_or_for_builtin', async () => {
   const bare = mount({ hasDocument: false });
   try {

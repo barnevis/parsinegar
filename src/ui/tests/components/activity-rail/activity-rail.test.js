@@ -189,13 +189,16 @@ test('should_suffix_sync_title_with_hint_when_dirty', async () => {
   try {
     await flush();
     assert.equal(
-      element.shadowRoot.querySelector('[data-view="sync"]').getAttribute('title'),
+      element.shadowRoot.querySelector('[data-view="sync"]').getAttribute('data-tooltip'),
       'sync-view — unsent!',
     );
     assert.equal(
-      element.shadowRoot.querySelector('[data-view="files"]').getAttribute('title'),
+      element.shadowRoot.querySelector('[data-view="files"]').getAttribute('data-tooltip'),
       'parsinegar.views.files',
     );
+    assert.equal(element.shadowRoot.querySelector('[data-view="sync"]').getAttribute('title'), null);
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style?.textContent.includes('[data-tooltip]:not([data-tooltip=""])::after'), 'expected the tooltip rule');
   } finally {
     element.remove();
   }

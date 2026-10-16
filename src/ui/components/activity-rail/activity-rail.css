@@ -76,3 +76,31 @@
   outline: 2px solid var(--pey-color-focus-ring, #5eead4);
   outline-offset: 2px;
 }
+/* Custom tooltip (replaces the native `title`, which the OS renders in the
+ * system font): shows toward the center on hover and keyboard focus, in the
+ * inherited page font. Meaning rides data-tooltip (asserted in tests). */
+[part="rail-button"][data-tooltip]:not([data-tooltip=""]) {
+  position: relative;
+}
+[part="rail-button"][data-tooltip]:not([data-tooltip=""])::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset-inline-end: calc(100% + 0.5rem);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: none;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--pey-color-text, #1a1a1a);
+  background-color: var(--pey-color-canvas, #ffffff);
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  z-index: 70;
+  pointer-events: none;
+}
+[part="rail-button"][data-tooltip]:not([data-tooltip=""]):hover::after,
+[part="rail-button"][data-tooltip]:not([data-tooltip=""]):focus-visible::after {
+  display: block;
+}

@@ -1700,6 +1700,8 @@ test('should_enter_and_exit_fullscreen_without_remounting_editor', async () => {
     const exit = element.shadowRoot.querySelector('[data-fullscreen-exit]');
     assert.ok(exit, 'expected the floating exit button');
     assert.equal(exit.getAttribute('aria-label'), 'خروج از تمام صفحه');
+    assert.equal(exit.getAttribute('data-tooltip'), 'خروج از تمام صفحه');
+    assert.equal(exit.getAttribute('title'), null, 'expected no native tooltip');
     assert.equal(element.shadowRoot.querySelector('[part="editor-host"]'), host, 'editor host must survive the toggle');
     assert.ok(inChild(element, 'parsi-menu-bar', '[data-fullscreen-toggle]').innerHTML.includes('#fullscreen-exit'));
     exit.click();
@@ -2300,8 +2302,8 @@ test('should_show_dirty_dot_with_tooltip_after_local_edit', async (t) => {
     await settled();
     await settled();
     assert.equal(syncDot(element), 'stale');
-    const title = inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('title');
-    assert.ok(title.includes('تغییرهای ارسال‌نشده'), `expected the unsent hint, got: ${title}`);
+    const hint = inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('data-tooltip');
+    assert.ok(hint.includes('تغییرهای ارسال‌نشده'), `expected the unsent hint, got: ${hint}`);
   } finally {
     t.mock.timers.reset();
     element.remove();
@@ -2335,7 +2337,7 @@ test('should_clear_dirty_dot_after_clean_sync', async () => {
     await settled();
     await settled();
     assert.equal(syncDot(element), 'ok');
-    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('title'), 'همگام‌سازی');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('data-tooltip'), 'همگام‌سازی');
   } finally {
     element.remove();
   }

@@ -560,6 +560,21 @@ test('should_lock_ignore_box_width_with_vertical_growth_when_rendered', async ()
     element.remove();
   }
 });
+
+test('should_anchor_files_bar_tooltips_below_buttons_when_rendered', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    assert.ok(
+      style.textContent.includes('[part="files-bar"] [data-tooltip]:not([data-tooltip=""])::after'),
+      'expected the files-bar tooltip rule',
+    );
+  } finally {
+    element.remove();
+  }
+});
 test('should_shrink_sort_menu_when_rendered', async () => {
   const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
   try {

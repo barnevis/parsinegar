@@ -104,7 +104,7 @@ class ParsiActivityRail extends PeyElement {
   #renderLogoButton() {
     const label = escapeHtml(this.#t('parsinegar.about.title'));
     return `
-      <button type="button" part="rail-button" data-about aria-label="${label}" title="${label}">${logoMarkup()}</button>`;
+      <button type="button" part="rail-button" data-about aria-label="${label}" data-tooltip="${label}">${logoMarkup()}</button>`;
   }
 
   /**
@@ -115,9 +115,11 @@ class ParsiActivityRail extends PeyElement {
   #renderButton(view) {
     const dot = view.id === 'sync' ? this.#renderSyncDot() : '';
     const label = this.#t(view.labelKey);
-    const title = view.id === 'sync' && this.#syncHint ? `${label} — ${this.#syncHint}` : label;
+    // Custom tooltip instead of `title`: native tooltips render in the OS
+    // font and can never take Vazirmatn; this one inherits the page font.
+    const tooltip = view.id === 'sync' && this.#syncHint ? `${label} — ${this.#syncHint}` : label;
     return `
-      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(label)}" title="${escapeHtml(title)}">${iconMarkup(this.#assetBaseUrl, view.icon)}${dot}<span part="rail-fallback">${escapeHtml(label)}</span></button>`;
+      <button type="button" part="rail-button" data-view="${view.id}" aria-pressed="${view.id === this.#activeView}" aria-label="${escapeHtml(label)}" data-tooltip="${escapeHtml(tooltip)}">${iconMarkup(this.#assetBaseUrl, view.icon)}${dot}<span part="rail-fallback">${escapeHtml(label)}</span></button>`;
   }
 
   /**

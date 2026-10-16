@@ -81,6 +81,29 @@ parsi-status-bar {
 [part="fullscreen-exit"]:hover {
   background-color: var(--pey-color-surface, #f1f1f5);
 }
+/* Custom tooltip replacing native `title` (OS font): below the floating
+ * button on hover and keyboard focus, in the inherited page font. */
+[part="fullscreen-exit"][data-tooltip]:not([data-tooltip=""])::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset-block-start: calc(100% + 0.35rem);
+  inset-inline-end: 0;
+  display: none;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--pey-color-text, #1a1a1a);
+  background-color: var(--pey-color-canvas, #ffffff);
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  z-index: 70;
+  pointer-events: none;
+}
+[part="fullscreen-exit"][data-tooltip]:not([data-tooltip=""]):hover::after,
+[part="fullscreen-exit"][data-tooltip]:not([data-tooltip=""]):focus-visible::after {
+  display: block;
+}
 
 [part="fullscreen-exit"] svg {
   inline-size: 1.1rem;
