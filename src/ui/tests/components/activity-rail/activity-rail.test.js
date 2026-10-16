@@ -199,6 +199,7 @@ test('should_suffix_sync_title_with_hint_when_dirty', async () => {
     assert.equal(element.shadowRoot.querySelector('[data-view="sync"]').getAttribute('title'), null);
     const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
     assert.ok(style?.textContent.includes('[data-tooltip]:not([data-tooltip=""])::after'), 'expected the tooltip rule');
+    assert.ok(style?.textContent.includes('inset-inline-start: calc(100%'), 'expected inward placement on both directions');
   } finally {
     element.remove();
   }

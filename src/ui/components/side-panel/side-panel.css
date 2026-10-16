@@ -19,7 +19,8 @@
   margin: 0;
 }
 /* Custom tooltip replacing native `title` (OS font): below the button on
- * hover and keyboard focus, in the inherited page font. */
+ * hover and keyboard focus, in the inherited page font. Centering uses the
+ * physical left edge (see menu-bar.css). Core mirrors activity-rail.css. */
 [part="files-bar"] [data-tooltip]:not([data-tooltip=""]) {
   position: relative;
 }
@@ -27,7 +28,7 @@
   content: attr(data-tooltip);
   position: absolute;
   inset-block-start: calc(100% + 0.35rem);
-  inset-inline-start: 50%;
+  left: 50%;
   transform: translateX(-50%);
   display: none;
   white-space: nowrap;

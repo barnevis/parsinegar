@@ -571,6 +571,7 @@ test('should_anchor_files_bar_tooltips_below_buttons_when_rendered', async () =>
       style.textContent.includes('[part="files-bar"] [data-tooltip]:not([data-tooltip=""])::after'),
       'expected the files-bar tooltip rule',
     );
+    assert.ok(style.textContent.includes('left: 50%'), 'expected direction-free centering');
   } finally {
     element.remove();
   }

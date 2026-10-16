@@ -350,7 +350,9 @@
   display: none;
 }
 /* Custom tooltip replacing native `title` (OS font): below the button on
- * hover and keyboard focus, in the inherited page font. */
+ * hover and keyboard focus, in the inherited page font. Centering uses the
+ * physical left edge: logical inset-inline-start flips with direction and
+ * would shift the bubble sideways. Core mirrors activity-rail.css. */
 [part="menubar"] [data-tooltip]:not([data-tooltip=""]) {
   position: relative;
 }
@@ -358,7 +360,7 @@
   content: attr(data-tooltip);
   position: absolute;
   inset-block-start: calc(100% + 0.35rem);
-  inset-inline-start: 50%;
+  left: 50%;
   transform: translateX(-50%);
   display: none;
   white-space: nowrap;

@@ -431,6 +431,7 @@ test('should_expose_custom_tooltips_without_native_titles_when_mounted', async (
     }
     const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
     assert.ok(style?.textContent.includes('[data-tooltip]:not([data-tooltip=""])::after'), 'expected the tooltip rule');
+    assert.ok(style?.textContent.includes('left: 50%'), 'expected direction-free centering');
   } finally {
     element.remove();
   }

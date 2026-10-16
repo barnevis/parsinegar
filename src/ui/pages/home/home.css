@@ -82,7 +82,9 @@ parsi-status-bar {
   background-color: var(--pey-color-surface, #f1f1f5);
 }
 /* Custom tooltip replacing native `title` (OS font): below the floating
- * button on hover and keyboard focus, in the inherited page font. */
+ * button on hover and keyboard focus, in the inherited page font. Aligned to
+ * the button's inline-end corner so it never leaves the viewport. Core
+ * mirrors activity-rail.css. */
 [part="fullscreen-exit"][data-tooltip]:not([data-tooltip=""])::after {
   content: attr(data-tooltip);
   position: absolute;

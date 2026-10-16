@@ -78,14 +78,17 @@
 }
 /* Custom tooltip (replaces the native `title`, which the OS renders in the
  * system font): shows toward the center on hover and keyboard focus, in the
- * inherited page font. Meaning rides data-tooltip (asserted in tests). */
+ * inherited page font. The rail always sits at the inline-start edge, so
+ * inline-start offsets point inward in both directions. Meaning rides
+ * data-tooltip (asserted in tests). Tooltip core: canonical copy lives here;
+ * the menubar, files-bar and fullscreen-exit blocks mirror it. */
 [part="rail-button"][data-tooltip]:not([data-tooltip=""]) {
   position: relative;
 }
 [part="rail-button"][data-tooltip]:not([data-tooltip=""])::after {
   content: attr(data-tooltip);
   position: absolute;
-  inset-inline-end: calc(100% + 0.5rem);
+  inset-inline-start: calc(100% + 0.5rem);
   inset-block-start: 50%;
   transform: translateY(-50%);
   display: none;
