@@ -3,9 +3,16 @@
 // Space-indented items render narrower than tab-indented siblings at the
 // same level (`tab-size` only stretches tabs), so old or pasted content with
 // pure space indents sits off-column. The bytes stay untouched: a
-// `Decoration.replace` widget paints exactly `depth` tabs over the raw
-// indent run, where `depth` comes from the syntax tree (the same authority
-// folding uses). Copy, search and `getValue()` keep seeing the raw text.
+// `Decoration.replace` widget paints the indent width over the raw indent
+// run, where `depth` comes from the syntax tree (the same authority folding
+// uses). Copy, search and `getValue()` keep seeing the raw text.
+//
+// The widget holds spaces, never tabs, on purpose: a leading raw tab
+// misrenders under the hanging indent (`margin` plus negative `text-indent`
+// shift the tab-stop grid, so the tab advances short and the overmeasured
+// hang drags the first row sideways — depth-1 ordered children sat
+// half a tab off). Spaces have no tab stops, so they render exactly the
+// canvas-measured width under any hang, and the measured hang lands true.
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { LIST_PATTERN, QUOTE_PATTERN } from './live-preview.js';
@@ -13,26 +20,29 @@ import { LIST_PATTERN, QUOTE_PATTERN } from './live-preview.js';
 const INDENT_RUN_PATTERN = /^[ \t]+/;
 
 /**
- * Paints exactly `depth` tab stops over a raw indent run. Tabs inherit the
- * content `tab-size`, so same-level markers land on the same column however
- * the raw run mixed spaces and tabs. Clicks fall through to the default
- * cursor handling (no override: the base `ignoreEvent` already ignores).
+ * Paints the indent width over a raw indent run: `depth` levels of
+ * `tabSize` spaces. Tabs inherit nothing here — spaces match the canvas
+ * tab expansion (`rawWidth` in list-hang.js) by construction, so the
+ * measured hang and the rendered indent always agree. Clicks fall through
+ * to the default cursor handling (no override: the base `ignoreEvent`
+ * already ignores).
  */
 class IndentWidget extends WidgetType {
-  constructor(depth) {
+  constructor(depth, tabSize) {
     super();
     this.depth = depth;
+    this.tabSize = tabSize;
   }
 
   eq(other) {
-    return other instanceof IndentWidget && other.depth === this.depth;
+    return other instanceof IndentWidget && other.depth === this.depth && other.tabSize === this.tabSize;
   }
 
   toDOM() {
     const span = document.createElement('span');
     span.className = 'parsi-indent';
     span.setAttribute('aria-hidden', 'true');
-    span.textContent = '\t'.repeat(this.depth);
+    span.textContent = ' '.repeat(this.depth * this.tabSize);
     return span;
   }
 }
@@ -57,26 +67,28 @@ export function listDepthAt(tree, markerPos) {
 }
 
 /**
- * Queues one indent replacement for a line when it needs normalizing:
- * nested item lines whose raw run is not already exactly `depth` tabs.
- * Top-level items, quotes and non-list lines are skipped; the tree is the
+ * Queues one indent replacement for a nested item line: every nested run
+ * gets the spaces widget, even a canonically tab-indented one — raw
+ * leading tabs misrender under the hang (see the module note), so only
+ * top-level items, quotes and non-list lines skip. The tree is the
  * authority, so fenced code never matches either.
  * @param {object} tree Lezer syntax tree.
  * @param {object} line CodeMirror line object.
  * @param {Array} builder Decoration array, ascending.
+ * @param {number} tabSize Editor tab size in spaces.
  * @returns {void}
  */
-function pushIndentForLine(tree, line, builder) {
+function pushIndentForLine(tree, line, builder, tabSize) {
   const run = INDENT_RUN_PATTERN.exec(line.text);
   if (!run || QUOTE_PATTERN.test(line.text) || !LIST_PATTERN.test(line.text)) {
     return;
   }
   const depth = listDepthAt(tree, line.from + run[0].length);
-  if (depth < 1 || run[0] === '\t'.repeat(depth)) {
+  if (depth < 1) {
     return;
   }
   builder.push(
-    Decoration.replace({ widget: new IndentWidget(depth) }).range(line.from, line.from + run[0].length),
+    Decoration.replace({ widget: new IndentWidget(depth, tabSize) }).range(line.from, line.from + run[0].length),
   );
 }
 
@@ -92,10 +104,11 @@ export function buildIndentDecorations(view) {
   if (!tree) {
     return Decoration.set(builder);
   }
+  const tabSize = view.state.tabSize;
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to;) {
       const line = view.state.doc.lineAt(pos);
-      pushIndentForLine(tree, line, builder);
+      pushIndentForLine(tree, line, builder, tabSize);
       pos = line.to + 1;
     }
   }
@@ -118,8 +131,8 @@ const indentNormalizePlugin = ViewPlugin.fromClass(
 );
 
 /**
- * Returns the indent-normalization extensions: display-only tab painting
- * over raw space indents, with the document bytes untouched.
+ * Returns the indent-normalization extensions: display-only spaces painting
+ * over raw indent runs, with the document bytes untouched.
  * @returns {Array} CodeMirror extensions.
  */
 export function indentNormalizeExtensions() {

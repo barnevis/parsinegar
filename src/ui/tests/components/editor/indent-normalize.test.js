@@ -32,7 +32,7 @@ function treeOf(text) {
   return { state, tree: syntaxTree(state) };
 }
 
-test('should_paint_one_tab_when_nested_unordered_has_space_indent', () => {
+test('should_paint_spaces_when_nested_unordered_has_space_indent', () => {
   const mounted = createEditor('- الف\n  - ب');
   try {
     // Park the cursor on the child line: the marker under the cursor stays
@@ -40,39 +40,43 @@ test('should_paint_one_tab_when_nested_unordered_has_space_indent', () => {
     mounted.editor.gotoLine(2);
     const widgets = indentWidgets(mounted.host);
     assert.equal(widgets.length, 1);
-    assert.equal(widgets[0].textContent, '\t');
+    assert.equal(widgets[0].textContent, ' '.repeat(8));
     assert.equal(mounted.host.querySelectorAll('.parsi-list-marker').length, 2);
   } finally {
     destroy(mounted);
   }
 });
 
-test('should_skip_widget_when_nested_indent_is_already_canonical', () => {
+test('should_paint_spaces_when_nested_indent_is_already_tabbed', () => {
+  // Raw leading tabs misrender under the hang (tab-stop grid shifts), so
+  // even canonical tab runs get the spaces widget.
   const mounted = createEditor('- الف\n\t- ب');
   try {
-    assert.equal(indentWidgets(mounted.host).length, 0);
+    const widgets = indentWidgets(mounted.host);
+    assert.equal(widgets.length, 1);
+    assert.equal(widgets[0].textContent, ' '.repeat(8));
   } finally {
     destroy(mounted);
   }
 });
 
-test('should_paint_one_tab_when_nested_ordered_has_space_indent', () => {
+test('should_paint_spaces_when_nested_ordered_has_space_indent', () => {
   const mounted = createEditor('1. اول\n   1. دوم');
   try {
     const widgets = indentWidgets(mounted.host);
     assert.equal(widgets.length, 1);
-    assert.equal(widgets[0].textContent, '\t');
+    assert.equal(widgets[0].textContent, ' '.repeat(8));
   } finally {
     destroy(mounted);
   }
 });
 
-test('should_paint_one_tab_when_nested_task_has_space_indent', () => {
+test('should_paint_spaces_when_nested_task_has_space_indent', () => {
   const mounted = createEditor('- [ ] الف\n  - [ ] ب');
   try {
     const widgets = indentWidgets(mounted.host);
     assert.equal(widgets.length, 1);
-    assert.equal(widgets[0].textContent, '\t');
+    assert.equal(widgets[0].textContent, ' '.repeat(8));
     assert.equal(mounted.host.querySelectorAll('.parsi-task-marker').length, 2);
   } finally {
     destroy(mounted);
@@ -99,12 +103,31 @@ test('should_skip_quote_and_fence_when_painting', () => {
   }
 });
 
-test('should_paint_two_tabs_when_depth_is_two', () => {
+test('should_paint_sixteen_spaces_when_depth_is_two', () => {
   const mounted = createEditor('- الف\n\t- ب\n\t  - ج');
   try {
     const widgets = indentWidgets(mounted.host);
-    assert.equal(widgets.length, 1);
-    assert.equal(widgets[0].textContent, '\t\t');
+    assert.equal(widgets.length, 2);
+    assert.equal(widgets[0].textContent, ' '.repeat(8));
+    assert.equal(widgets[1].textContent, ' '.repeat(16));
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_paint_spaces_for_tabbed_ordered_children_when_nested', () => {
+  // Regression: tab-indented first children of ordered parents rendered
+  // half a tab narrow under the hang; spaces have no tab stops to shift.
+  const text = '1. یک\n\t1. دو\n\t2. سه\n2. چهار\n\t1. پنج\n\t\t1. شش\n\t\t2. هفت\n3. هشت\n\t1. نه';
+  const mounted = createEditor(text);
+  try {
+    const widgets = indentWidgets(mounted.host);
+    assert.equal(widgets.length, 6);
+    assert.deepEqual(
+      widgets.map((widget) => widget.textContent.length),
+      [8, 8, 8, 16, 16, 8],
+    );
+    assert.equal(mounted.editor.getValue(), text);
   } finally {
     destroy(mounted);
   }
