@@ -60,7 +60,7 @@ export function renderSyncView({ t, sync = null }) {
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.ignore-title'))}</legend>
         <p part="settings-note">${escapeHtml(translate('parsinegar.sync.ignore-note'))}</p>
         <label part="settings-field">
-          <textarea dir="auto" rows="3" data-sync-field="ignore" autocomplete="off" spellcheck="false">${escapeHtml(snapshot?.ignoreText ?? '')}</textarea>
+          <textarea dir="auto" rows="6" data-sync-field="ignore" autocomplete="off" spellcheck="false">${escapeHtml(snapshot?.ignoreText ?? '')}</textarea>
         </label>
         <div part="settings-actions">
           <button type="button" part="settings-button" data-sync-ignore-save>${escapeHtml(translate('parsinegar.sync.ignore-save'))}</button>

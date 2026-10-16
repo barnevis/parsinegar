@@ -135,7 +135,7 @@ const catalog = {
     'parsinegar.sync.dot-bad': 'خطای همگام‌سازی',
     'parsinegar.sync.unsent-changes': 'تغییرهای ارسال‌نشده',
     'parsinegar.sync.ignore-title': 'نادیده گرفتن سندها',
-    'parsinegar.sync.ignore-note': 'هر خط یک الگو مانند ‎.gitignore؛ پسوند ‎.md لازم نیست: «پیش‌نویس» یا «آرشیو/».',
+    'parsinegar.sync.ignore-note': 'هر خط یک قانون است: فقط نام سند را بنویسید تا همان سند در همه‌جا نادیده گرفته شود (مثلاً «پیش‌نویس»)، یا نام پوشه را با / بنویسید تا کل آن پوشه نادیده گرفته شود (مثلاً «آرشیو/»). ستاره یعنی هر چیز («*موقت*» یعنی هر عنوانی که «موقت» در آن باشد). پسوند .md را ننویسید.',
     'parsinegar.sync.ignore-save': 'ذخیره الگوها',
     'parsinegar.sync.save': 'ذخیره اتصال',
     'parsinegar.sync.connecting': 'در حال اتصال…',

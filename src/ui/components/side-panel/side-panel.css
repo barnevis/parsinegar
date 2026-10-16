@@ -389,6 +389,21 @@
   padding: 0.35rem 0.5rem;
   color: inherit;
 }
+/* Ignore-patterns box: width locked to the panel with vertical-only growth
+ * (capped), so the resize handle can never swallow the side panel. */
+[data-sync-field="ignore"] {
+  font: inherit;
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  max-block-size: 12rem;
+  resize: vertical;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.35rem 0.5rem;
+  color: inherit;
+}
 [part="settings-actions"] {
   display: flex;
   gap: 0.5rem;

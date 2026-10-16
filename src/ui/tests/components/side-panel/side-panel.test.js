@@ -545,6 +545,21 @@ test('should_distinguish_checked_option_when_sort_menu_renders', async () => {
   }
 });
 
+test('should_lock_ignore_box_width_with_vertical_growth_when_rendered', async () => {
+  const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
+  try {
+    await flush();
+    const style = element.shadowRoot.querySelector('style[data-pey-stylesheet]');
+    assert.ok(style, 'expected the attached kit stylesheet');
+    const text = style.textContent;
+    const rule = text.slice(text.indexOf('[data-sync-field="ignore"]'));
+    assert.ok(rule.includes('max-inline-size: 100%'), 'expected the width locked to the panel');
+    assert.ok(rule.includes('resize: vertical'), 'expected vertical-only resizing');
+    assert.ok(rule.includes('max-block-size'), 'expected a capped growth');
+  } finally {
+    element.remove();
+  }
+});
 test('should_shrink_sort_menu_when_rendered', async () => {
   const element = mount({ items: [{ id: 'a', title: 'اول' }], currentId: null });
   try {

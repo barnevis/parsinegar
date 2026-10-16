@@ -77,6 +77,7 @@ test('should_render_ignore_form_with_current_patterns', () => {
     sync: { configured: false, repo: null, branch: null, lastSyncText: null, errorText: null, busy: false, ignoreText: 'پیش‌نویس\nکار/' },
   });
   assert.ok(markup.includes('data-sync-field="ignore"'));
+  assert.ok(markup.includes('rows="6"'));
   assert.ok(markup.includes('data-sync-ignore-save'));
   assert.ok(markup.includes('پیش‌نویس\nکار/'));
   assert.ok(markup.includes('parsinegar.sync.single-repo'));
