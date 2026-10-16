@@ -525,33 +525,32 @@ test('should_ignore_empty_pick_when_document_import_arrives', async () => {
   }
 });
 
-test('should_open_about_doc_when_menu_action_arrives', async () => {
-  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار\n\nمتن درباره' });
+test('should_open_about_view_when_menu_action_arrives', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
     await openHelpMenu(element);
     inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
     await settled();
-    assert.ok(element.value.includes('درباره پارسی‌نگار'));
-    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'), 'expected the read-only chip');
+    await settled();
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="about-title"]'), 'expected the about card');
+    assert.ok(inChild(element, 'parsi-side-panel', '[href*="github.com"]'), 'expected the GitHub link');
+    assert.equal(element.value, 'متن', 'expected the editor document untouched');
   } finally {
-    restore();
     element.remove();
   }
 });
 
-test('should_open_about_doc_when_rail_logo_is_clicked', async () => {
-  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار' });
+test('should_open_about_view_when_rail_logo_is_clicked', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
     inChild(element, 'parsi-activity-rail', '[data-about]').click();
     await settled();
-    assert.ok(element.value.includes('درباره پارسی‌نگار'));
-    assert.ok(inChild(element, 'parsi-status-bar', '[part="lock-chip"]'));
+    await settled();
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="about-title"]'), 'expected the about card');
+    assert.ok(inChild(element, 'parsi-side-panel', '[href*="CHANGELOG.md"]'), 'expected the changelog link');
   } finally {
-    restore();
     element.remove();
   }
 });
@@ -598,14 +597,14 @@ test('should_open_help_doc_when_menu_action_arrives', async () => {
 });
 
 test('should_return_to_document_when_back_is_clicked', async () => {
-  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/userGuide.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
     await openHelpMenu(element);
-    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    inChild(element, 'parsi-menu-bar', '[data-action="open-help"]').click();
     await settled();
-    assert.ok(element.value.includes('درباره پارسی‌نگار'));
+    assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
     await openHelpMenu(element);
     assert.ok(inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]'), 'expected the back item');
     inChild(element, 'parsi-menu-bar', '[data-action="back-to-documents"]').click();
@@ -619,7 +618,7 @@ test('should_return_to_document_when_back_is_clicked', async () => {
 });
 
 test('should_return_to_document_when_document_opens_from_builtin', async () => {
-  const restore = stubBuiltinFetch({ './docs/ABOUT.md': '# درباره پارسی‌نگار' });
+  const restore = stubBuiltinFetch({ './docs/userGuide.md': '# راهنمای پارسی‌نگار' });
   const documents = createDocuments([
     { id: 'd1', title: 'اول', content: 'c1', updatedAt: 100 },
     { id: 'd2', title: 'دوم', content: 'c2', updatedAt: 300 },
@@ -627,9 +626,9 @@ test('should_return_to_document_when_document_opens_from_builtin', async () => {
   const element = await mountWithDocuments(documents);
   try {
     await openHelpMenu(element);
-    inChild(element, 'parsi-menu-bar', '[data-action="about"]').click();
+    inChild(element, 'parsi-menu-bar', '[data-action="open-help"]').click();
     await settled();
-    assert.ok(element.value.includes('درباره پارسی‌نگار'));
+    assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
     inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]').click();
     await settled();
     assert.equal(element.value, 'c1');
@@ -801,7 +800,7 @@ test('should_render_rail_with_views_when_mounted', async () => {
   const element = await mountWithDocuments(documents);
   try {
     const rail = inChildAll(element, 'parsi-activity-rail', '[data-view]');
-    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'mindmap', 'sync', 'settings']);
+    assert.deepEqual(rail.map((button) => button.getAttribute('data-view')), ['files', 'outline', 'mindmap', 'sync', 'help', 'settings']);
     assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="files"]').getAttribute('aria-pressed'), 'true');
     assert.ok(child(element, 'parsi-side-panel'), 'expected the side panel');
   } finally {
@@ -2393,6 +2392,43 @@ test('should_save_ignore_patterns_and_repopulate_when_saved', async () => {
     assert.ok(settings.calls.some((patch) => JSON.stringify(patch) === JSON.stringify({ syncIgnore: ['a', 'b'] })));
     assert.equal(inChild(element, 'parsi-side-panel', '[data-sync-field="ignore"]').value, 'a\nb');
   } finally {
+    element.remove();
+  }
+});
+
+test('should_show_help_view_with_cheatsheet_when_rail_selects_it', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'help' } }));
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="help"]').getAttribute('aria-pressed'), 'true');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-help-full]'), 'expected the full-guide action');
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="help-list"]'), 'expected the cheatsheet');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_open_full_guide_when_help_action_arrives', async () => {
+  const restore = stubBuiltinFetch({ './docs/userGuide.md': '# راهنمای پارسی‌نگار' });
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'help' } }));
+    await settled();
+    await settled();
+    inChild(element, 'parsi-side-panel', '[data-help-full]').click();
+    await settled();
+    await settled();
+    assert.ok(element.value.includes('راهنمای پارسی‌نگار'));
+  } finally {
+    restore();
     element.remove();
   }
 });

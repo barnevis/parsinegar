@@ -7,7 +7,7 @@ import { PeyElement } from 'pey.webui/base/pey-element';
 import { createMarkdownView } from '../../components/editor/markdown-view.js';
 import SAMPLE_DOCUMENT from '../../sample-document.js';
 import { countStats } from '../../components/workbench/stats.js';
-import { FILES_VIEW, MINDMAP_VIEW, getView, listViews } from '../../components/workbench/views.js';
+import { ABOUT_VIEW, FILES_VIEW, MINDMAP_VIEW, getView, listViews } from '../../components/workbench/views.js';
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES } from '../../components/workbench/views-files.js';
 import { formatDate, formatNumber } from '../../utils/format.js';
 import { escapeHtml, iconMarkup } from '../../components/workbench/html.js';
@@ -239,6 +239,7 @@ class ParsiPageHome extends PeyElement {
       'sync-ignore-save',
       'sync-resolve',
       'sync-later',
+      'help-open-full',
     ];
   }
 
@@ -294,7 +295,7 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'about-open') {
-        void this.#openBuiltin('about');
+        this.#switchView(ABOUT_VIEW);
         return;
       }
       if (event.type === 'files-sort' && FILES_SORT_MODES.includes(event.detail?.mode)) {
@@ -415,6 +416,10 @@ class ParsiPageHome extends PeyElement {
         this.#syncConflicts = [];
         this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
         void this.#refreshSyncStatus();
+        return;
+      }
+      if (event.type === 'help-open-full') {
+        void this.#openBuiltin('help');
         return;
       }
     }
@@ -562,13 +567,10 @@ class ParsiPageHome extends PeyElement {
           await this.#openDiskFolder();
           return;
         case 'about':
-          await this.#openBuiltin('about');
+          this.#switchView(ABOUT_VIEW);
           return;
         case 'open-help':
           await this.#openBuiltin('help');
-          return;
-        case 'open-changelog':
-          await this.#openBuiltin('changelog');
           return;
         case 'back-to-documents':
           this.#closeBuiltin();
@@ -857,7 +859,7 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Opens a built-in project doc (help, changelog, about) in the mounted
+   * Opens the built-in user guide in the mounted
    * editor, locked for reading. The user draft is parked first, so closing
    * returns to it untouched; the built-in never touches the draft, the
    * save timer or the documents service.

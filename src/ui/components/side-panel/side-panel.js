@@ -354,6 +354,11 @@ class ParsiSidePanel extends PeyElement {
       this.dispatchEvent(new CustomEvent('sync-now', { bubbles: true, composed: true, detail: {} }));
       return;
     }
+    const helpFull = event.target?.closest?.('[data-help-full]');
+    if (helpFull) {
+      this.dispatchEvent(new CustomEvent('help-open-full', { bubbles: true, composed: true, detail: {} }));
+      return;
+    }
     const outlineButton = event.target?.closest?.('[data-line]');
     if (outlineButton) {
       this.dispatchEvent(

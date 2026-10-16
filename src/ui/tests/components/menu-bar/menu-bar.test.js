@@ -363,9 +363,10 @@ test('should_offer_help_and_lock_when_menus_are_open', async () => {
     element.shadowRoot.querySelector('[data-menu="help"]').click();
     await flush();
     const actions = fileActions(element);
-    for (const id of ['open-help', 'open-changelog', 'about']) {
+    for (const id of ['open-help', 'about']) {
       assert.ok(actions.includes(id), `expected item: ${id}`);
     }
+    assert.ok(!actions.includes('open-changelog'), 'expected no in-app changelog');
     assert.ok(!actions.includes('back-to-documents'));
     assert.ok(!actions.includes('toggle-lock'));
     element.shadowRoot.querySelector('[data-menu="file"]').click();

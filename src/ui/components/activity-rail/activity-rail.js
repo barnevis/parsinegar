@@ -87,8 +87,9 @@ class ParsiActivityRail extends PeyElement {
   }
 
   render() {
-    const start = this.#views.filter((view) => view.align !== 'end');
-    const end = this.#views.filter((view) => view.align === 'end');
+    const listed = this.#views.filter((view) => view.rail !== false);
+    const start = listed.filter((view) => view.align !== 'end');
+    const end = listed.filter((view) => view.align === 'end');
     const logo = this.#renderLogoButton();
     return `
       <nav part="rail" aria-label="${escapeHtml(this.#t('parsinegar.app.title'))}">${start.map((view) => this.#renderButton(view)).join('')}${end.length > 0 ? `<div part="rail-end">${end.map((view) => this.#renderButton(view)).join('')}${logo}</div>` : logo}</nav>`;

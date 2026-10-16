@@ -39,7 +39,6 @@ export function buildMenuModel({ t, hasDocument, readOnly = false, builtInOpen =
   });
   const helpItems = [
     { id: 'open-help', label: translate('parsinegar.builtin.help'), action: 'open-help', disabled: false },
-    { id: 'open-changelog', label: translate('parsinegar.builtin.changelog'), action: 'open-changelog', disabled: false },
     { id: 'about', label: translate('parsinegar.menu.about'), action: 'about', disabled: false },
   ];
   if (builtIn) {

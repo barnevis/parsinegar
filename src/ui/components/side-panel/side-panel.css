@@ -501,6 +501,50 @@
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
 }
+/* About hero: the themed logotype, sized once here (inline SVG inherits
+ * the theme text color, so it reads on every theme with no per-theme
+ * asset). Help rows pair a label with a literal sample. */
+[part="about-hero"] {
+  text-align: center;
+  margin-block: 0.5rem 0.25rem;
+}
+[part="about-hero"] svg {
+  inline-size: 3.5rem;
+  block-size: auto;
+}
+[part="about-title"] {
+  font-size: 1rem;
+  text-align: center;
+  margin: 0.25rem 0 0.5rem;
+}
+[part="help-list"] {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.35rem 0;
+  padding: 0;
+}
+[part="help-row"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+[part="help-code"] {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 6px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+}
+a[part="settings-button"] {
+  text-decoration: none;
+  text-align: center;
+}
 [part="settings-error"] {
   font-size: 0.8rem;
   margin: 0.25rem 0;

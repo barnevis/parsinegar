@@ -65,6 +65,20 @@ test('should_emit_sync_configure_when_save_is_clicked', async () => {
   }
 });
 
+test('should_emit_help_open_full_when_help_action_is_clicked', async () => {
+  const element = mount({ activeView: 'help' });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('help-open-full', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-help-full]').click();
+    await flush();
+    assert.deepEqual(seen, [{}]);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_emit_sync_ignore_save_with_cleaned_patterns_when_clicked', async () => {
   const element = mount({ activeView: 'sync', sync: null });
   try {

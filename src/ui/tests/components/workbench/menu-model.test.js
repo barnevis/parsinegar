@@ -128,11 +128,12 @@ test('should_offer_builtin_docs_in_help_menu_when_read', () => {
   const menus = buildMenuModel({ t: translate, hasDocument: true });
   assert.deepEqual(menus.map(({ id }) => id), ['file', 'edit', 'insert', 'view', 'help']);
   const help = menus.find(({ id }) => id === 'help');
-  for (const id of ['open-help', 'open-changelog', 'about']) {
+  for (const id of ['open-help', 'about']) {
     const item = help.items.find((entry) => entry.id === id);
     assert.ok(item, `expected item: ${id}`);
     assert.equal(item.disabled, false);
   }
+  assert.equal(help.items.find(({ id }) => id === 'open-changelog'), undefined, 'expected no in-app changelog');
   assert.equal(help.items.find(({ id }) => id === 'back-to-documents'), undefined);
   const file = menus.find(({ id }) => id === 'file');
   assert.equal(file.items.find(({ id }) => id === 'open-help'), undefined);

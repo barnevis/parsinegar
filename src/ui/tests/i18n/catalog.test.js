@@ -29,8 +29,6 @@ test('should_cover_product_keys_when_loaded', () => {
     'parsinegar.view.write',
     'parsinegar.about.title',
     'parsinegar.builtin.help',
-    'parsinegar.builtin.changelog',
-    'parsinegar.builtin.about',
     'parsinegar.builtin.back',
     'parsinegar.status.locked',
     'parsinegar.menu.insert',

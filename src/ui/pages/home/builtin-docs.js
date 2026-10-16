@@ -1,13 +1,11 @@
 // Built-in project docs: static Markdown fetched once and cached.
 //
-// The guide, changelog and about page live as repository files outside the
-// documents service (no save, delete, rename or autosave applies to them).
-// The page opens them through the same editor, locked for reading. Fetch is
-// injected so tests never touch the network.
+// The guide lives as a repository file outside the documents service (no
+// save, delete, rename or autosave applies to it). The page opens it
+// through the same editor, locked for reading. Fetch is injected so tests
+// never touch the network.
 export const BUILTIN_DOCS = [
   { id: 'help', titleKey: 'parsinegar.builtin.help', url: './docs/userGuide.md' },
-  { id: 'changelog', titleKey: 'parsinegar.builtin.changelog', url: './CHANGELOG.md' },
-  { id: 'about', titleKey: 'parsinegar.builtin.about', url: './docs/ABOUT.md' },
 ];
 
 /**

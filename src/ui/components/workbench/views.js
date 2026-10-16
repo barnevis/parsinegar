@@ -10,10 +10,14 @@ import { renderFilesView } from './views-files.js';
 import { renderOutlineView } from './views-outline.js';
 import { renderSettingsView } from './views-settings.js';
 import { renderSyncView } from './views-sync.js';
+import { renderAboutView } from './views-about.js';
+import { renderHelpView } from './views-help.js';
 
 const FILES_VIEW = 'files';
 const OUTLINE_VIEW = 'outline';
 const SYNC_VIEW = 'sync';
+const ABOUT_VIEW = 'about';
+const HELP_VIEW = 'help';
 const SETTINGS_VIEW = 'settings';
 const MINDMAP_VIEW = 'mindmap';
 
@@ -22,6 +26,8 @@ const registry = [
   { id: OUTLINE_VIEW, icon: 'toc', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
   { id: MINDMAP_VIEW, icon: 'account-tree', labelKey: 'parsinegar.views.mindmap', area: 'center' },
   { id: SYNC_VIEW, icon: 'github', labelKey: 'parsinegar.views.sync', render: renderSyncView },
+  { id: ABOUT_VIEW, icon: 'logo', labelKey: 'parsinegar.about.title', render: renderAboutView, rail: false },
+  { id: HELP_VIEW, icon: 'help', labelKey: 'parsinegar.views.help', render: renderHelpView, align: 'end' },
   { id: SETTINGS_VIEW, icon: 'settings', labelKey: 'parsinegar.views.settings', render: renderSettingsView, align: 'end' },
 ];
 
@@ -42,4 +48,4 @@ export function getView(id) {
   return registry.find((view) => view.id === id && view.area !== 'center') ?? null;
 }
 
-export { FILES_VIEW, MINDMAP_VIEW, OUTLINE_VIEW, SETTINGS_VIEW, SYNC_VIEW };
+export { ABOUT_VIEW, FILES_VIEW, HELP_VIEW, MINDMAP_VIEW, OUTLINE_VIEW, SETTINGS_VIEW, SYNC_VIEW };

@@ -14,8 +14,8 @@ function stubFetch(texts = {}, ok = true) {
 
 test('should_list_builtin_docs_when_listed', () => {
   const guides = createBuiltinDocs({ t: (key) => key });
-  assert.deepEqual(guides.list().map(({ id }) => id), ['help', 'changelog', 'about']);
-  assert.deepEqual(BUILTIN_DOCS.map(({ id }) => id), ['help', 'changelog', 'about']);
+  assert.deepEqual(guides.list().map(({ id }) => id), ['help']);
+  assert.deepEqual(BUILTIN_DOCS.map(({ id }) => id), ['help']);
 });
 
 test('should_load_and_cache_when_opened', async () => {

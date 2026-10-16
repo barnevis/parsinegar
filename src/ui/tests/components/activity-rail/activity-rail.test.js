@@ -204,3 +204,17 @@ test('should_suffix_sync_title_with_hint_when_dirty', async () => {
     element.remove();
   }
 });
+
+test('should_skip_rail_hidden_views_when_mounted', async () => {
+  const element = mount({
+    views: [...VIEWS, { id: 'about', icon: 'logo', labelKey: 'parsinegar.about.title', rail: false }],
+    activeView: 'files',
+  });
+  try {
+    await flush();
+    const buttons = [...element.shadowRoot.querySelectorAll('[data-view]')];
+    assert.deepEqual(buttons.map((button) => button.getAttribute('data-view')), ['files', 'outline']);
+  } finally {
+    element.remove();
+  }
+});
