@@ -309,6 +309,18 @@
 [part="docs-sort"]:hover {
   background-color: var(--pey-color-surface, #f1f1f5);
 }
+/* Primary create action: inset ring instead of a border so the ghost row
+ * keeps its geometry (these buttons are borderless). Core mirrors the
+ * settings-button primary block above. */
+[part="docs-new"][data-primary],
+[part="docs-mindmap-new"][data-primary] {
+  box-shadow: inset 0 0 0 1px var(--pey-color-accent, #0f766e);
+  color: var(--pey-color-accent, #0f766e);
+}
+[part="docs-new"][data-primary]:hover,
+[part="docs-mindmap-new"][data-primary]:hover {
+  background-color: color-mix(in srgb, var(--pey-color-accent, #0f766e) 12%, transparent);
+}
 [part="docs-sort-wrap"] {
   position: relative;
   flex: 1;
@@ -449,6 +461,26 @@
 }
 [part="settings-button"]:hover {
   border-color: var(--pey-color-border, #c8c8d2);
+}
+[part="settings-button"]:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* Primary action variant (canonical copy): outlined accent for the main
+ * action of a group while secondary buttons stay ghost. The light
+ * fallbacks suit light backgrounds; dark/sepia resolve their own accent.
+ * Meaning rides data-primary (asserted in tests). */
+[part="settings-button"][data-primary] {
+  border-color: var(--pey-color-accent, #0f766e);
+  color: var(--pey-color-accent, #0f766e);
+  font-weight: 700;
+}
+[part="settings-button"][data-primary]:hover {
+  border-color: var(--pey-color-accent, #0f766e);
+  background-color: color-mix(in srgb, var(--pey-color-accent, #0f766e) 12%, transparent);
+}
+[part="settings-button"][data-primary]:disabled {
+  background-color: transparent;
 }
 [part="settings-note"] {
   font-size: 0.8rem;

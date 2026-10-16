@@ -28,7 +28,7 @@ export function renderSyncView({ t, sync = null }) {
       <p part="settings-note">${escapeHtml(translate('parsinegar.sync.last-sync'))}: ${escapeHtml(snapshot.lastSyncText ?? translate('parsinegar.sync.never'))}</p>
       ${error}
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-sync-now${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.syncing' : 'parsinegar.sync.now'))}</button>
+        <button type="button" part="settings-button" data-primary data-sync-now${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.syncing' : 'parsinegar.sync.now'))}</button>
         <button type="button" part="settings-button" data-sync-remove${busy ? ' disabled' : ''}>${escapeHtml(translate('parsinegar.sync.remove'))}</button>
       </div>`
     : `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.unconfigured'))}</p>
@@ -48,7 +48,7 @@ export function renderSyncView({ t, sync = null }) {
         <input type="password" dir="ltr" data-sync-field="token" required autocomplete="off">
       </label>
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-sync-save${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.connecting' : 'parsinegar.sync.save'))}</button>
+        <button type="button" part="settings-button" data-primary data-sync-save${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.connecting' : 'parsinegar.sync.save'))}</button>
       </div>`;
   return `
     <div part="settings-view">
@@ -63,7 +63,7 @@ export function renderSyncView({ t, sync = null }) {
           <textarea dir="auto" rows="6" data-sync-field="ignore" autocomplete="off" spellcheck="false">${escapeHtml(snapshot?.ignoreText ?? '')}</textarea>
         </label>
         <div part="settings-actions">
-          <button type="button" part="settings-button" data-sync-ignore-save>${escapeHtml(translate('parsinegar.sync.ignore-save'))}</button>
+          <button type="button" part="settings-button" data-primary data-sync-ignore-save>${escapeHtml(translate('parsinegar.sync.ignore-save'))}</button>
         </div>
       </fieldset>
     </div>`;

@@ -98,7 +98,7 @@ export function renderSearchForm({ t, state = {}, formatNumber = String }) {
       <div part="search-row">
         <button type="button" part="search-button" data-search-action="previous" data-pey-preserve="search-action-previous" data-pey-preserve-state="focus">${escapeHtml(translate('parsinegar.search.previous'))}</button>
         <output part="search-count" data-search-count>${renderCount(translate, format, snapshot.count)}</output>
-        <button type="button" part="search-button" data-search-action="next" data-pey-preserve="search-action-next" data-pey-preserve-state="focus">${escapeHtml(translate('parsinegar.search.next'))}</button>
+        <button type="button" part="search-button" data-primary data-search-action="next" data-pey-preserve="search-action-next" data-pey-preserve-state="focus">${escapeHtml(translate('parsinegar.search.next'))}</button>
       </div>
       <div part="search-row">
         <button type="button" part="search-button" data-search-action="replace-one" data-pey-preserve="search-action-replace-one" data-pey-preserve-state="focus">${escapeHtml(translate('parsinegar.search.replace-one'))}</button>

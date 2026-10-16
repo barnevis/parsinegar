@@ -264,8 +264,8 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
   const mindmapNewLabel = escapeHtml(translate('parsinegar.views.mindmap-new'));
   const mindmapNewIcon = iconMarkup(assetBaseUrl, 'account-tree') || mindmapNewLabel;
   const createBit = mindmap === true
-    ? `<button type="button" part="docs-mindmap-new" data-mindmap-new aria-label="${mindmapNewLabel}" data-tooltip="${mindmapNewLabel}">${mindmapNewIcon}</button>`
-    : `<button type="button" part="docs-new" aria-label="${newLabel}" data-tooltip="${newLabel}">${newIcon}</button>
+    ? `<button type="button" part="docs-mindmap-new" data-primary data-mindmap-new aria-label="${mindmapNewLabel}" data-tooltip="${mindmapNewLabel}">${mindmapNewIcon}</button>`
+    : `<button type="button" part="docs-new" data-primary aria-label="${newLabel}" data-tooltip="${newLabel}">${newIcon}</button>
         <button type="button" part="docs-folder-new" aria-label="${newFolderLabel}" data-tooltip="${newFolderLabel}">${newFolderIcon}</button>
         <button type="button" part="docs-import" aria-label="${importLabel}" data-tooltip="${importLabel}">${importIcon}</button>`;
   return `

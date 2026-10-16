@@ -61,6 +61,18 @@ test('should_disable_actions_and_rename_labels_when_busy', () => {
   assert.ok(connecting.includes('parsinegar.sync.connecting'));
 });
 
+test('should_mark_main_actions_primary_when_rendered', () => {
+  const fresh = renderSyncView({ t: (key) => key, sync: null });
+  assert.ok(fresh.includes('data-primary data-sync-save'), 'expected the save primary');
+  assert.ok(fresh.includes('data-primary data-sync-ignore-save'), 'expected the ignore save primary');
+  const configured = renderSyncView({
+    t: (key) => key,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null, busy: false },
+  });
+  assert.ok(configured.includes('data-primary data-sync-now'), 'expected the sync primary');
+  assert.ok(!configured.includes('data-primary data-sync-remove'), 'expected no primary remove');
+});
+
 test('should_repopulate_attempt_without_token_when_unconfigured', () => {
   const markup = renderSyncView({
     t: (key) => key,
