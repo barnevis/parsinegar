@@ -32,6 +32,7 @@ Requirements: Node >= 20. The server must serve the repo root so that `node_modu
 - No decorative comments. Comments explain *why*, concisely.
 - UI strings are Persian (say «سند», never file/document in user-facing text); code identifiers stay English.
 - Icons: Google Material Symbols via `src/ui/assets/icons.svg`, `currentColor` only.
+- Visual standard: adapted Material Design 3 (button emphasis tiers, single prominent action per group, RTL-first, token theming) with WCAG 2.2 AA as the gate; product deviations (outlined max emphasis, 8px radius, Vazirmatn, no button components) are recorded in `docs/decisions.md`, never improvised per task.
 - UI contract (`pey.webui`): `connect({infrastructure,refs})` once before insertion; parents render only `<div data-slot>`; mount children with `scheduleAttachments` + `mountComponent`; children report upward only via bubbling `CustomEvent`s.
 
 ## Testing

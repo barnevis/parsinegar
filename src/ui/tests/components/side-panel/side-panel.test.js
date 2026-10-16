@@ -587,10 +587,6 @@ test('should_outline_primary_actions_when_rendered', async () => {
       style.textContent.includes('[part="settings-button"][data-primary]'),
       'expected the primary settings rule',
     );
-    assert.ok(
-      style.textContent.includes('[part="docs-new"][data-primary]'),
-      'expected the primary create rule',
-    );
   } finally {
     element.remove();
   }

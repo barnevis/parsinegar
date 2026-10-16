@@ -23,14 +23,16 @@ export function renderSyncView({ t, sync = null }) {
   const error = snapshot?.errorText
     ? `<p part="settings-error">${escapeHtml(translate('parsinegar.sync.error'))}: ${escapeHtml(snapshot.errorText)}</p>`
     : '';
+  const spinner = '<span part="sync-spinner" aria-hidden="true"></span>';
   const status = snapshot?.configured === true
     ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.backend'))}: ${escapeHtml(snapshot.repo ?? '')} / ${escapeHtml(snapshot.branch ?? '')}</p>
       <p part="settings-note">${escapeHtml(translate('parsinegar.sync.last-sync'))}: ${escapeHtml(snapshot.lastSyncText ?? translate('parsinegar.sync.never'))}</p>
       ${error}
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-primary data-sync-now${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.syncing' : 'parsinegar.sync.now'))}</button>
+        <button type="button" part="settings-button" data-primary data-sync-now${busy ? ' disabled' : ''}>${busy ? spinner : ''}${escapeHtml(translate('parsinegar.sync.now'))}</button>
         <button type="button" part="settings-button" data-sync-remove${busy ? ' disabled' : ''}>${escapeHtml(translate('parsinegar.sync.remove'))}</button>
-      </div>`
+      </div>
+      ${busy ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.syncing'))}</p>` : ''}`
     : `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.unconfigured'))}</p>
       ${error}
       <label part="settings-field">
@@ -48,8 +50,9 @@ export function renderSyncView({ t, sync = null }) {
         <input type="password" dir="ltr" data-sync-field="token" required autocomplete="off">
       </label>
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-primary data-sync-save${busy ? ' disabled' : ''}>${escapeHtml(translate(busy ? 'parsinegar.sync.connecting' : 'parsinegar.sync.save'))}</button>
-      </div>`;
+        <button type="button" part="settings-button" data-primary data-sync-save${busy ? ' disabled' : ''}>${busy ? spinner : ''}${escapeHtml(translate('parsinegar.sync.save'))}</button>
+      </div>
+      ${busy ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.connecting'))}</p>` : ''}`;
   return `
     <div part="settings-view">
       <fieldset part="settings-group">

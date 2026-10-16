@@ -52,12 +52,15 @@ test('should_disable_actions_and_rename_labels_when_busy', () => {
     sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null, busy: true },
   });
   assert.ok(busy.includes('data-sync-now disabled'));
-  assert.ok(busy.includes('parsinegar.sync.syncing'));
+  assert.ok(busy.includes('part="sync-spinner"'), 'expected the in-button spinner');
+  assert.ok(busy.includes('parsinegar.sync.syncing'), 'expected the status note below');
+  assert.ok(busy.includes('parsinegar.sync.now</button>'), 'expected the button label kept');
   const connecting = renderSyncView({
     t: (key) => key,
     sync: { configured: false, repo: null, branch: null, lastSyncText: null, errorText: null, busy: true },
   });
   assert.ok(connecting.includes('data-sync-save disabled'));
+  assert.ok(connecting.includes('part="sync-spinner"'));
   assert.ok(connecting.includes('parsinegar.sync.connecting'));
 });
 

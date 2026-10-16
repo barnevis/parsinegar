@@ -39,9 +39,7 @@ test('should_render_actions_when_called', () => {
   assert.ok(!html.includes('part="docs-delete"'), 'expected no panel delete button');
   assert.ok(html.includes('aria-label="سند تازه"'));
   assert.ok(html.includes('data-tooltip="سند تازه"'));
-  assert.ok(html.includes('part="docs-new" data-primary'), 'expected the create action primary');
-  assert.ok(!html.includes('part="docs-folder-new" data-primary'), 'expected no primary folder action');
-  assert.ok(!html.includes('part="docs-import" data-primary'), 'expected no primary import action');
+  assert.ok(!html.includes('data-primary'), 'expected no primary action in the files header');
   assert.ok(!html.includes('title="'), 'expected no native tooltips');
   assert.ok(html.includes('<svg'));
   assert.ok(html.includes('#add-notes'));
