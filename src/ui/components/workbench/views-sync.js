@@ -57,6 +57,7 @@ export function renderSyncView({ t, sync = null }) {
     <div part="settings-view">
       <fieldset part="settings-group">
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.title'))}</legend>
+        <p part="settings-note">${escapeHtml(translate('parsinegar.sync.experimental'))}</p>
         ${status}
       </fieldset>
       <fieldset part="settings-group">

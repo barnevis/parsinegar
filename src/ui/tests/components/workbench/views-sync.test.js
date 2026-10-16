@@ -5,6 +5,7 @@ import { renderSyncView } from '../../../components/workbench/views-sync.js';
 
 test('should_render_sync_form_when_unconfigured', () => {
   const markup = renderSyncView({ t: (key) => key, sync: null });
+  assert.ok(markup.includes('parsinegar.sync.experimental'), 'expected the experimental notice');
   assert.ok(markup.includes('data-sync-field="repo"'));
   assert.ok(markup.includes('data-sync-field="branch"'));
   assert.ok(markup.includes('data-sync-field="token"'));
@@ -27,6 +28,7 @@ test('should_render_sync_status_when_configured', () => {
   assert.ok(markup.includes('data-sync-now'));
   assert.ok(markup.includes('data-sync-remove'));
   assert.ok(markup.includes('u/r'));
+  assert.ok(markup.includes('parsinegar.sync.experimental'), 'expected the experimental notice when configured');
   assert.ok(!markup.includes('data-sync-field="token"'), 'expected no token field when configured');
 });
 

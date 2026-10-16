@@ -143,6 +143,7 @@ const catalog = {
     'parsinegar.settings.decrease': 'کوچک‌تر',
     'parsinegar.settings.increase': 'بزرگ‌تر',
     'parsinegar.sync.title': 'همگام‌سازی',
+    'parsinegar.sync.experimental': 'این بخش آزمایشی است — روی داده مهم با احتیاط استفاده کنید.',
     'parsinegar.sync.backend': 'مخزن گیت',
     'parsinegar.sync.repo': 'مخزن (owner/name)',
     'parsinegar.sync.branch': 'شاخه',
