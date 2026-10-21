@@ -54,6 +54,32 @@ test('should_remove_marker_when_enter_on_empty_item', () => {
   assert.equal(result.cursor, 0);
 });
 
+test('should_clear_indented_empty_item_to_line_start', () => {
+  const result = continued('- یک\n\t- ', 8);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '- یک\n');
+  assert.equal(result.cursor, result.text.length);
+});
+
+test('should_clear_space_indented_empty_item_to_line_start', () => {
+  const result = continued('- پدر\n  + ', 10);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '- پدر\n');
+  assert.equal(result.cursor, result.text.length);
+});
+
+test('should_clear_indented_empty_task_to_line_start', () => {
+  const result = continued('- کار\n\t- [ ] ', 13);
+  assert.equal(result.handled, true);
+  assert.equal(result.text, '- کار\n');
+  assert.equal(result.cursor, result.text.length);
+});
+
+test('should_clear_indented_empty_ordered_to_line_start', () => {
+  assert.deepEqual(continued('- یک\n\t۲. ', 9), { handled: true, text: '- یک\n', cursor: 5 });
+  assert.deepEqual(continued('۱. ریشه\n  3. ', 13), { handled: true, text: '۱. ریشه\n', cursor: 8 });
+});
+
 test('should_reopen_unchecked_box_when_continuing_tasks', () => {
   assert.equal(continued('- [ ] task', 10).text, '- [ ] task\n- [ ] ');
   assert.equal(continued('- [x] task', 10).text, '- [x] task\n- [ ] ');

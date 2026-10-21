@@ -6,7 +6,8 @@
 // cursor at the end of a list, task or quote line by opening the next item
 // with the same marker (tasks reopen unchecked, ordered markers increment
 // from the current line's own number, quotes repeat their `>` run). An
-// Enter on a marker-only line removes the marker instead (the standard
+// Enter on a marker-only line removes the entire line — indent included,
+// however deep — and parks the caret on the clean line start (the standard
 // second-Enter-exits). Anything else — mid-line cursors, selections,
 // headings, fences, modified keys — returns false so the default newline
 // runs.
@@ -25,7 +26,7 @@ const UNORDERED_EMPTY_PATTERN = /^(\s*)([*+-])(\s+)$/;
 const UNORDERED_CONTENT_PATTERN = /^(\s*)([*+-])\s+\S/;
 const TASK_EMPTY_PATTERN = /^(\s*)((?:[*+-]|\d+[.)])\s+\[[ xX]\])\s*$/;
 const TASK_CONTENT_PATTERN = /^(\s*)([*+-]|\d+[.)])\s+\[[ xX]\]\s*\S/;
-const ORDERED_EMPTY_PATTERN = /^(\s*)\d+[.)]\s*$/;
+const ORDERED_EMPTY_PATTERN = /^(\s*)([0-9\u06F0-\u06F9]+)[.)]\s*$/;
 const ORDERED_CONTENT_PATTERN = /^(\s*)([0-9\u06F0-\u06F9]+)([.)])\s+\S/;
 const QUOTE_PREFIX_PATTERN = /^(\s*(?:>\s*)+)/;
 
@@ -77,18 +78,17 @@ export function continueList(view) {
   if (selection.from !== line.to) {
     return false;
   }
-  if (selection.from !== line.to) {
-    return false;
-  }
   const { text } = line;
   let match = TASK_EMPTY_PATTERN.exec(text)
     ?? UNORDERED_EMPTY_PATTERN.exec(text)
     ?? ORDERED_EMPTY_PATTERN.exec(text);
   if (match) {
-    const indent = match[1] ?? '';
+    // An empty list line ends the whole list at any nesting depth: the
+    // indent and marker go together, so the caret lands on a clean
+    // column-zero line instead of lingering past a leftover indent.
     view.dispatch({
-      changes: { from: line.from + indent.length, to: line.to, insert: '' },
-      selection: EditorSelection.cursor(line.from + indent.length),
+      changes: { from: line.from, to: line.to, insert: '' },
+      selection: EditorSelection.cursor(line.from),
       scrollIntoView: true,
     });
     return true;
