@@ -71,7 +71,7 @@ parsinegar/
 | `parsinegar.documents` | product | ۰.۵.۰ | چندسند مارک‌داون (CRUD، عنوان یکتا، پوشه‌بندی، پرچم فقط-خواندن) روی `pey.storage` |
 | `parsinegar.settings` | product | ۰.۳.۰ | ترجیحات کاربر (پوسته، جهت، قلم) روی `pey.storage` |
 | `parsinegar.export` | feature | ۰.۲.۰ | خروجی HTML مستقل و zip چندسندی مارک‌داون |
-| `pey.sync` | infrastructure | ۰.۲.۰ | همگام‌سازی دستی مجموعه‌ها با فضای کاربر (بک‌اند git)؛ محلی می‌ماند تا مستقل منتشر شود |
+| `pey.sync` | infrastructure | ۰.۳.۰ | همگام‌سازی دستی سندها با فضای کاربر (بک‌اند git، هویت مسیر)؛ محلی می‌ماند تا مستقل منتشر شود |
 | `parsinegar.app` | — | ۰.۱.۰ | مالک مسیرهای اپ |
 | `pey.filesystem` | infrastructure | ۰.۲.۰ | دسترسی به فایل/پوشهٔ دستگاه؛ محلی می‌ماند تا مستقل منتشر شود |
 

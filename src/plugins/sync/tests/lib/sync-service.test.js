@@ -14,7 +14,7 @@ function decode(payload) {
   return Buffer.from(String(payload ?? '').replace(/\s/g, ''), 'base64').toString('utf8');
 }
 
-function fakeGitHub({ files = {}, failOpen = null, forceManifestConflict = false } = {}) {
+function fakeGitHub({ files = {}, failOpen = null } = {}) {
   const store = new Map(Object.entries(files));
   let revCounter = 0;
   const calls = [];
@@ -56,9 +56,6 @@ function fakeGitHub({ files = {}, failOpen = null, forceManifestConflict = false
     const path = decodeURIComponent(match?.[1] ?? '');
     if (method === 'PUT') {
       const body = JSON.parse(options.body);
-      if (forceManifestConflict && path === 'sync-manifest.json') {
-        return fail(409);
-      }
       const hit = store.get(path);
       if (body.sha !== undefined && hit && hit.rev !== body.sha) {
         return fail(409);
@@ -87,6 +84,7 @@ function fakeGitHub({ files = {}, failOpen = null, forceManifestConflict = false
   return {
     fetchFn,
     calls,
+    reads: () => calls.filter((call) => call.method === 'GET' && call.url.includes('/contents/')),
     writes: () => calls.filter((call) => call.method === 'PUT' || call.method === 'DELETE'),
     files: store,
   };
@@ -104,7 +102,6 @@ function events() {
 
 const SCOPE = {
   collections: [
-    { collection: 'folders', serializer: 'json' },
     {
       collection: 'docs',
       serializer: 'markdown',
@@ -112,6 +109,10 @@ const SCOPE = {
       folders: { collection: 'folders', nameField: 'name' },
     },
   ],
+};
+
+const JSON_SCOPE = {
+  collections: [{ collection: 'notes', serializer: 'json', idField: 'key', updatedAtField: 'mtime', contentField: 'text' }],
 };
 
 function setup({ storageData = {}, files = {}, eventsBus = events(), options = {} } = {}) {
@@ -229,67 +230,77 @@ test('should_push_everything_on_first_sync_when_synced', async () => {
   await configure(service);
   const report = await service.syncNow({ scope: SCOPE });
   assert.equal(report.completed, true);
-  assert.deepEqual(report.pushed.map((item) => item.id).sort(), ['d1', 'f1']);
+  assert.deepEqual(report.pushed.map((item) => item.id), ['d1']);
   assert.deepEqual(report.conflicts, []);
-  assert.ok(remote.files.has('docs/کار/یادداشت.md') || [...remote.files.keys()].some((key) => key.endsWith('/یادداشت.md')));
-  assert.ok(remote.files.has('sync-manifest.json'));
-  const manifest = JSON.parse(decode(remote.files.get('sync-manifest.json').content));
-  assert.equal(manifest.version, 1);
-  assert.equal(manifest.records.length, 2);
-  assert.ok(manifest.records.some((item) => item.title === 'یادداشت'));
+  assert.ok(remote.files.has('کار/یادداشت.md'));
+  assert.equal(decode(remote.files.get('کار/یادداشت.md').content), 'سلام');
   const status = await service.getStatus();
   assert.equal(typeof status.lastSyncAt, 'number');
   assert.equal(status.lastError, null);
-  assert.ok(bus.seen.some((event) => event.type === 'sync:changed'));
+  assert.ok(bus.seen.some((event) => event.type === 'sync:changed' && event.data.pushed.length === 1));
   assert.ok(!bus.seen.some((event) => event.type === 'sync:conflicts'));
 });
 
-test('should_write_nothing_on_repeat_sync_when_synced', async () => {
+test('should_rest_without_reads_or_writes_on_repeat_sync_when_synced', async () => {
   const { service, remote } = setup({
     storageData: {
       docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
     },
   });
   await configure(service);
-  await service.syncNow({ scope: SCOPE });
-  const writes = remote.writes().length;
+  const first = await service.syncNow({ scope: SCOPE });
+  assert.equal(first.completed, true);
   const second = await service.syncNow({ scope: SCOPE });
   assert.equal(second.completed, true);
   assert.deepEqual(second.pushed, []);
   assert.deepEqual(second.pulled, []);
-  assert.equal(remote.writes().length, writes);
+  assert.equal(remote.writes().length, 1, 'expected only the first round to write');
+  assert.equal(remote.reads().length, 2, 'expected root lists only, no per-file hash reads');
 });
 
 test('should_pull_remote_tree_when_synced', async () => {
-  const manifest = {
-    version: 1,
-    records: [
-      { collection: 'folders', id: 'f1', path: 'folders/f1.json', updatedAt: 10, hash: 'h', title: null },
-      { collection: 'docs', id: 'd1', path: 'کار/یادداشت.md', updatedAt: 20, hash: 'h', title: 'یادداشت' },
-    ],
-  };
-  const folderRecord = { id: 'f1', name: 'کار', parentId: null, updatedAt: 10 };
   const { service, storage } = setup({
     files: {
-      'sync-manifest.json': { content: Buffer.from(JSON.stringify(manifest)).toString('base64'), rev: 'm1' },
-      'folders/f1.json': { content: Buffer.from(JSON.stringify(folderRecord)).toString('base64'), rev: 'f1' },
       'کار/یادداشت.md': { content: Buffer.from('سلام از راه دور').toString('base64'), rev: 'd1' },
     },
   });
   await configure(service);
   const report = await service.syncNow({ scope: SCOPE });
   assert.equal(report.completed, true);
-  assert.deepEqual(report.pulled.map((item) => item.id).sort(), ['d1', 'f1']);
-  const doc = await storage.read('docs', 'd1');
-  assert.equal(doc.content, 'سلام از راه دور');
-  assert.equal(doc.title, 'یادداشت');
-  assert.equal(doc.folderId, 'f1');
+  assert.equal(report.pulled.length, 1);
+  const docs = await storage.query('docs');
+  assert.equal(docs.length, 1);
+  assert.equal(docs[0].content, 'سلام از راه دور');
+  assert.equal(docs[0].title, 'یادداشت');
+  const folders = await storage.query('folders');
+  assert.equal(folders.length, 1);
+  assert.equal(folders[0].name, 'کار');
+  assert.equal(docs[0].folderId, folders[0].id);
+});
+
+test('should_pull_minting_folder_chain_when_synced', async () => {
+  const { service, storage } = setup({
+    storageData: {
+      folders: [{ id: 'f2', name: 'پروژه', parentId: null, updatedAt: 1 }],
+      docs: [{ id: 'd9', title: 'همسایه', content: 'x', folderId: 'f2', updatedAt: 2 }],
+    },
+    files: {
+      'پروژه/ویسنامه.md': { content: Buffer.from('تازه').toString('base64'), rev: 'a1' },
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
+  const docs = await storage.query('docs');
+  const pulled = docs.find((record) => record.title === 'ویسنامه');
+  const known = await storage.query('folders');
+  const parent = known.find((record) => record.name === 'پروژه');
+  assert.equal(pulled.folderId, parent?.id ?? null);
 });
 
 function scopeWithIgnore(patterns) {
   return {
     collections: [
-      { collection: 'folders', serializer: 'json' },
       {
         collection: 'docs',
         serializer: 'markdown',
@@ -317,23 +328,13 @@ test('should_skip_ignored_documents_and_folders_when_synced', async () => {
   assert.equal(report.completed, true);
   assert.deepEqual(report.pushed, []);
   assert.deepEqual(report.pulled, []);
-  assert.ok(
-    ![...remote.files.keys()].some((key) => key !== 'sync-manifest.json'),
-    'expected nothing pushed',
-  );
+  assert.equal(remote.writes().length, 0, 'expected nothing pushed');
   assert.deepEqual(await service.hasPendingChanges({ scope }), { pending: false });
 });
 
 test('should_leave_ignored_remote_files_alone_when_synced', async () => {
-  const manifest = {
-    version: 1,
-    records: [
-      { collection: 'docs', id: 'd1', path: 'پیش‌نویس.md', updatedAt: 20, hash: 'h', title: 'پیش‌نویس' },
-    ],
-  };
-  const { service, storage, remote } = setup({
+  const { service, remote, events: bus } = setup({
     files: {
-      'sync-manifest.json': { content: Buffer.from(JSON.stringify(manifest)).toString('base64'), rev: 'm1' },
       'پیش‌نویس.md': { content: Buffer.from('متن').toString('base64'), rev: 'd1' },
     },
   });
@@ -343,11 +344,11 @@ test('should_leave_ignored_remote_files_alone_when_synced', async () => {
   assert.deepEqual(report.pulled, []);
   assert.deepEqual(report.deletedRemote, []);
   assert.ok(remote.files.has('پیش‌نویس.md'), 'expected the ignored file untouched');
-  assert.equal(await storage.read('docs', 'd1'), null);
+  assert.ok(bus.seen.some((event) => event.type === 'sync:changed' && event.data.conflicts.length === 0));
 });
 
 test('should_not_delete_previously_synced_when_ignored', async () => {
-  const { service, remote } = setup({
+  const { service, remote, storage } = setup({
     storageData: {
       docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
     },
@@ -356,13 +357,15 @@ test('should_not_delete_previously_synced_when_ignored', async () => {
   const first = await service.syncNow({ scope: SCOPE });
   assert.equal(first.completed, true);
   assert.ok(remote.files.has('یادداشت.md'));
-  const scope = scopeWithIgnore(['یادداشت']);
-  const second = await service.syncNow({ scope });
+  assert.ok(await storage.read('docs', 'd1'), 'expected the local doc alive');
+  const second = await service.syncNow({ scope: scopeWithIgnore(['یادداشت']) });
   assert.equal(second.completed, true);
   assert.deepEqual(second.deletedRemote, []);
+  assert.deepEqual(second.deleteLocal, []);
   assert.deepEqual(second.pushed, []);
   assert.ok(remote.files.has('یادداشت.md'), 'expected the ignored file kept');
-  assert.deepEqual(await service.hasPendingChanges({ scope }), { pending: false });
+  assert.ok(await storage.read('docs', 'd1'), 'expected the ignored doc kept');
+  assert.deepEqual(await service.hasPendingChanges({ scope: scopeWithIgnore(['یادداشت']) }), { pending: false });
 });
 
 test('should_reject_bad_ignore_when_synced', async () => {
@@ -374,23 +377,20 @@ test('should_reject_bad_ignore_when_synced', async () => {
   assert.equal(error?.code, 'SYNC_INVALID_CONFIG');
 });
 
-test('should_relocate_when_folder_chain_breaks_when_synced', async () => {
-  const manifest = {
-    version: 1,
-    records: [{ collection: 'docs', id: 'd1', path: 'گمشده/یادداشت.md', updatedAt: 20, hash: 'h', title: 'یادداشت' }],
-  };
+test('should_relocate_dangling_folder_links_when_synced', async () => {
   const { service, storage } = setup({
-    files: {
-      'sync-manifest.json': { content: Buffer.from(JSON.stringify(manifest)).toString('base64'), rev: 'm1' },
-      'گمشده/یادداشت.md': { content: Buffer.from('متن').toString('base64'), rev: 'd1' },
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'متن', folderId: 'vanished', updatedAt: 20 }],
     },
   });
   await configure(service);
   const report = await service.syncNow({ scope: SCOPE });
   assert.equal(report.completed, true);
+  assert.deepEqual(report.relocated.map((item) => [item.collection, item.id, item.path]), [
+    ['docs', 'd1', 'یادداشت.md'],
+  ]);
   const doc = await storage.read('docs', 'd1');
-  assert.equal(doc.folderId, null);
-  assert.deepEqual(report.relocated, [{ collection: 'docs', id: 'd1', path: 'گمشده/یادداشت.md' }]);
+  assert.equal(doc.folderId, 'vanished', 'expected the link preserved, only the path moved');
 });
 
 test('should_propagate_deletes_both_ways_when_synced', async () => {
@@ -410,17 +410,128 @@ test('should_propagate_deletes_both_ways_when_synced', async () => {
   const second = await service.syncNow({ scope: SCOPE });
   assert.ok(second.deletedRemote.some((item) => item.id === 'gone-local'));
   assert.ok(!remote.files.has('رفتنی.md'));
-  const manifest = JSON.parse(Buffer.from(remote.files.get('sync-manifest.json').content, 'base64').toString('utf8'));
-  assert.ok(!manifest.records.some((item) => item.id === 'gone-local'));
   remote.files.delete('ماندنی.md');
-  const listed = manifest.records.filter((item) => item.id !== 'keep');
-  remote.files.set('sync-manifest.json', {
-    content: Buffer.from(JSON.stringify({ version: 1, records: listed })).toString('base64'),
-    rev: 'm9',
-  });
   const third = await service.syncNow({ scope: SCOPE });
   assert.ok(third.deleteLocal.some((item) => item.id === 'keep'));
   assert.equal(await storage.read('docs', 'keep'), null);
+});
+
+test('should_fail_on_local_path_collision_when_synced', async () => {
+  const { service, remote, events: bus } = setup({
+    storageData: {
+      docs: [
+        { id: 'd1', title: 'همسنگ', content: 'نخست', folderId: null, updatedAt: 1 },
+        { id: 'd2', title: 'همسنگ', content: 'دوم', folderId: null, updatedAt: 1 },
+      ],
+    },
+  });
+  await configure(service);
+  const error = await service.syncNow({ scope: SCOPE }).catch((caught) => caught);
+  assert.equal(error?.code, 'SYNC_PATH_COLLISION');
+  assert.deepEqual(remote.writes(), [], 'expected no remote touch while locals collide');
+  const status = await service.getStatus();
+  assert.equal(status.lastError?.code, 'SYNC_PATH_COLLISION');
+  assert.ok(bus.seen.some((event) => event.type === 'sync:changed'));
+});
+
+test('should_tolerate_corrupt_legacy_manifest_when_synced', async () => {
+  const { service, remote, storage } = setup({
+    storageData: { docs: [{ id: 'd1', title: 'x', content: 'y', folderId: null, updatedAt: 1 }] },
+    files: { 'sync-manifest.json': { content: Buffer.from('nope').toString('base64'), rev: 'm' } },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
+  assert.ok(remote.files.has('sync-manifest.json'), 'expected an unreadable manifest left in place');
+  assert.ok(await storage.read('docs', 'd1'));
+});
+
+test('should_migrate_legacy_state_and_clean_artifacts_when_synced', async () => {
+  const legacyManifest = {
+    version: 1,
+    records: [
+      { collection: 'docs', id: 'd1', path: 'یادداشت.md', updatedAt: 10, hash: hashRecord('محتوای قدیم'), title: 'یادداشت' },
+      { collection: 'folders', id: 'f1', path: 'folders/f1.json', updatedAt: 1, hash: 'x', title: null },
+    ],
+  };
+  const { service, remote } = setup({
+    storageData: {
+      'sync_state': [{ id: 'active', snapshot: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', updatedAt: 10 }] }],
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'محتوای تازه', folderId: null, updatedAt: 50 }],
+    },
+    files: {
+      'sync-manifest.json': { content: Buffer.from(JSON.stringify(legacyManifest)).toString('base64'), rev: 'm1' },
+      'یادداشت.md': { content: Buffer.from('محتوای قدیم').toString('base64'), rev: 'f1' },
+      'folders/f1.json': { content: Buffer.from('{"id":"f1","name":"x"}').toString('base64'), rev: 'f2' },
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
+  assert.deepEqual(report.conflicts, []);
+  assert.deepEqual(report.pushed.map((item) => item.id), ['d1'], 'expected a seeded hash to read the local edit as a push');
+  assert.equal(decode(remote.files.get('یادداشت.md').content), 'محتوای تازه');
+  assert.ok(!remote.files.has('sync-manifest.json'), 'expected the legacy manifest swept');
+  assert.ok(!remote.files.has('folders/f1.json'), 'expected the stale folder file swept');
+  assert.deepEqual(await service.hasPendingChanges({ scope: SCOPE }), { pending: false });
+});
+
+test('should_sync_custom_id_fields_when_synced', async () => {
+  const { service, remote } = setup({
+    storageData: { notes: [{ key: 'n1', text: 'hi', mtime: 5 }] },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: JSON_SCOPE });
+  assert.equal(report.completed, true);
+  assert.deepEqual(report.pushed.map((item) => item.id), ['n1']);
+  assert.ok(remote.files.has('notes/n1.json'));
+  assert.deepEqual(await service.hasPendingChanges({ scope: JSON_SCOPE }), { pending: false });
+});
+
+test('should_pull_json_records_when_synced', async () => {
+  const { service, storage } = setup({
+    files: {
+      'notes/n1.json': {
+        content: Buffer.from(JSON.stringify({ key: 'n1', text: 'سلام', mtime: 1 })).toString('base64'),
+        rev: 'n1',
+      },
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: JSON_SCOPE });
+  assert.equal(report.completed, true);
+  const record = await storage.read('notes', 'n1');
+  assert.equal(record.text, 'سلام');
+  assert.equal(typeof record.mtime, 'number');
+});
+
+test('should_skip_json_identity_mismatch_when_synced', async () => {
+  const { service, storage } = setup({
+    files: {
+      'notes/wrongname.json': {
+        content: Buffer.from(JSON.stringify({ key: ' kidnapper', text: 'x', mtime: 1 })).toString('base64'),
+        rev: 'w1',
+      },
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: JSON_SCOPE });
+  assert.equal(report.completed, true);
+  assert.deepEqual(report.pulled, []);
+  assert.ok(report.skipped.some((item) => item.path === 'notes/wrongname.json'));
+  assert.equal(await storage.read('notes', 'kidnapper'), null);
+});
+
+test('should_skip_idless_records_without_crashing_when_synced', async () => {
+  const { service, remote } = setup({
+    storageData: { docs: [{ title: 'بی‌شناسه', content: 'x', folderId: null, updatedAt: 1 }] },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
+  assert.deepEqual(report.pushed, []);
+  assert.ok(report.skipped.some((item) => item.collection === 'docs' && item.id === null));
+  assert.equal(remote.writes().length, 0);
 });
 
 test('should_stop_on_conflict_when_synced', async () => {
@@ -432,12 +543,6 @@ test('should_stop_on_conflict_when_synced', async () => {
   await configure(service);
   const first = await service.syncNow({ scope: SCOPE });
   assert.equal(first.completed, true);
-  const manifest = JSON.parse(Buffer.from(remote.files.get('sync-manifest.json').content, 'base64').toString('utf8'));
-  manifest.records[0] = { ...manifest.records[0], updatedAt: 35, hash: 'other' };
-  remote.files.set('sync-manifest.json', {
-    content: Buffer.from(JSON.stringify(manifest)).toString('base64'),
-    rev: 'm2',
-  });
   remote.files.set('یادداشت.md', {
     content: Buffer.from('نسخه طرف').toString('base64'),
     rev: 'd2',
@@ -446,48 +551,64 @@ test('should_stop_on_conflict_when_synced', async () => {
   const report = await service.syncNow({ scope: SCOPE });
   assert.equal(report.completed, false);
   assert.equal(report.conflicts.length, 1);
+  assert.equal(report.conflicts[0].collection, 'docs');
+  assert.equal(report.conflicts[0].id, 'd1');
   assert.equal(report.conflicts[0].local.content, 'نسخه تازه من');
   assert.equal(report.conflicts[0].remote.content, 'نسخه طرف');
-  const status = await service.getStatus();
-  assert.equal(typeof status.lastSyncAt, 'number');
+  report.conflicts[0].title === null || report.conflicts[0].title === undefined;
+  assert.ok(report.conflicts[0].title === undefined || typeof report.conflicts[0].title === 'string');
   assert.ok(bus.seen.some((event) => event.type === 'sync:conflicts'));
+  assert.ok(await storage.read('docs', 'd1'), 'expected nothing deleted mid-conflict');
 });
 
-test('should_resolve_conflict_when_resolved', async () => {
-  const { service } = setup({
+test('should_resolve_conflict_via_local_when_resolved', async () => {
+  const { service, storage, remote } = setup({
     storageData: {
-      docs: [{ id: 'd1', title: 'یادداشت', content: 'نسخه من', folderId: null, updatedAt: 40 }],
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'نسخه من', folderId: null, updatedAt: 30 }],
     },
   });
   await configure(service);
-  const first = await service.syncNow({ scope: SCOPE });
-  assert.equal(first.completed, true);
-  const { service: third, remote } = setup({
-    storageData: {
-      docs: [{ id: 'd1', title: 'یادداشت', content: 'نسخه تازه من', folderId: null, updatedAt: 50 }],
-    },
-  });
-  await third.configureBackend({ kind: 'git', params: { repo: 'u/r', branch: 'main', token: 't' } });
-  remote.files.set('sync-manifest.json', {
-    content: Buffer.from(JSON.stringify({
-      version: 1,
-      records: [{ collection: 'docs', id: 'd1', path: 'docs/یادداشت.md', updatedAt: 45, hash: 'other', title: 'یادداشت' }],
-    })).toString('base64'),
-    rev: 'm2',
-  });
-  remote.files.set('docs/یادداشت.md', {
+  await service.syncNow({ scope: SCOPE });
+  remote.files.set('یادداشت.md', {
     content: Buffer.from('نسخه طرف').toString('base64'),
     rev: 'd2',
   });
-  const report = await third.syncNow({ scope: SCOPE });
+  await storage.write('docs', { id: 'd1', title: 'یادداشت', content: 'نسخه تازه من', folderId: null, updatedAt: 40 });
+  const report = await service.syncNow({ scope: SCOPE });
   assert.equal(report.completed, false);
-  const resolved = await third.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' });
+  const resolved = await service.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' });
   assert.equal(resolved.remaining, 0);
-  const status = await third.getStatus();
+  assert.equal(decode(remote.files.get('یادداشت.md').content), 'نسخه تازه من');
+  assert.equal((await storage.read('docs', 'd1')).content, 'نسخه تازه من');
+  const status = await service.getStatus();
   assert.equal(typeof status.lastSyncAt, 'number');
-  const done = await third.syncNow({ scope: SCOPE });
+  assert.equal(status.lastError, null);
+  const done = await service.syncNow({ scope: SCOPE });
   assert.equal(done.completed, true);
   assert.deepEqual(done.conflicts, []);
+});
+
+test('should_resolve_conflict_via_remote_when_resolved', async () => {
+  const { service, storage, remote } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'نسخه من', folderId: null, updatedAt: 30 }],
+    },
+  });
+  await configure(service);
+  await service.syncNow({ scope: SCOPE });
+  remote.files.set('یادداشت.md', {
+    content: Buffer.from('نسخه طرف').toString('base64'),
+    rev: 'd2',
+  });
+  await storage.write('docs', { id: 'd1', title: 'یادداشت', content: 'نسخه تازه من', folderId: null, updatedAt: 40 });
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, false);
+  const resolved = await service.resolveConflict({ collection: 'docs', id: 'd1', choice: 'remote' });
+  assert.equal(resolved.remaining, 0);
+  assert.equal((await storage.read('docs', 'd1')).content, 'نسخه طرف');
+  assert.equal(typeof (await service.getStatus()).lastSyncAt, 'number');
+  const done = await service.syncNow({ scope: SCOPE });
+  assert.equal(done.completed, true);
 });
 
 test('should_reject_unknown_conflict_when_resolved', async () => {
@@ -497,28 +618,14 @@ test('should_reject_unknown_conflict_when_resolved', async () => {
   assert.equal(error?.code, 'SYNC_INVALID_CONFIG');
   const bad = await service.resolveConflict({ collection: 'docs', id: 'x', choice: 'both' }).catch((caught) => caught);
   assert.equal(bad?.code, 'SYNC_INVALID_CONFIG');
+  const missing = await service.resolveConflict({ collection: null, id: 4, choice: 'local' }).catch((caught) => caught);
+  assert.equal(missing?.code, 'SYNC_INVALID_CONFIG');
 });
 
-test('should_fail_on_corrupt_manifest_when_synced', async () => {
-  const { service } = setup({
-    storageData: { docs: [{ id: 'd1', title: 'x', content: 'y', folderId: null, updatedAt: 1 }] },
-    files: { 'sync-manifest.json': { content: Buffer.from('nope').toString('base64'), rev: 'm' } },
-  });
-  await configure(service);
-  const error = await service.syncNow({ scope: SCOPE }).catch((caught) => caught);
-  assert.equal(error?.code, 'SYNC_CORRUPT_MANIFEST');
-  const status = await service.getStatus();
-  assert.equal(status.lastError?.code, 'SYNC_CORRUPT_MANIFEST');
-});
-
-test('should_fail_on_concurrent_manifest_write_when_synced', async () => {
-  const { service } = setup({
-    storageData: { docs: [{ id: 'd1', title: 'x', content: 'y', folderId: null, updatedAt: 1 }] },
-    options: { forceManifestConflict: true },
-  });
-  await configure(service);
-  const error = await service.syncNow({ scope: SCOPE }).catch((caught) => caught);
-  assert.equal(error?.code, 'SYNC_CONCURRENT_CHANGE');
+test('should_reject_resolve_without_backend_when_resolved', async () => {
+  const { service } = setup();
+  const error = await service.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' }).catch((caught) => caught);
+  assert.equal(error?.code, 'SYNC_NOT_CONFIGURED');
 });
 
 test('should_reject_bad_scope_and_unconfigured_when_synced', async () => {
@@ -531,21 +638,6 @@ test('should_reject_bad_scope_and_unconfigured_when_synced', async () => {
   const fresh = setup();
   const missing = await fresh.service.syncNow({ scope: SCOPE }).catch((caught) => caught);
   assert.equal(missing?.code, 'SYNC_NOT_CONFIGURED');
-});
-
-test('should_tolerate_missing_bus_when_synced', async () => {
-  const storage = memoryStorage({ docs: [{ id: 'd1', title: 'x', content: 'y', folderId: null, updatedAt: 1 }] });
-  const remote = fakeGitHub({});
-  const service = createService({ storage, events: null, fetchFn: remote.fetchFn });
-  await service.configureBackend({ kind: 'git', params: { repo: 'u/r', branch: 'main', token: 't' } });
-  const report = await service.syncNow({ scope: SCOPE });
-  assert.equal(report.completed, true);
-});
-
-test('should_fail_backend_removal_when_storage_is_missing', async () => {
-  const service = createService({ storage: null, events: events(), fetchFn: async () => ({}) });
-  const error = await service.removeBackend().catch((caught) => caught);
-  assert.equal(error?.code, 'SYNC_STORAGE_UNAVAILABLE');
 });
 
 test('should_reject_bad_scope_and_missing_storage_when_checked', async () => {
@@ -562,6 +654,21 @@ test('should_fail_status_check_when_storage_is_missing', async () => {
   const service = createService({ storage: null, events: events(), fetchFn: async () => ({}) });
   const error = await service.getStatus().catch((caught) => caught);
   assert.equal(error?.code, 'SYNC_STORAGE_UNAVAILABLE');
+});
+
+test('should_fail_backend_removal_when_storage_is_missing', async () => {
+  const service = createService({ storage: null, events: events(), fetchFn: async () => ({}) });
+  const error = await service.removeBackend().catch((caught) => caught);
+  assert.equal(error?.code, 'SYNC_STORAGE_UNAVAILABLE');
+});
+
+test('should_tolerate_missing_bus_when_synced', async () => {
+  const storage = memoryStorage({ docs: [{ id: 'd1', title: 'x', content: 'y', folderId: null, updatedAt: 1 }] });
+  const remote = fakeGitHub({});
+  const service = createService({ storage, events: null, fetchFn: remote.fetchFn });
+  await service.configureBackend({ kind: 'git', params: { repo: 'u/r', branch: 'main', token: 't' } });
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
 });
 
 test('should_keep_local_data_when_backend_is_removed', async () => {
@@ -638,66 +745,6 @@ test('should_map_midrun_auth_failure_when_synced', async () => {
   assert.equal(error?.code, 'SYNC_AUTH_FAILED');
 });
 
-test('should_reject_resolve_without_backend_when_resolved', async () => {
-  const { service } = setup();
-  const error = await service.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' }).catch((caught) => caught);
-  assert.equal(error?.code, 'SYNC_NOT_CONFIGURED');
-});
-
-test('should_apply_remote_side_when_resolved', async () => {
-  const { service: third, storage, remote } = setup({
-    storageData: {
-      docs: [{ id: 'd1', title: 'یادداشت', content: 'نسخه تازه من', folderId: null, updatedAt: 50 }],
-    },
-  });
-  await third.configureBackend({ kind: 'git', params: { repo: 'u/r', branch: 'main', token: 't' } });
-  remote.files.set('sync-manifest.json', {
-    content: Buffer.from(JSON.stringify({
-      version: 1,
-      records: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', updatedAt: 45, hash: 'other', title: 'یادداشت' }],
-    })).toString('base64'),
-    rev: 'm2',
-  });
-  remote.files.set('یادداشت.md', {
-    content: Buffer.from('نسخه طرف').toString('base64'),
-    rev: 'd2',
-  });
-  const report = await third.syncNow({ scope: SCOPE });
-  assert.equal(report.completed, false);
-  assert.equal(report.conflicts.length, 1);
-  const resolved = await third.resolveConflict({ collection: 'docs', id: 'd1', choice: 'remote' });
-  assert.equal(resolved.remaining, 0);
-  assert.equal((await storage.read('docs', 'd1')).content, 'نسخه طرف');
-  assert.equal(typeof (await third.getStatus()).lastSyncAt, 'number');
-  const done = await third.syncNow({ scope: SCOPE });
-  assert.equal(done.completed, true);
-});
-
-test('should_fail_resolve_on_concurrent_manifest_write_when_resolved', async () => {
-  const { service: third, remote } = setup({
-    storageData: {
-      docs: [{ id: 'd1', title: 'یادداشت', content: 'نسخه تازه من', folderId: null, updatedAt: 50 }],
-    },
-    options: { forceManifestConflict: true },
-  });
-  await third.configureBackend({ kind: 'git', params: { repo: 'u/r', branch: 'main', token: 't' } });
-  remote.files.set('sync-manifest.json', {
-    content: Buffer.from(JSON.stringify({
-      version: 1,
-      records: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', updatedAt: 45, hash: 'other', title: 'یادداشت' }],
-    })).toString('base64'),
-    rev: 'm2',
-  });
-  remote.files.set('یادداشت.md', {
-    content: Buffer.from('نسخه طرف').toString('base64'),
-    rev: 'd2',
-  });
-  const report = await third.syncNow({ scope: SCOPE });
-  assert.equal(report.completed, false);
-  const error = await third.resolveConflict({ collection: 'docs', id: 'd1', choice: 'local' }).catch((caught) => caught);
-  assert.equal(error?.code, 'SYNC_CONCURRENT_CHANGE');
-});
-
 test('should_map_missing_repo_and_network_when_configured', async () => {
   const missing = createService({
     storage: memoryStorage(),
@@ -713,40 +760,6 @@ test('should_map_missing_repo_and_network_when_configured', async () => {
   });
   const unreachable = await offline.configureBackend({ kind: 'git', params: { repo: 'u/r', branch: 'main', token: 't' } }).catch((caught) => caught);
   assert.equal(unreachable?.code, 'SYNC_NETWORK_FAILED');
-});
-
-test('should_push_pull_and_stop_on_conflict_in_order_when_synced', async () => {
-  const manifest = {
-    version: 1,
-    records: [
-      { collection: 'docs', id: 'b1', path: 'ب.md', updatedAt: 20, hash: hashRecord('b-remote'), title: 'ب' },
-      { collection: 'docs', id: 'c', path: 'جیم.md', updatedAt: 25, hash: 'remote-h', title: 'جیم' },
-    ],
-  };
-  const { service, storage, remote, events: bus } = setup({
-    storageData: {
-      docs: [
-        { id: 'a', title: 'الف', content: 'mine-a', folderId: null, updatedAt: 20 },
-        { id: 'c', title: 'جیم', content: 'mine-c', folderId: null, updatedAt: 30 },
-      ],
-    },
-    files: {
-      'sync-manifest.json': { content: Buffer.from(JSON.stringify(manifest)).toString('base64'), rev: 'm1' },
-      'ب.md': { content: Buffer.from('b-remote').toString('base64'), rev: 'b1' },
-      'جیم.md': { content: Buffer.from('theirs-c').toString('base64'), rev: 'c2' },
-    },
-  });
-  await configure(service);
-  const report = await service.syncNow({ scope: SCOPE });
-  assert.equal(report.completed, false);
-  assert.deepEqual(report.pushed.map((item) => item.id), ['a']);
-  assert.deepEqual(report.pulled.map((item) => item.id), ['b1']);
-  assert.deepEqual(report.conflicts.map((item) => item.id), ['c']);
-  assert.equal((await storage.read('docs', 'b1')).content, 'b-remote');
-  assert.ok(bus.seen.some((event) => event.type === 'sync:conflicts'));
-  const resolved = await service.resolveConflict({ collection: 'docs', id: 'c', choice: 'remote' });
-  assert.equal(resolved.remaining, 0);
-  assert.equal((await storage.read('docs', 'c')).content, 'theirs-c');
 });
 
 test('should_resume_after_midrun_failure_when_synced', async () => {
@@ -777,29 +790,4 @@ test('should_resume_after_midrun_failure_when_synced', async () => {
   assert.ok(remote.files.has('اول.md'));
   assert.ok(remote.files.has('دوم.md'));
   assert.deepEqual(await service.hasPendingChanges({ scope: SCOPE }), { pending: false });
-});
-
-test('should_sync_custom_id_and_stamp_fields_when_synced', async () => {
-  const custom = {
-    collections: [{ collection: 'notes', serializer: 'json', idField: 'key', updatedAtField: 'mtime' }],
-  };
-  const { service } = setup({
-    storageData: { notes: [{ key: 'n1', text: 'hi', mtime: 5 }] },
-  });
-  await configure(service);
-  const report = await service.syncNow({ scope: custom });
-  assert.equal(report.completed, true);
-  assert.deepEqual(report.pushed.map((item) => item.id), ['n1']);
-  assert.deepEqual(await service.hasPendingChanges({ scope: custom }), { pending: false });
-});
-
-test('should_skip_idless_records_without_crashing_when_synced', async () => {
-  const { service } = setup({
-    storageData: { docs: [{ title: 'بی‌شناسه', content: 'x', folderId: null, updatedAt: 1 }] },
-  });
-  await configure(service);
-  const report = await service.syncNow({ scope: SCOPE });
-  assert.equal(report.completed, true);
-  assert.deepEqual(report.pushed, []);
-  assert.ok(report.skipped.some((item) => item.collection === 'docs' && item.id === null));
 });

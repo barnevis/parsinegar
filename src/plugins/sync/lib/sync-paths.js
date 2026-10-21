@@ -1,11 +1,82 @@
 // Folder maps and remote path building for pey.sync.
 //
 // Resolves folder chains to name parts and places records on remote paths.
-// Reads folder records, never sync state; the tree-free fallback keeps
-// unmapped folders addressable instead of failing the run.
-import { FALLBACK_SEGMENT, sanitizePathSegment } from './serializers.js';
+// Reads folder records, never sync state; chains pulled from the remote
+// are materialized locally so a record keeps its remote address.
 import { store } from './sync-store.js';
+import { FALLBACK_SEGMENT, sanitizePathSegment } from './serializers.js';
 import { SERIALIZERS } from './sync-scope.js';
+
+/**
+ * Builds a fresh unique record id (host-independent, no path encoding).
+ * @returns {string} Unique id.
+ */
+function makeId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Creates the missing folder records along a name-chain from the root, so
+ * a pulled record can live at its remote address. Existing folders pass
+ * untouched; ids mint fresh and rows write straight through the extent
+ * guard.
+ * @param {object} storage Storage service.
+ * @param {object|null} maps Folder maps entry ({ byId, mapping }).
+ * @param {object} mapping Folder field mapping ({collection, idField,
+ *   nameField, parentField}).
+ * @param {Array<string>} parts Name parts from the root.
+ * @returns {Promise<object>} `{ byId, mapping }` maps including new rows.
+ */
+async function ensureFolderChain(storage, maps, mapping, parts) {
+  const byId = maps?.byId ?? new Map();
+  const working = { byId, mapping };
+  const children = indexChildren(working);
+  let parentKey = '';
+  for (const part of parts) {
+    let next = children.get(parentKey)?.get(part);
+    if (next === undefined) {
+      next = makeId();
+      const record = {
+        [mapping.idField]: next,
+        [mapping.nameField]: part,
+        [mapping.parentField]: parentKey === '' ? null : parentKey,
+      };
+      byId.set(next, record);
+      children.get(parentKey)?.set(part, next);
+      if (!children.has(next)) {
+        children.set(next, new Map());
+      }
+      await store(storage.write(mapping.collection, record));
+    }
+    parentKey = next;
+  }
+  return { byId, mapping };
+}
+
+/**
+ * Indexes folder records by parent key for walk-order resolution.
+ * @param {object} maps Maps entry ({ byId, mapping }).
+ * @returns {Map} Parent key to (name to folder id).
+ */
+function indexChildren(maps) {
+  const children = new Map();
+  for (const [id, folder] of maps.byId) {
+    const parent = folder[maps.mapping.parentField];
+    const parentKey = parent === null || parent === undefined ? '' : String(parent);
+    const name = folder[maps.mapping.nameField];
+    if (typeof name !== 'string') {
+      continue;
+    }
+    if (!children.has(parentKey)) {
+      children.set(parentKey, new Map());
+    }
+    children.get(parentKey).set(name, String(folder[maps.mapping.idField] ?? id));
+  }
+  return children;
+}
 
 /**
  * Loads folder records indexed for path building and id resolution.
@@ -115,8 +186,10 @@ function resolvePathParts(maps, parts) {
 }
 
 export {
+  ensureFolderChain,
   folderParts,
   loadFolderMaps,
+  makeId,
   pathForRecord,
   resolvePathParts,
 };

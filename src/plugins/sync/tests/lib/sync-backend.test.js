@@ -7,7 +7,6 @@ const fakeDescriptor = {
   kind: 'fake',
   create: (params, fetchFn) => ({ params, fetchFn }),
   errorMap: { FAKE_DENIED: 'SYNC_AUTH_FAILED' },
-  manifestPath: 'fake-manifest.json',
   revMismatchCode: 'FAKE_REV_MISMATCH',
 };
 

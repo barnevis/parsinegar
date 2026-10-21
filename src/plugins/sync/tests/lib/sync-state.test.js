@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   advanceSnapshot,
   clearError,
+  migrateSnapshot,
   publish,
   readScopeForResolve,
   recordError,
@@ -36,27 +37,62 @@ test('should_guard_storage_access_when_called', async () => {
 test('should_remember_scope_and_resolve_it_when_stored', async () => {
   const storage = memoryStorage();
   await rememberScope(storage, SCOPE);
-  assert.deepEqual(await readScopeForResolve(storage), SCOPE);
+  const resolved = await readScopeForResolve(storage);
+  assert.equal(resolved[0].basePath, '');
+  assert.equal(resolved[0].serializer, 'markdown');
   const empty = await readScopeForResolve(memoryStorage()).catch((caught) => caught);
   assert.equal(empty?.code, 'SYNC_INVALID_CONFIG');
 });
 
-test('should_advance_snapshot_from_current_state_when_completed', async () => {
+test('should_advance_snapshot_with_path_hashes_and_revs_when_completed', async () => {
   const storage = memoryStorage({
     docs: [{ id: 'd1', title: 't', content: 'x', folderId: null, updatedAt: 7 }],
   });
-  await advanceSnapshot(storage, SCOPE);
+  const revs = new Map([['t.md', 'rev-1']]);
+  await advanceSnapshot(storage, SCOPE, revs);
   const saved = await storage.read('sync_state', 'active');
-  assert.deepEqual(saved.snapshot, [{ collection: 'docs', id: 'd1', updatedAt: 7, path: 't.md' }]);
+  assert.equal(saved.snapshot.length, 1);
+  assert.equal(saved.snapshot[0].collection, 'docs');
+  assert.equal(saved.snapshot[0].id, 'd1');
+  assert.equal(saved.snapshot[0].path, 't.md');
+  assert.match(saved.snapshot[0].hash, /^[0-9a-f]{8}$/);
+  assert.equal(saved.snapshot[0].rev, 'rev-1');
   assert.equal(typeof saved.lastSyncAt, 'number');
+});
+
+test('should_migrate_legacy_snapshots_from_manifest_hashes_when_seeded', async () => {
+  const storage = memoryStorage();
+  const legacy = [
+    { collection: 'docs', id: 'd1', updatedAt: 1, path: 'a.md' },
+    { collection: 'docs', id: 'd2', updatedAt: 2, path: 'b.md' },
+  ];
+  await storage.write('sync_state', { id: 'active', snapshot: legacy });
+  const { snapshot } = await migrateSnapshot(storage, legacy, [
+    { collection: 'docs', id: 'd1', path: 'a.md', hash: 'seeded' },
+    { collection: 'docs', id: 'other', path: 'c.md', hash: 'foreign' },
+  ]);
+  assert.deepEqual(snapshot[0], { collection: 'docs', id: 'd1', path: 'a.md', hash: 'seeded', rev: null });
+  assert.deepEqual(snapshot[1], { collection: 'docs', id: 'd2', path: 'b.md', hash: null, rev: null });
+  const persisted = await storage.read('sync_state', 'active');
+  assert.deepEqual(persisted.snapshot, snapshot);
+  // Already-versioned entries pass through unchanged.
+  const v2 = [{ collection: 'docs', id: 'd1', path: 'a.md', hash: 'h', rev: 'r' }];
+  const { snapshot: untouched } = await migrateSnapshot(storage, v2, []);
+  assert.deepEqual(untouched, v2);
+  // Malformed entries drop instead of haunting the plan.
+  const { snapshot: cleaned } = await migrateSnapshot(storage, [null, { collection: 'docs', id: 'x' }], []);
+  assert.deepEqual(cleaned, []);
+  // Fully-versioned snapshots (even after two passes) never rewrite.
+  const { seeded: secondRun } = await migrateSnapshot(storage, v2, []);
+  assert.equal(secondRun, false);
 });
 
 test('should_upsert_and_drop_snapshot_entries_when_written', async () => {
   const storage = memoryStorage();
   const saved = {};
-  const first = { collection: 'docs', id: 'd1', updatedAt: 1, path: 'a.md' };
+  const first = { collection: 'docs', id: 'd1', path: 'a.md', hash: 'h', rev: null };
   await writeSnapshotEntry(storage, saved, first, null);
-  await writeSnapshotEntry(storage, await storage.read('sync_state', 'active'), { ...first, updatedAt: 2 }, null);
+  await writeSnapshotEntry(storage, await storage.read('sync_state', 'active'), { ...first, hash: 'h2' }, null);
   await writeSnapshotEntry(storage, await storage.read('sync_state', 'active'), null, { collection: 'docs', id: 'd1' });
   assert.deepEqual((await storage.read('sync_state', 'active')).snapshot, []);
 });

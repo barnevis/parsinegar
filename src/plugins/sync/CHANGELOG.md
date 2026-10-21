@@ -1,5 +1,23 @@
 # Changelog — pey.sync
 
+## [0.3.0] - 2026-10-19
+
+### Changed
+
+- Sync identity is now the remote path itself: `sync-manifest.json` is written no more, the git repository only sees real documents. Collections of files in `folders/` from 0.2.0 stay invisible until migrated (one round sweeps them).
+- The snapshot (`sync_state`) moved to version 2 — path-keyed `{collection, id, path, hash, rev}` — with an automatic in-place migration that seeds hashes from a still-valid legacy manifest in the same round.
+- Folder records are never synced as data; a pulled document's directory chain is rebuilt locally from its path (empty folders do not resurrect on a fresh device, and a folder rename with no documents leaves no remote trace).
+- Conflict previews are content-only: the remote side no longer carries a timestamp (git does not expose one).
+
+### Added
+
+- `SYNC_PATH_COLLISION`: two local records claiming the same remote path error out with both ids before any remote write, instead of silently overwriting.
+- Revision shortcut: paths whose listing revision matches the snapshot skip content reads entirely, so a clean round costs one tree listing.
+
+### Removed
+
+- `SYNC_CORRUPT_MANIFEST` and the adapter-descriptor `manifestPath` field: no remote metadata exists to corrupt.
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

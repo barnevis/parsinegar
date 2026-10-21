@@ -2090,10 +2090,7 @@ test('should_refresh_editor_when_sync_pulls_open_document', async () => {
     await settled();
     assert.equal(element.value, 'pulled');
     assert.equal(syncCalls.length, 1);
-    assert.deepEqual(
-      syncCalls[0].scope.collections.map(({ collection }) => collection).sort(),
-      ['documents', 'folders'],
-    );
+    assert.deepEqual(syncCalls[0].scope.collections.map(({ collection }) => collection), ['documents']);
   } finally {
     element.remove();
   }

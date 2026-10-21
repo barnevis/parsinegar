@@ -12,7 +12,7 @@ import { escapeHtml, iconMarkup } from './html.js';
  * their own panes so the dialog never grows past the viewport.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
- * @param {object|null} options.conflict `{ collection, id, title, local, remote }` with `{ updatedAt, content }` sides (either side null on delete-vs-change).
+ * @param {object|null} options.conflict `{ collection, id, title, local: { updatedAt, content }, remote: { content } }` (either side null on delete-vs-change; the remote side carries no timestamp).
  * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
  * @returns {string} Modal markup or ''.
  */

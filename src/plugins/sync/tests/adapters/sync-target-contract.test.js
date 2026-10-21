@@ -29,11 +29,11 @@ function setup(routes) {
   return { backend, calls };
 }
 
-test('should_register_kind_with_mapper_and_manifest_path_when_described', () => {
+test('should_register_kind_with_mapper_when_described', () => {
   assert.equal(gitAdapterDescriptor.kind, 'git');
   assert.equal(typeof gitAdapterDescriptor.create, 'function');
   assert.equal(gitAdapterDescriptor.errorMap.GIT_AUTH_FAILED, 'SYNC_AUTH_FAILED');
-  assert.equal(typeof gitAdapterDescriptor.manifestPath, 'string');
+  assert.equal(gitAdapterDescriptor.manifestPath, undefined, 'expected no remote metadata in the path-identity scheme');
   const backend = gitAdapterDescriptor.create({ repo: 'u/r', branch: 'main', token: 't' }, async () => response(200, {}));
   assert.equal(backend.kind, 'git');
   for (const method of ['open', 'listDir', 'readFile', 'writeFile', 'deleteFile']) {

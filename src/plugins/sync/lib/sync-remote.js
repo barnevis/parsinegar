@@ -1,106 +1,116 @@
-// Remote manifest/file IO and pulled-record shaping for pey.sync.
+// Remote listing/file IO and pulled-record shaping for pey.sync.
 //
-// Talks to the backend adapter (list/read/write files, engine manifest)
-// and shapes what comes back into storage records. Knows remote paths,
-// never local storage layout beyond the passed folder maps.
-import { buildManifest, parseManifest } from './sync-engine.js';
-import { syncError } from './error.js';
-import { SERIALIZERS, contentOf } from './sync-scope.js';
-import { mapAdapterError } from './sync-backend.js';
-import { resolvePathParts } from './sync-paths.js';
+// Talks to the backend adapter (list/read files, targeted writes) and
+// shapes what comes back into storage records. The remote side owns no
+// metadata: the file listing itself is the truth, hashed lazily on the
+// local comparable basis. Knows remote paths, never local storage layout
+// beyond the folder maps it is handed.
+import { withoutIgnored } from './sync-collect.js';
+import { attributePath, pathEncodedId, remoteHash, SERIALIZERS } from './sync-scope.js';
+import { ensureFolderChain, resolvePathParts } from './sync-paths.js';
 
-const MANIFEST_PATH = 'sync-manifest.json';
+const LEGACY_MANIFEST_PATH = 'sync-manifest.json';
 
 /**
- * Reads the remote manifest, tolerating a first-run absence.
+ * Lists the remote tree and attributes every file path to a scope
+ * collection. Foreign paths (no collection owns them) come back in
+ * `foreign` so the caller can report them untouched; ignored paths are
+ * dropped exactly like local ignored records. A legacy 0.2.0 manifest
+ * found on the tree is read wholesale and handed over for migration and
+ * cleanup; a corrupt or missing one is just absent — never a failure.
  * @param {object} adapter Backend adapter.
- * @param {string} manifestPath Engine manifest path on this backend.
- * @returns {object} `{ manifest, rev }`.
- * @throws {object} SYNC_CORRUPT_MANIFEST.
- */
-async function readManifest(adapter, manifestPath) {
-  const files = await adapter.listDir('');
-  const entry = (files ?? []).find((item) => item?.path === manifestPath);
-  if (!entry) {
-    return { manifest: { version: 1, records: [] }, rev: null };
-  }
-  const file = await adapter.readFile(manifestPath);
-  if (!file) {
-    return { manifest: { version: 1, records: [] }, rev: null };
-  }
-  let parsed = null;
-  try {
-    parsed = parseManifest(JSON.parse(file.content));
-  } catch {
-    parsed = null;
-  }
-  if (!parsed) {
-    throw syncError('SYNC_CORRUPT_MANIFEST', 'Remote sync manifest is unreadable', {});
-  }
-  return { manifest: parsed.manifest, rev: entry.rev ?? file.rev ?? null };
-}
-
-/**
- * Reads path-to-revision mapping for safe overwrites.
- * @param {object} adapter Backend adapter.
- * @returns {Map} Path to rev.
- */
-async function readRevs(adapter) {
-  const files = await adapter.listDir('');
-  const map = new Map();
-  for (const file of files ?? []) {
-    if (file && typeof file.path === 'string') {
-      map.set(file.path, file.rev ?? null);
-    }
-  }
-  return map;
-}
-
-/**
- * Upserts or drops one manifest entry and rewrites the remote manifest.
- * @param {object} adapter Backend adapter.
- * @param {object} descriptor Backend descriptor (manifest path, rev code).
- * @param {object} manifestRead Current `{ manifest, rev }`.
- * @param {object|null} entry Entry to upsert, or null.
- * @param {object|null} drop Entry to drop, or null.
- * @returns {object} Fresh `{ manifest, rev }`.
- * @throws {object} SYNC_CONCURRENT_CHANGE on rev mismatch.
- */
-async function writeManifestEntry(adapter, descriptor, manifestRead, entry, drop) {
-  const records = manifestRead.manifest.records.filter((item) => {
-    if (!item) {
-      return false;
-    }
-    if (drop && item.collection === drop.collection && item.id === drop.id) {
-      return false;
-    }
-    return !(entry && item.collection === entry.collection && item.id === entry.id);
-  });
-  if (entry) {
-    records.push(entry);
-  }
-  const { manifest } = buildManifest(records);
-  try {
-    const written = await adapter.writeFile(descriptor.manifestPath ?? MANIFEST_PATH, JSON.stringify(manifest), manifestRead.rev);
-    return { manifest, rev: written.rev };
-  } catch (error) {
-    if (descriptor.revMismatchCode && error?.code === descriptor.revMismatchCode) {
-      throw syncError('SYNC_CONCURRENT_CHANGE', 'Remote changed underneath this sync; run again', {});
-    }
-    throw mapAdapterError(descriptor, error);
-  }
-}
-
-/**
- * Builds a pulled record from a remote file: the manifest owns identity
- * and stamp, the file owns content, the path owns title and folder.
- * @param {object} folders Folder maps by collection.
  * @param {Array} configs Normalized scope.
- * @param {object} item Remote manifest entry.
- * @param {string} content File text.
- * @returns {object|null} `{ collection, record, relocated }` or null.
+ * @param {Map} folderIgnores Folders collection name to ignore context.
+ * @param {Array<string>} extensions Serializer extensions for matching.
+ * @returns {Promise<object>} `{ entries, foreign, legacyManifestRecords }`;
+ *   entries `{collection, id, path, rev}` (id null for path-minted pulls),
+ *   foreign `{path}`.
+ * @throws {object} Mapped SYNC error.
  */
-function buildPulledRecord(folders, configs, item, content) {
+async function readRemoteListing(adapter, configs, folderIgnores, extensions) {
+  const files = await adapter.listDir('');
+  const attributed = [];
+  const foreign = [];
+  let legacyManifestRecords = null;
+  for (const file of files ?? []) {
+    if (!file || typeof file.path !== 'string' || file.path.length === 0) {
+      continue;
+    }
+    if (file.path === LEGACY_MANIFEST_PATH) {
+      const raw = await adapter.readFile(LEGACY_MANIFEST_PATH).catch(() => null);
+      if (raw && typeof raw.content === 'string') {
+        try {
+          const parsed = JSON.parse(raw.content);
+          if (parsed && typeof parsed === 'object' && parsed.version === 1 && Array.isArray(parsed.records)) {
+            legacyManifestRecords = parsed.records;
+          }
+        } catch {
+          // A corrupt legacy manifest stays in place but is not a sync
+          // failure: nothing references it meaningfully anymore.
+        }
+      }
+      continue;
+    }
+    const config = attributePath(file.path, configs);
+    if (!config) {
+      foreign.push({ path: file.path });
+      continue;
+    }
+    attributed.push({
+      collection: config.collection,
+      id: pathEncodedId(config, file.path),
+      path: file.path,
+      rev: file.rev ?? null,
+    });
+  }
+  const entries = withoutIgnored(attributed, configs, folderIgnores, extensions);
+  const kept = new Set(entries);
+  for (const item of attributed) {
+    if (!kept.has(item)) {
+      foreign.push({ path: item.path });
+    }
+  }
+  return { entries, foreign, legacyManifestRecords };
+}
+
+/**
+ * Hashes one remote file on the local comparable basis.
+ * @param {object} adapter Backend adapter.
+ * @param {Array} configs Normalized scope.
+ * @param {string} collection Attributed collection.
+ * @param {string} path Remote path.
+ * @param {string|null} revKnown Listing revision.
+ * @returns {Promise<object|null>} `{ hash, rev, content }`, or null when
+ *   the file is absent or undecodable for this serializer.
+ * @throws {object} Adapter errors pass through for the caller to map.
+ */
+async function hashRemoteFile(adapter, configs, collection, path, revKnown) {
+  const file = await adapter.readFile(path);
+  if (!file || typeof file.content !== 'string') {
+    return null;
+  }
+  return {
+    hash: remoteHash(configs, collection, file.content),
+    rev: file.rev ?? revKnown ?? null,
+    content: file.content,
+  };
+}
+
+/**
+ * Builds a pulled record from a remote file: the path owns title and
+ * folder chain (plus the json identity), the file owns content. Missing
+ * folder rows along the chain are created on the fly so the record keeps
+ * its remote address.
+ * @param {object} storage Storage service (folder chain creation).
+ * @param {Map} folders Folder maps by collection name.
+ * @param {Array} configs Normalized scope.
+ * @param {object} item Pull entry `{collection, id, path}`.
+ * @param {string} content File text.
+ * @param {number} stampedAt Clock stamp for the pulled record.
+ * @returns {Promise<object|null>} `{ collection, record }`, or null when
+ *   the payload cannot shape into a record.
+ */
+async function buildPulledRecord(storage, folders, configs, item, content, stampedAt) {
   const config = configs.find((entry) => entry.collection === item.collection);
   if (!config) {
     return null;
@@ -115,32 +125,29 @@ function buildPulledRecord(folders, configs, item, content) {
     return null;
   }
   if (config.serializer === 'markdown') {
-    const parts = item.path.split('/');
-    const file = parts.pop() ?? '';
-    const extension = SERIALIZERS[config.serializer]?.extension ?? 'md';
-    const title = typeof item.title === 'string' && item.title.length > 0
-      ? item.title
-      : file.replace(new RegExp(`\\.${extension}$`, 'i'), '');
     let folderId = null;
-    let relocated = false;
+    const parts = item.path.split('/');
+    parts.pop();
     if (config.folders && parts.length > 0) {
-      const resolved = resolvePathParts(folders.get(config.folders.collection), parts);
+      const maps = folders.get(config.folders.collection) ?? null;
+      const ensured = await ensureFolderChain(storage, maps, config.folders, parts);
+      const resolved = resolvePathParts(ensured, parts);
       folderId = resolved.folderId;
-      relocated = resolved.relocated;
     }
     return {
       collection: item.collection,
       record: {
         [config.idField]: item.id,
-        [config.titleField]: title,
+        [config.titleField]: titleFromPath(config, item.path),
         [config.folders?.folderField ?? 'folderId']: folderId,
         [config.contentField]: typeof partial[config.contentField] === 'string' ? partial[config.contentField] : '',
-        [config.updatedAtField]: item.updatedAt,
+        [config.updatedAtField]: stampedAt,
       },
-      relocated,
     };
   }
-  if (typeof partial[config.idField] !== 'undefined' && String(partial[config.idField]) !== item.id) {
+  if (typeof partial[config.idField] !== 'undefined' && String(partial[config.idField]) !== String(item.id)) {
+    // Path-encoded identity wins over the payload: a foreign file that
+    // claims another id does not belong to this path.
     return null;
   }
   return {
@@ -148,92 +155,57 @@ function buildPulledRecord(folders, configs, item, content) {
     record: {
       ...partial,
       [config.idField]: item.id,
-      [config.updatedAtField]: item.updatedAt,
+      [config.updatedAtField]: stampedAt,
     },
-    relocated: false,
   };
 }
 
 /**
- * Enriches conflicts with both-side content for the host prompt.
- * @param {object} storage Storage service.
- * @param {Array} configs Normalized scope.
- * @param {object} adapter Backend adapter.
- * @param {Array} conflicts Engine conflicts.
- * @param {Map} byKey Local records by key.
- * @returns {Array} Enriched conflicts.
+ * Derives the record title from the file name (extension stripped).
+ * @param {object} config Normalized collection config.
+ * @param {string} path Remote path.
+ * @returns {string} Title.
  */
-async function enrichConflicts(storage, configs, adapter, conflicts, byKey) {
-  void storage;
-  const enriched = [];
-  for (const conflict of conflicts) {
-    const held = conflict.local ? byKey.get(`${conflict.collection}::${conflict.id}`) : null;
-    const remote = conflict.remote ? await adapter.readFile(conflict.remote.path) : null;
-    const titleOf = (record, fallback) => {
-      const config = configs.find((entry) => entry.collection === conflict.collection);
-      const name = record?.[config?.titleField ?? 'title'];
-      if (typeof name === 'string' && name.length > 0) {
-        return name;
-      }
-      return typeof fallback === 'string' && fallback.length > 0 ? fallback : conflict.id;
-    };
-    enriched.push({
-      collection: conflict.collection,
-      id: conflict.id,
-      title: titleOf(held?.record, conflict.remote?.title),
-      local: conflict.local ? {
-        updatedAt: conflict.local.updatedAt,
-        content: held ? contentOf(configs, conflict.collection, held.record) : '',
-      } : null,
-      remote: conflict.remote ? {
-        updatedAt: conflict.remote.updatedAt,
-        content: remote ? remote.content : '',
-      } : null,
-    });
-  }
-  return enriched;
+function titleFromPath(config, path) {
+  const fileName = path.slice(path.lastIndexOf('/') + 1);
+  const suffix = `.${SERIALIZERS[config.serializer]?.extension ?? 'md'}`;
+  return fileName.toLowerCase().endsWith(suffix) && fileName.length > suffix.length
+    ? fileName.slice(0, -suffix.length)
+    : fileName;
 }
 
 /**
- * Carries the remote manifest forward: drops deleted ids, overwrites with
- * fresh push/pull entries. Untouched entries ride along untouched.
- * @param {Array} previous Old manifest records.
- * @param {object} plan Applied plan.
- * @param {Array} pulled Pulled remote entries.
- * @param {Array} pruned Ids whose files vanished mid-run.
- * @returns {Array} New manifest records.
+ * Removes the legacy 0.2.0-era artifacts from the remote: the manifest
+ * and the folder-record files it referenced. Referenced-only heuristic —
+ * never a glob — so an unrelated `folders/…` file from the host is never
+ * deleted. Best effort: failures never fail the round.
+ * @param {object} adapter Backend adapter.
+ * @param {Array|null} legacyManifestRecords Legacy manifest records.
+ * @returns {Promise<void>}
  */
-function carryManifest(previous, plan, pulledRecords, pruned) {
-  const dropped = new Set([
-    ...plan.deleteRemote.map((item) => `${item.collection}::${item.id}`),
-    ...plan.deleteLocal.map((item) => `${item.collection}::${item.id}`),
-    ...(pruned ?? []).map((item) => `${item.collection}::${item.id}`),
-  ]);
-  const next = new Map();
-  for (const item of previous ?? []) {
-    if (item && !dropped.has(`${item.collection}::${item.id}`)) {
-      next.set(`${item.collection}::${item.id}`, item);
+async function cleanupLegacyArtifacts(adapter, legacyManifestRecords) {
+  if (!Array.isArray(legacyManifestRecords)) {
+    return;
+  }
+  const targets = [];
+  for (const record of legacyManifestRecords) {
+    if (record && record.collection === 'folders' && typeof record.path === 'string' && record.path.length > 0) {
+      targets.push(record.path);
     }
   }
-  for (const item of [...plan.push, ...pulledRecords]) {
-    next.set(`${item.collection}::${item.id}`, {
-      collection: item.collection,
-      id: item.id,
-      path: item.path,
-      updatedAt: item.updatedAt,
-      hash: item.hash,
-      title: item.title ?? null,
-    });
+  for (const path of [...targets, LEGACY_MANIFEST_PATH]) {
+    try {
+      await adapter.deleteFile(path);
+    } catch {
+      // A leftover artifact is not worth failing the round for.
+    }
   }
-  return [...next.values()];
 }
 
 export {
-  MANIFEST_PATH,
+  LEGACY_MANIFEST_PATH,
   buildPulledRecord,
-  carryManifest,
-  enrichConflicts,
-  readManifest,
-  readRevs,
-  writeManifestEntry,
+  cleanupLegacyArtifacts,
+  hashRemoteFile,
+  readRemoteListing,
 };

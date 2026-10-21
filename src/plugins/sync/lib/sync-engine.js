@@ -1,22 +1,23 @@
-// Pure sync decision logic for pey.sync: snapshot diffing, three-way
-// planning, manifest build/parse and content hashing. No I/O, no state,
-// no clock reads — the service supplies everything and applies the plan.
+// Pure sync decision logic for pey.sync: path-keyed three-way planning
+// over the last snapshot, current local state and the live remote
+// listing. No I/O, no state, no clock reads — the service supplies
+// everything and applies the plan. The sync identity is the remote
+// path itself: no manifest, no remote metadata files.
 
-const MANIFEST_VERSION = 1;
 const FNV_OFFSET_BASIS = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
 
 /**
- * Builds the join key for one entry.
+ * Builds the identity key for one record (collection + id).
  * @param {object} entry Entry with collection and id.
  * @returns {string} Stable key.
  */
-function keyOf(entry) {
+function ownerOf(entry) {
   return `${entry.collection}::${entry.id}`;
 }
 
 /**
- * Checks a local/remote entry carries the fields planning needs.
+ * Checks a local entry carries everything planning needs.
  * @param {object} entry Candidate entry.
  * @returns {boolean} True when usable.
  */
@@ -27,17 +28,37 @@ function isPlannable(entry) {
     && entry.collection.length > 0
     && typeof entry.id === 'string'
     && entry.id.length > 0
-    && typeof entry.updatedAt === 'number'
-    && Number.isFinite(entry.updatedAt)
-    && typeof entry.hash === 'string'
-    && entry.hash.length > 0
     && typeof entry.path === 'string'
     && entry.path.length > 0
+    && typeof entry.hash === 'string'
+    && entry.hash.length > 0
   );
 }
 
 /**
- * Checks a snapshot entry carries matchable identity.
+ * Checks a remote listing entry carries everything planning needs. The
+ * hash is always supplied by the caller (rev-matched entries borrow the
+ * snapshot hash), so planning stays decision-force without fetches.
+ * @param {object} entry Candidate listing entry.
+ * @returns {boolean} True when usable.
+ */
+function isListable(entry) {
+  return (
+    !!entry
+    && typeof entry.collection === 'string'
+    && entry.collection.length > 0
+    && typeof entry.path === 'string'
+    && entry.path.length > 0
+    && typeof entry.hash === 'string'
+    && entry.hash.length > 0
+    && (entry.rev === undefined || entry.rev === null || typeof entry.rev === 'string')
+  );
+}
+
+/**
+ * Checks a snapshot entry carries matchable identity. Hash may be null
+ * right after a legacy-snapshot migration: an unknown base always ranks
+ * as changed on both sides unless local and remote content agree.
  * @param {object} entry Candidate entry.
  * @returns {boolean} True when usable.
  */
@@ -48,238 +69,252 @@ function isSnapshotEntry(entry) {
     && entry.collection.length > 0
     && typeof entry.id === 'string'
     && entry.id.length > 0
+    && typeof entry.path === 'string'
+    && entry.path.length > 0
+    && (entry.hash === null || (typeof entry.hash === 'string' && entry.hash.length > 0))
+    && (entry.rev === undefined || entry.rev === null || typeof entry.rev === 'string')
   );
 }
 
 /**
- * Indexes entries by join key, collecting malformed ones aside.
- * @param {Array} entries Candidate entries.
- * @param {Function} isValid Validity predicate.
- * @returns {object} `{ byKey, skipped }`.
+ * Compares a snapshot against current local state, path-keyed. A moved
+ * record reads as a deletion at the old path and a creation at the new
+ * one — the same shape the next sync round acts on, so this diff is
+ * exactly the local pending set.
+ * @param {Array} snapshot Last-synced entries ({collection, id, path, hash}).
+ * @param {Array} current Current local entries ({collection, id, path, hash}).
+ * @returns {object} `{ created, changed, deleted, skipped }`.
  */
-function indexEntries(entries, isValid) {
-  const byKey = new Map();
+export function snapshotDiff(snapshot, current) {
+  const known = new Map();
   const skipped = [];
-  for (const entry of entries ?? []) {
-    if (isValid(entry)) {
-      byKey.set(keyOf(entry), entry);
+  for (const entry of snapshot ?? []) {
+    if (isSnapshotEntry(entry) && !known.has(entry.path)) {
+      known.set(entry.path, entry);
     } else {
       skipped.push(entry);
     }
   }
-  return { byKey, skipped };
-}
-
-/**
- * Compares a snapshot against current local state: created, updated,
- * deleted and moved (path changed) entries. A path change reports as a
- * move only — the push of the full content covers it.
- * @param {Array} snapshot Last-synced entries ({collection, id, updatedAt, path?}).
- * @param {Array} current Current entries (same shape).
- * @returns {object} `{ created, updated, deleted, moved, skipped }`; moved
- *   entries carry `{ collection, id, from, to }`, deleted `{ collection, id }`.
- */
-export function snapshotDiff(snapshot, current) {
-  const known = indexEntries(snapshot, isSnapshotEntry).byKey;
-  const { byKey: now, skipped } = indexEntries(current, isSnapshotEntry);
   const created = [];
-  const updated = [];
+  const changed = [];
   const deleted = [];
-  const moved = [];
-  for (const [key, entry] of now) {
-    const before = known.get(key);
+  const seen = new Set();
+  for (const entry of current ?? []) {
+    if (!isPlannable(entry)) {
+      skipped.push(entry);
+      continue;
+    }
+    if (seen.has(entry.path)) {
+      skipped.push(entry);
+      continue;
+    }
+    seen.add(entry.path);
+    const before = known.get(entry.path);
     if (!before) {
       created.push(entry);
       continue;
     }
-    if (typeof before.path === 'string' && typeof entry.path === 'string' && before.path !== entry.path) {
-      moved.push({ collection: entry.collection, id: entry.id, from: before.path, to: entry.path });
-    } else if (entry.updatedAt !== before.updatedAt) {
-      updated.push(entry);
+    if (before.hash !== entry.hash) {
+      changed.push(entry);
     }
   }
-  for (const [key, entry] of known) {
-    if (!now.has(key)) {
-      deleted.push({ collection: entry.collection, id: entry.id });
+  for (const [path, entry] of known) {
+    if (!seen.has(path)) {
+      deleted.push({ collection: entry.collection, id: entry.id, path });
     }
   }
-  return { created, updated, deleted, moved, skipped };
+  return { created, changed, deleted, skipped };
 }
 
 /**
  * Plans one manual sync round from the last snapshot, current local state
- * and the remote manifest. Emits push/pull work, both-side deletions and
- * conflicts — never guesses a conflict away. A local rename surfaces as
- * push plus remote-old-path deletion, driven by the serializer paths the
- * service attaches; a divergence on one side while the other side dropped
- * the record is always a conflict, never a silent win.
- * @param {Array} snapshot Last-synced entries ({collection, id, updatedAt, path?}).
- * @param {Array} local Current local entries ({collection, id, updatedAt, hash, path}).
- * @param {Array} remote Remote manifest entries ({collection, id, updatedAt, path, hash}).
- * @returns {object} `{ push, pull, deleteRemote, deleteLocal, conflicts, skipped }`;
- *   deleteRemote entries carry the last-known remote `{ collection, id, path }`,
- *   conflicts `{ collection, id, local, remote }` with either side null on
- *   delete-vs-change.
+ * and the remote listing — all keyed by remote path. Emits push/pull work,
+ * both-side deletions and conflicts; never guesses a conflict away. A
+ * local rename surfaces as a push at the new path plus a remote deletion
+ * at the old one (the old path loses its local occupant). Two local
+ * entries travelling to one path are collisions: the plan reports them so
+ * the service can fail loudly instead of silently writing one winner.
+ * @param {Array} snapshot Last-synced entries ({collection, id, path, hash, rev?}).
+ * @param {Array} local Current local entries ({collection, id, path, hash}).
+ * @param {Array} remote Remote listing ({collection, path, hash, rev?}).
+ * @returns {object} `{ push, pull, deleteRemote, deleteLocal, conflicts,
+ *   collisions, skipped }`; push/pull entries carry `{collection, id,
+ *   path, hash, rev}` (pull `id` null when nothing local lives there),
+ *   deleteRemote carries the last-known remote `{collection, id, path,
+ *   rev}`, conflicts `{collection, id, local, remote}` with either side
+ *   null on delete-vs-change, collisions `{collection, id, path, otherId}`.
  */
 export function planSync(snapshot, local, remote) {
-  const known = indexEntries(snapshot, isSnapshotEntry).byKey;
-  const localIndex = indexEntries(local, isPlannable);
-  const remoteIndex = indexEntries(remote, isPlannable);
+  const snapByPath = new Map();
+  const localOwners = new Map();
+  const localByPath = new Map();
+  const remoteByPath = new Map();
+  const skipped = [];
+  for (const entry of snapshot ?? []) {
+    if (isSnapshotEntry(entry) && !snapByPath.has(entry.path)) {
+      snapByPath.set(entry.path, entry);
+    } else {
+      skipped.push(entry);
+    }
+  }
+  for (const entry of local ?? []) {
+    if (!isPlannable(entry)) {
+      skipped.push(entry);
+      continue;
+    }
+    if (localByPath.has(entry.path)) {
+      skipped.push({ ...entry, collisionWith: localByPath.get(entry.path).id });
+      continue;
+    }
+    localByPath.set(entry.path, entry);
+    if (!localOwners.has(ownerOf(entry))) {
+      localOwners.set(ownerOf(entry), entry);
+    }
+  }
+  for (const entry of remote ?? []) {
+    if (!isListable(entry)) {
+      skipped.push(entry);
+      continue;
+    }
+    if (!remoteByPath.has(entry.path)) {
+      remoteByPath.set(entry.path, entry);
+    } else {
+      skipped.push(entry);
+    }
+  }
   const push = [];
   const pull = [];
   const deleteRemote = [];
   const deleteLocal = [];
   const conflicts = [];
-  const skipped = [...localIndex.skipped, ...remoteIndex.skipped];
-  const keys = new Set([...localIndex.byKey.keys(), ...remoteIndex.byKey.keys()]);
-  for (const key of keys) {
-    const current = localIndex.byKey.get(key);
-    const listed = remoteIndex.byKey.get(key);
-    const before = known.get(key);
-    if (current && !listed) {
-      if (!before) {
-        push.push(current);
-      } else if (diverged(current, before)) {
-        conflicts.push({ collection: current.collection, id: current.id, local: current, remote: null });
-      } else {
-        deleteLocal.push({ collection: current.collection, id: current.id });
-      }
-      continue;
+  const collisions = [];
+  for (let index = skipped.length - 1; index >= 0; index -= 1) {
+    const entry = skipped[index];
+    if (entry?.collisionWith) {
+      collisions.push({
+        collection: entry.collection,
+        id: entry.id,
+        path: entry.path,
+        otherId: entry.collisionWith,
+      });
+      skipped.splice(index, 1);
     }
-    if (listed && !current) {
-      if (!before) {
-        pull.push(listed);
-      } else if (diverged(listed, before)) {
-        conflicts.push({ collection: listed.collection, id: listed.id, local: null, remote: listed });
-      } else {
-        deleteRemote.push({ collection: listed.collection, id: listed.id, path: listed.path });
-      }
-      continue;
-    }
+  }
+  const paths = new Set([...localByPath.keys(), ...remoteByPath.keys(), ...snapByPath.keys()]);
+  for (const path of paths) {
+    const current = localByPath.get(path) ?? null;
+    const listed = remoteByPath.get(path) ?? null;
+    const before = snapByPath.get(path) ?? null;
     if (current && listed) {
-      const localChanged = !before || current.updatedAt !== before.updatedAt || movedAside(current.path, before.path);
-      const remoteChanged = !before || listed.updatedAt !== before.updatedAt || movedAside(listed.path, before.path);
+      if (!before) {
+        // Both sides grew the path since the last sync: agreement is a
+        // silent convergence, divergence asks.
+        if (current.hash !== listed.hash) {
+          conflicts.push({ collection: current.collection, id: current.id, local: current, remote: listed });
+        }
+        continue;
+      }
+      if (ownerOf(current) !== ownerOf(before)) {
+        if (localOwners.has(ownerOf(before))) {
+          // The snapshot owner still lives locally somewhere else (it
+          // moved): this local record takes the path over and rewrites
+          // the file it used to leave behind.
+          push.push(current);
+        } else {
+          // The old owner vanished locally while the remote file stayed:
+          // a real ambiguity — the remote content may be the owner's
+          // edited version, and the local record may be the owner's
+          // rewrite. Asking is the only safe move.
+          conflicts.push({ collection: current.collection, id: current.id, local: current, remote: listed });
+        }
+        continue;
+      }
+      const localChanged = current.hash !== before.hash;
+      const remoteChanged = listed.hash !== before.hash;
       if (!localChanged && !remoteChanged) {
         continue;
       }
       if (localChanged && !remoteChanged) {
         push.push(current);
-        if (before && typeof before.path === 'string' && current.path !== before.path) {
-          deleteRemote.push({ collection: current.collection, id: current.id, path: before.path });
-        }
         continue;
       }
       if (remoteChanged && !localChanged) {
-        pull.push(listed);
+        pull.push({
+          collection: listed.collection,
+          id: listed.id ?? current.id,
+          path,
+          hash: listed.hash,
+          rev: listed.rev ?? null,
+        });
         continue;
       }
       if (current.hash === listed.hash) {
+        // Both sides converged to the same content; nothing to do.
         continue;
       }
       conflicts.push({ collection: current.collection, id: current.id, local: current, remote: listed });
+      continue;
     }
-  }
-  return { push, pull, deleteRemote, deleteLocal, conflicts, skipped };
-}
-
-/**
- * Reports whether an entry diverged from its snapshot (content stamp or,
- * when both paths are known, location).
- * @param {object} entry Current entry.
- * @param {object} before Snapshot entry.
- * @returns {boolean} True when changed or moved.
- */
-function diverged(entry, before) {
-  return entry.updatedAt !== before.updatedAt || movedAside(entry.path, before.path);
-}
-
-/**
- * Reports a location change when both paths are known strings.
- * @param {unknown} path Current path.
- * @param {unknown} before Snapshot path.
- * @returns {boolean} True on a real move.
- */
-function movedAside(path, before) {
-  return typeof path === 'string' && typeof before === 'string' && path !== before;
-}
-
-/**
- * Checks one manifest record carries every field sync needs. Title rides
- * along as opaque host metadata (round-trip fidelity for name-derived
- * paths) and is never interpreted here.
- * @param {object} entry Candidate record.
- * @returns {boolean} True when usable.
- */
-function isManifestRecord(entry) {
-  return (
-    !!entry
-    && typeof entry.collection === 'string'
-    && entry.collection.length > 0
-    && typeof entry.id === 'string'
-    && entry.id.length > 0
-    && typeof entry.path === 'string'
-    && entry.path.length > 0
-    && typeof entry.updatedAt === 'number'
-    && Number.isFinite(entry.updatedAt)
-    && typeof entry.hash === 'string'
-    && entry.hash.length > 0
-    && (entry.title === undefined || entry.title === null || typeof entry.title === 'string')
-  );
-}
-
-/**
- * Builds a remote manifest from validated records.
- * @param {Array} records Manifest records.
- * @returns {object} `{ manifest: { version, records }, skipped }`.
- */
-export function buildManifest(records) {
-  const valid = [];
-  const skipped = [];
-  for (const entry of records ?? []) {
-    if (isManifestRecord(entry)) {
-      valid.push({
-        collection: entry.collection,
-        id: entry.id,
-        path: entry.path,
-        updatedAt: entry.updatedAt,
-        hash: entry.hash,
-        title: typeof entry.title === 'string' ? entry.title : null,
-      });
-    } else {
-      skipped.push(entry);
+    if (current && !listed) {
+      // Remote dropped the path (or never had it); the local record is
+      // new content there. When the snapshot holds a foreign owner, the
+      // local record simply took the path over.
+      if (!before || before.id !== current.id) {
+        push.push(current);
+      } else if (current.hash !== before.hash) {
+        conflicts.push({ collection: current.collection, id: current.id, local: current, remote: null });
+      } else {
+        deleteLocal.push({ collection: current.collection, id: current.id, path });
+      }
+      continue;
     }
+    if (!current && listed) {
+      if (!before) {
+        pull.push({
+          collection: listed.collection,
+          id: listed.id ?? null,
+          path,
+          hash: listed.hash,
+          rev: listed.rev ?? null,
+        });
+      } else if (listed.hash !== before.hash) {
+        // The local record left the path (deleted, or moved away) while
+        // the remote content was edited in the meantime: keep-mine frees
+        // the file, take-theirs revives it.
+        conflicts.push({ collection: before.collection, id: before.id, local: null, remote: listed });
+      } else {
+        deleteRemote.push({
+          collection: before.collection,
+          id: before.id,
+          path,
+          rev: listed.rev ?? null,
+        });
+      }
+      continue;
+    }
+    // Local and remote both lost the path: nothing on either side; the
+    // snapshot entry drops on the next clean advance.
   }
-  return { manifest: { version: MANIFEST_VERSION, records: valid }, skipped };
+  return { push, pull, deleteRemote, deleteLocal, conflicts, collisions, skipped };
 }
 
+
 /**
- * Parses and validates a remote manifest. Structural failure returns null
- * (the service maps it to SYNC_CORRUPT_MANIFEST); single bad records are
- * skipped, never fatal.
- * @param {unknown} data Decoded remote payload.
- * @returns {object|null} `{ manifest: { version, records }, skipped }` or null.
+ * Hashes file content for change comparison (FNV-1a, synchronous).
+ * @param {string} content Serialized file content.
+ * @returns {string} Eight hex characters.
+ * @throws {TypeError} When content is not a string.
  */
-export function parseManifest(data) {
-  if (!data || typeof data !== 'object' || data.version !== MANIFEST_VERSION || !Array.isArray(data.records)) {
-    return null;
+export function hashRecord(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('hashRecord requires a string');
   }
-  const valid = [];
-  const skipped = [];
-  for (const entry of data.records) {
-    if (isManifestRecord(entry)) {
-      valid.push({
-        collection: entry.collection,
-        id: entry.id,
-        path: entry.path,
-        updatedAt: entry.updatedAt,
-        hash: entry.hash,
-        title: typeof entry.title === 'string' ? entry.title : null,
-      });
-    } else {
-      skipped.push(entry);
-    }
+  let hash = FNV_OFFSET_BASIS;
+  for (let index = 0; index < content.length; index += 1) {
+    hash ^= content.charCodeAt(index);
+    hash = Math.imul(hash, FNV_PRIME);
   }
-  return { manifest: { version: data.version, records: valid }, skipped };
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
 /**
@@ -396,21 +431,4 @@ export function matchesIgnore(path, patterns, extensions = ['md']) {
     }
   }
   return false;
-}
-/**
- * Hashes file content for change comparison (FNV-1a, synchronous).
- * @param {string} content Serialized file content.
- * @returns {string} Eight hex characters.
- * @throws {TypeError} When content is not a string.
- */
-export function hashRecord(content) {
-  if (typeof content !== 'string') {
-    throw new TypeError('hashRecord requires a string');
-  }
-  let hash = FNV_OFFSET_BASIS;
-  for (let index = 0; index < content.length; index += 1) {
-    hash ^= content.charCodeAt(index);
-    hash = Math.imul(hash, FNV_PRIME);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
 }

@@ -31,9 +31,10 @@ const EXPORT_SERVICE = 'parsinegar.export.service';
 const FILESYSTEM_SERVICE = 'pey.filesystem.service';
 const SYNC_SERVICE = 'pey.sync.service';
 const SYNC_METHODS = ['configureBackend', 'removeBackend', 'getStatus', 'syncNow', 'resolveConflict'];
+// Path identity: only document lives on the remote; folders become the
+// directory chain of each document (created on pull), never synced data.
 const SYNC_SCOPE = {
   collections: [
-    { collection: 'folders', serializer: 'json' },
     {
       collection: 'documents',
       serializer: 'markdown',

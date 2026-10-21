@@ -1,87 +1,75 @@
-// Verifies the pure sync decision logic (no I/O, no state).
+// Verifies the pure sync decision logic, path-keyed (no I/O, no state).
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  buildManifest,
   hashRecord,
   matchesIgnore,
-  parseManifest,
   planSync,
   snapshotDiff,
 } from '../../lib/sync-engine.js';
 
-function entry(overrides = {}) {
-  return {
-    collection: 'docs',
-    id: 'a',
-    updatedAt: 100,
-    path: 'a.md',
-    hash: 'hash-a',
-    ...overrides,
-  };
+function local(overrides = {}) {
+  return { collection: 'docs', id: 'a', path: 'a.md', hash: 'hash-a', ...overrides };
 }
 
-test('should_split_created_updated_and_deleted_when_diffed', () => {
-  const snapshot = [entry({ id: 'keep', updatedAt: 1, path: 'keep.md', hash: 'h' })];
-  const current = [
-    entry({ id: 'keep', updatedAt: 1, path: 'keep.md', hash: 'h' }),
-    entry({ id: 'new', updatedAt: 2, path: 'new.md', hash: 'n' }),
-    entry({ id: 'changed', updatedAt: 5, path: 'changed.md', hash: 'c' }),
-  ];
+function remote(overrides = {}) {
+  return { collection: 'docs', id: 'a', path: 'a.md', hash: 'hash-a', rev: 'rev-a', ...overrides };
+}
+
+function snap(overrides = {}) {
+  return { collection: 'docs', id: 'a', path: 'a.md', hash: 'hash-a', rev: 'rev-a', ...overrides };
+}
+
+test('should_split_created_changed_and_deleted_when_diffed', () => {
   const before = [
-    entry({ id: 'keep', updatedAt: 1, path: 'keep.md' }),
-    entry({ id: 'changed', updatedAt: 1, path: 'changed.md' }),
-    entry({ id: 'gone', updatedAt: 1, path: 'gone.md' }),
+    snap({ id: 'keep', path: 'keep.md', hash: 'k' }),
+    snap({ id: 'stale', path: 'stale.md', hash: 's' }),
+    snap({ id: 'gone', path: 'gone.md', hash: 'g' }),
+  ];
+  const current = [
+    local({ id: 'keep', path: 'keep.md', hash: 'k' }),
+    local({ id: 'stale', path: 'stale.md', hash: 'edited' }),
+    local({ id: 'fresh', path: 'fresh.md', hash: 'f' }),
   ];
   const diff = snapshotDiff(before, current);
-  assert.deepEqual(diff.created.map((item) => item.id), ['new']);
-  assert.deepEqual(diff.updated.map((item) => item.id), ['changed']);
-  assert.deepEqual(diff.deleted, [{ collection: 'docs', id: 'gone' }]);
-  assert.deepEqual(diff.moved, []);
+  assert.deepEqual(diff.created.map((item) => item.id), ['fresh']);
+  assert.deepEqual(diff.changed.map((item) => item.id), ['stale']);
+  assert.deepEqual(diff.deleted, [{ collection: 'docs', id: 'gone', path: 'gone.md' }]);
   assert.deepEqual(diff.skipped, []);
-  assert.deepEqual(snapshotDiff(snapshot, snapshot).created, []);
+  const trimmed = snapshotDiff(before, [local({ id: 'keep', path: 'keep.md', hash: 'k' })]);
+  assert.deepEqual(trimmed.created, []);
+  assert.deepEqual(trimmed.changed, []);
+  assert.deepEqual(trimmed.deleted.map((item) => item.id), ['stale', 'gone']);
 });
 
-test('should_report_moves_without_updates_when_renamed', () => {
-  const diff = snapshotDiff(
-    [entry({ updatedAt: 1, path: 'old.md' })],
-    [entry({ updatedAt: 1, path: 'new.md' })],
-  );
-  assert.deepEqual(diff.moved, [{ collection: 'docs', id: 'a', from: 'old.md', to: 'new.md' }]);
-  assert.deepEqual(diff.updated, []);
-});
-
-test('should_skip_path_compare_when_snapshot_path_is_missing', () => {
-  const diff = snapshotDiff(
-    [{ collection: 'docs', id: 'a', updatedAt: 1 }],
-    [entry({ updatedAt: 2 })],
-  );
-  assert.deepEqual(diff.moved, []);
-  assert.deepEqual(diff.updated.map((item) => item.id), ['a']);
-});
-
-test('should_skip_malformed_entries_when_diffed', () => {
-  const diff = snapshotDiff([], [{ collection: 'docs' }, null, entry()]);
+test('should_read_renames_as_delete_plus_create_when_diffed', () => {
+  const diff = snapshotDiff([snap()], [local({ path: 'new.md' })]);
   assert.deepEqual(diff.created.map((item) => item.id), ['a']);
-  assert.equal(diff.skipped.length, 2);
+  assert.deepEqual(diff.deleted.map((item) => item.path), ['a.md']);
+  assert.deepEqual(diff.changed, []);
 });
 
-test('should_push_local_creations_on_first_sync_when_planned', () => {
-  const plan = planSync([], [entry(), entry({ id: 'b', path: 'b.md', hash: 'hb', updatedAt: 2 })], []);
+test('should_skip_malformed_and_duplicate_paths_when_diffed', () => {
+  const diff = snapshotDiff([], [{ collection: 'docs' }, null, local(), local({ id: 'b' })]);
+  assert.deepEqual(diff.created.map((item) => item.id), ['a']);
+  assert.equal(diff.skipped.length, 3);
+});
+
+test('should_push_locals_and_pull_remotes_when_fresh', () => {
+  const plan = planSync(
+    [],
+    [local(), local({ id: 'b', path: 'b.md', hash: 'hb' })],
+    [remote({ id: 'c', path: 'c.md', hash: 'hc' })],
+  );
   assert.deepEqual(plan.push.map((item) => item.id), ['a', 'b']);
-  assert.deepEqual(plan.pull, []);
+  assert.deepEqual(plan.pull.map((item) => [item.id, item.path]), [['c', 'c.md']]);
   assert.deepEqual(plan.conflicts, []);
+  assert.deepEqual(plan.deleteRemote, []);
+  assert.deepEqual(plan.deleteLocal, []);
 });
 
-test('should_pull_remote_creations_on_first_sync_when_planned', () => {
-  const plan = planSync([], [], [entry()]);
-  assert.deepEqual(plan.pull.map((item) => item.id), ['a']);
-  assert.deepEqual(plan.push, []);
-});
-
-test('should_rest_when_nothing_changed_when_planned', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 100, path: 'a.md' }];
-  const plan = planSync(snapshot, [entry()], [entry()]);
+test('should_rest_when_both_sides_match_the_snapshot', () => {
+  const plan = planSync([snap()], [local()], [remote()]);
   assert.deepEqual(plan.push, []);
   assert.deepEqual(plan.pull, []);
   assert.deepEqual(plan.deleteRemote, []);
@@ -89,26 +77,34 @@ test('should_rest_when_nothing_changed_when_planned', () => {
   assert.deepEqual(plan.conflicts, []);
 });
 
-test('should_push_only_local_changes_when_planned', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 1, path: 'a.md' }];
-  const plan = planSync(snapshot, [entry({ updatedAt: 2, hash: 'h2' })], [entry({ updatedAt: 1, hash: 'h1' })]);
-  assert.deepEqual(plan.push.map((item) => item.id), ['a']);
-  assert.deepEqual(plan.pull, []);
+test('should_push_one_sided_local_change_and_carry_old_path_delete_on_rename', () => {
+  const edited = planSync([snap()], [local({ hash: 'edited' })], [remote({ hash: 'hash-a' })]);
+  assert.deepEqual(edited.push.map((item) => item.hash), ['edited']);
+  assert.deepEqual(edited.pull, []);
+  const renamed = planSync(
+    [snap({ path: 'old.md', rev: 'r-old' })],
+    [local({ path: 'new.md', hash: 'edited' })],
+    [remote({ path: 'old.md', rev: 'r-old' })],
+  );
+  assert.deepEqual(renamed.push.map((item) => item.path), ['new.md']);
+  assert.deepEqual(renamed.deleteRemote, [{ collection: 'docs', id: 'a', path: 'old.md', rev: 'r-old' }]);
 });
 
-test('should_pull_only_remote_changes_when_planned', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 1, path: 'a.md' }];
-  const plan = planSync(snapshot, [entry({ updatedAt: 1, hash: 'h1' })], [entry({ updatedAt: 2, hash: 'h2' })]);
-  assert.deepEqual(plan.pull.map((item) => item.id), ['a']);
+test('should_pull_one_sided_remote_change', () => {
+  const plan = planSync(
+    [snap({ hash: 'old' })],
+    [local({ hash: 'old' })],
+    [remote({ hash: 'fresh', rev: 'r2' })],
+  );
+  assert.deepEqual(plan.pull, [{ collection: 'docs', id: 'a', path: 'a.md', hash: 'fresh', rev: 'r2' }]);
   assert.deepEqual(plan.push, []);
 });
 
 test('should_conflict_when_both_sides_changed_differently', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 1, path: 'a.md' }];
   const plan = planSync(
-    snapshot,
-    [entry({ updatedAt: 2, hash: 'mine' })],
-    [entry({ updatedAt: 3, hash: 'theirs' })],
+    [snap({ hash: 'base' })],
+    [local({ hash: 'mine' })],
+    [remote({ hash: 'theirs' })],
   );
   assert.equal(plan.conflicts.length, 1);
   assert.equal(plan.conflicts[0].local.hash, 'mine');
@@ -117,51 +113,55 @@ test('should_conflict_when_both_sides_changed_differently', () => {
   assert.deepEqual(plan.pull, []);
 });
 
-test('should_skip_when_both_sides_converged_when_planned', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 1, path: 'a.md' }];
-  const plan = planSync(
-    snapshot,
-    [entry({ updatedAt: 2, hash: 'same' })],
-    [entry({ updatedAt: 3, hash: 'same' })],
-  );
-  assert.deepEqual(plan.conflicts, []);
-  assert.deepEqual(plan.push, []);
-  assert.deepEqual(plan.pull, []);
+test('should_rest_when_both_sides_converged_to_the_same_content', () => {
+  for (const base of [{ hash: 'base', rev: 'rine' }, null]) {
+    const plan = planSync(
+      base ? [snap({ hash: 'base' })] : [],
+      [local({ hash: 'same' })],
+      [remote({ hash: 'same' })],
+    );
+    assert.deepEqual(plan.conflicts, [], 'convergence never asks');
+    assert.deepEqual(plan.push, []);
+    assert.deepEqual(plan.pull, []);
+  }
 });
 
-test('should_delete_remote_when_local_deleted_unchanged_entry', () => {
-  const snapshot = [
-    { collection: 'docs', id: 'a', updatedAt: 100, path: 'a.md' },
-    { collection: 'docs', id: 'gone', updatedAt: 5, path: 'gone.md' },
-  ];
+test('should_delete_remote_when_local_left_an_unchanged_path', () => {
   const plan = planSync(
-    snapshot,
-    [entry()],
-    [entry(), entry({ id: 'gone', updatedAt: 5, path: 'gone.md', hash: 'hg' })],
+    [snap({ id: 'gone', path: 'gone.md', hash: 'hg', rev: 'rg' })],
+    [local()],
+    [remote({ id: 'gone', path: 'gone.md', hash: 'hg', rev: 'rg' })],
   );
-  assert.deepEqual(plan.deleteRemote, [{ collection: 'docs', id: 'gone', path: 'gone.md' }]);
+  assert.deepEqual(plan.deleteRemote, [{ collection: 'docs', id: 'gone', path: 'gone.md', rev: 'rg' }]);
   assert.deepEqual(plan.conflicts, []);
 });
 
-test('should_delete_local_when_remote_deleted_unchanged_entry', () => {
-  const snapshot = [
-    { collection: 'docs', id: 'a', updatedAt: 100, path: 'a.md' },
-    { collection: 'docs', id: 'gone', updatedAt: 5, path: 'gone.md' },
-  ];
+test('should_conflict_when_local_left_and_remote_changed', () => {
   const plan = planSync(
-    snapshot,
-    [entry(), entry({ id: 'gone', updatedAt: 5, path: 'gone.md', hash: 'hg' })],
-    [entry()],
+    [snap({ id: 'gone', path: 'gone.md', hash: 'hg' })],
+    [local()],
+    [remote({ id: 'gone', path: 'gone.md', hash: 'rewritten' })],
   );
-  assert.deepEqual(plan.deleteLocal, [{ collection: 'docs', id: 'gone' }]);
+  assert.equal(plan.conflicts.length, 1);
+  assert.equal(plan.conflicts[0].id, 'gone');
+  assert.equal(plan.conflicts[0].local, null);
+  assert.equal(plan.conflicts[0].remote.hash, 'rewritten');
+});
+
+test('should_delete_local_when_remote_lost_an_unchanged_path', () => {
+  const plan = planSync(
+    [snap({ id: 'gone', path: 'gone.md', hash: 'hg' })],
+    [local(), local({ id: 'gone', path: 'gone.md', hash: 'hg' })],
+    [remote()],
+  );
+  assert.deepEqual(plan.deleteLocal, [{ collection: 'docs', id: 'gone', path: 'gone.md' }]);
   assert.deepEqual(plan.conflicts, []);
 });
 
-test('should_conflict_when_local_deleted_changed_entry', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 1, path: 'a.md' }];
+test('should_conflict_when_remote_lost_and_local_changed', () => {
   const plan = planSync(
-    snapshot,
-    [entry({ updatedAt: 2, hash: 'mine' })],
+    [snap({ hash: 'base' })],
+    [local({ hash: 'mine' })],
     [],
   );
   assert.equal(plan.conflicts.length, 1);
@@ -169,85 +169,72 @@ test('should_conflict_when_local_deleted_changed_entry', () => {
   assert.equal(plan.conflicts[0].local.hash, 'mine');
 });
 
-test('should_conflict_when_remote_changed_deleted_entry', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 1, path: 'a.md' }];
+test('should_raise_collision_and_skip_the_path_when_locals_cross', () => {
   const plan = planSync(
-    snapshot,
     [],
-    [entry({ updatedAt: 2, hash: 'theirs' })],
+    [local({ id: 'a', path: 'n.md', hash: 'ha' }), local({ id: 'b', path: 'n.md', hash: 'hb' })],
+    [],
   );
-  assert.equal(plan.conflicts.length, 1);
-  assert.equal(plan.conflicts[0].local, null);
-  assert.equal(plan.conflicts[0].remote.hash, 'theirs');
+  assert.equal(plan.collisions.length, 1);
+  assert.equal(plan.collisions[0].path, 'n.md');
+  assert.equal(plan.collisions[0].otherId, 'a');
+  assert.equal(plan.push.length, 1);
+  assert.equal(plan.skipped.length, 0);
 });
 
-test('should_push_and_drop_old_path_when_local_renamed', () => {
-  const snapshot = [{ collection: 'docs', id: 'a', updatedAt: 100, path: 'old.md' }];
-  const steady = planSync(
-    snapshot,
-    [entry({ path: 'old.md' })],
-    [entry({ updatedAt: 100, path: 'old.md' })],
+test('should_push_take_over_when_snapshot_owner_moved_away', () => {
+  // owner `a` moved from `a.md` to `b.md`; record `b` (id-wise distinct)
+  // now occupies the old local path — the file is rewritten, not asked.
+  const plan = planSync(
+    [snap({ id: 'a', path: 'a.png'.slice(0, -4) + '.md', hash: 'old' })],
+    [local({ id: 'b', path: 'a.md', hash: 'new' }), local({ id: 'a', path: 'b.md', hash: 'new2' })],
+    [remote({ id: 'a', path: 'a.md', hash: 'old', rev: 'r' })],
   );
-  assert.deepEqual(steady.push, []);
-  assert.deepEqual(steady.deleteRemote, []);
-  const renamed = planSync(
-    snapshot,
-    [entry({ path: 'new.md' })],
-    [entry({ updatedAt: 100, path: 'old.md' })],
-  );
-  assert.deepEqual(renamed.push.map((item) => item.path), ['new.md']);
-  assert.deepEqual(renamed.deleteRemote, [{ collection: 'docs', id: 'a', path: 'old.md' }]);
+  const takenOver = plan.push.find((item) => item.path === 'a.md');
+  assert.ok(takenOver);
+  assert.equal(takenOver.id, 'b');
+  assert.deepEqual(plan.conflicts, []);
 });
 
-test('should_conflict_on_id_collision_when_both_created', () => {
-  const plan = planSync([], [entry({ hash: 'mine' })], [entry({ hash: 'theirs' })]);
+test('should_conflict_when_a_foreign_snapshot_owner_vanished', () => {
+  const plan = planSync(
+    [snap({ id: 'old', path: 'a.md', hash: 'old' })],
+    [local({ id: 'new', path: 'a.md', hash: 'new' })],
+    [remote({ id: null, path: 'a.md', hash: 'old', rev: 'r' })],
+  );
   assert.equal(plan.conflicts.length, 1);
-  const converged = planSync([], [entry({ hash: 'same' })], [entry({ hash: 'same' })]);
-  assert.deepEqual(converged.conflicts, []);
-  assert.deepEqual(converged.push, []);
-  assert.deepEqual(converged.pull, []);
+  assert.equal(plan.conflicts[0].id, 'new');
+});
+
+test('should_pull_minted_owners_for_new_remote_files', () => {
+  const plan = planSync([], [], [remote({ id: null, path: 'سند.md' })]);
+  assert.deepEqual(plan.pull, [{ collection: 'docs', id: null, path: 'سند.md', hash: 'hash-a', rev: 'rev-a' }]);
+  const jsonPlan = planSync([], [], [remote({ id: 'meta-1', collection: 'meta', path: 'meta/meta-1.json' })]);
+  assert.deepEqual(jsonPlan.pull.map((item) => [item.id, item.path]), [['meta-1', 'meta/meta-1.json']]);
+});
+
+test('should_fall_back_to_content_agreement_when_the_base_is_unknown', () => {
+  // A migrated snapshot entry without a usable hash reads as unknown
+  // base: agreeing contents converge, diverging contents ask.
+  const same = planSync(
+    [snap({ hash: null, rev: null })],
+    [local({ hash: 'same' })],
+    [remote({ hash: 'same' })],
+  );
+  assert.deepEqual(same.conflicts, []);
+  assert.deepEqual(same.push, []);
+  const split = planSync(
+    [snap({ hash: null, rev: null })],
+    [local({ hash: 'mine' })],
+    [remote({ hash: 'theirs' })],
+  );
+  assert.equal(split.conflicts.length, 1);
 });
 
 test('should_skip_malformed_sides_when_planned', () => {
-  const plan = planSync([], [{ collection: 'docs' }, entry()], [{ id: 'x' }]);
+  const plan = planSync([], [{ collection: 'docs' }, null, local()], [{ id: 'x' }]);
   assert.deepEqual(plan.push.map((item) => item.id), ['a']);
-  assert.equal(plan.skipped.length, 2);
-});
-
-test('should_build_versioned_manifest_when_built', () => {
-  const { manifest, skipped } = buildManifest([entry(), { collection: 'docs' }]);
-  assert.equal(manifest.version, 1);
-  assert.deepEqual(manifest.records, [{
-    collection: 'docs',
-    id: 'a',
-    path: 'a.md',
-    updatedAt: 100,
-    hash: 'hash-a',
-    title: null,
-  }]);
-  assert.equal(skipped.length, 1);
-  const titled = buildManifest([entry({ title: 'یادداشت' })]);
-  assert.equal(titled.manifest.records[0].title, 'یادداشت');
-});
-
-test('should_round_trip_valid_manifest_when_parsed', () => {
-  const { manifest } = buildManifest([entry()]);
-  const parsed = parseManifest(JSON.parse(JSON.stringify(manifest)));
-  assert.deepEqual(parsed.manifest, manifest);
-  assert.deepEqual(parsed.skipped, []);
-});
-
-test('should_reject_structural_failure_when_parsed', () => {
-  assert.equal(parseManifest(null), null);
-  assert.equal(parseManifest({ version: 2, records: [] }), null);
-  assert.equal(parseManifest({ version: 1 }), null);
-  assert.equal(parseManifest({ version: 1, records: {} }), null);
-});
-
-test('should_skip_bad_records_when_parsed', () => {
-  const parsed = parseManifest({ version: 1, records: [entry(), { id: 'x' }] });
-  assert.equal(parsed.manifest.records.length, 1);
-  assert.equal(parsed.skipped.length, 1);
+  assert.equal(plan.skipped.length, 3);
 });
 
 test('should_hash_deterministically_when_hashed', () => {

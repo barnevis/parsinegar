@@ -8,9 +8,9 @@ const DEFAULT_BRANCH = 'main';
 
 /**
  * Backend descriptor registering the GitHub Contents backend with the sync
- * engine: factory, error translation, engine-manifest location and the
- * concurrent-write signal. New backends (e.g. WebDAV) register their own
- * descriptor without touching the engine; see adapters/README.md.
+ * engine: factory, error translation and the concurrent-write signal. New
+ * backends (e.g. WebDAV) register their own descriptor without touching
+ * the engine; see adapters/README.md.
  */
 export const gitAdapterDescriptor = {
   kind: 'git',
@@ -24,7 +24,6 @@ export const gitAdapterDescriptor = {
     GIT_REQUEST_FAILED: 'SYNC_NETWORK_FAILED',
     GIT_INVALID_CONFIG: 'SYNC_INVALID_CONFIG',
   },
-  manifestPath: 'sync-manifest.json',
   revMismatchCode: 'GIT_REV_MISMATCH',
 };
 // Sanctioned/blackholed networks hang instead of refusing: without a

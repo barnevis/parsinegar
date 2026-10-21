@@ -1,7 +1,8 @@
-// Local persistence for pey.sync: guards, run errors, scope memory and
-// the last-synced snapshot. Reads and writes the plugin's own stores
-// through the storage outage guard; knows record shapes, never the
-// network or the sync plan.
+// Local persistence for pey.sync: guards, run errors, scope memory,
+// legacy-snapshot migration and the last-synced snapshot (version 2:
+// path-keyed `{collection, id, path, hash, rev}`). Reads and writes the
+// plugin's own stores through the storage outage guard; knows record
+// shapes, never the network or the sync plan.
 import { syncError } from './error.js';
 import { normalizeScope } from './sync-scope.js';
 import { collectLocal } from './sync-collect.js';
@@ -80,20 +81,84 @@ async function rememberScope(storage, configs) {
 }
 
 /**
- * Advances the snapshot to current local state after clean completion.
+ * Upgrades a stored snapshot to version 2 on the spot: path-keyed entries
+ * gain a content hash and a revision. Hashes are seeded from the legacy
+ * manifest when it is still readable — one traversal serves both migration
+ * and planning, so no extra remote reads happen now.
+ * @param {object} storage Storage service.
+ * @param {Array} previous Stored snapshot in any shape.
+ * @param {Array|null} legacyManifestRecords Legacy manifest records.
+ * @returns {Promise<object>} `{ snapshot, seeded }` — entries normalized
+ *   to version 2, `seeded` false only when nothing changed.
+ */
+async function migrateSnapshot(storage, previous, legacyManifestRecords) {
+  const twins = new Map();
+  for (const record of legacyManifestRecords ?? []) {
+    if (record
+      && typeof record.collection === 'string'
+      && typeof record.id === 'string'
+      && typeof record.hash === 'string'
+      && record.hash.length > 0) {
+      twins.set(`${record.collection}::${record.id}`, record);
+    }
+  }
+  let seeded = false;
+  const snapshot = [];
+  for (const entry of Array.isArray(previous) ? previous : []) {
+    if (!entry || typeof entry.path !== 'string' || entry.path.length === 0) {
+      seeded = true;
+      continue;
+    }
+    if (typeof entry.hash === 'string' && entry.hash.length > 0) {
+      snapshot.push({
+        collection: entry.collection,
+        id: entry.id,
+        path: entry.path,
+        hash: entry.hash,
+        rev: typeof entry.rev === 'string' ? entry.rev : null,
+      });
+      continue;
+    }
+    seeded = true;
+    const twin = twins.get(`${entry?.collection ?? ''}::${entry?.id ?? ''}`);
+    const twinHash = typeof twin?.path === 'string' && twin.path === entry.path ? twin.hash : null;
+    snapshot.push({
+      collection: entry.collection,
+      id: entry.id,
+      path: entry.path,
+      hash: twinHash,
+      rev: null,
+    });
+  }
+  if (seeded) {
+    const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
+    await store(storage.write(STATE_COLLECTION, {
+      ...saved,
+      id: BACKEND_ID,
+      snapshot,
+    }));
+  }
+  return { snapshot, seeded };
+}
+
+/**
+ * Advances the snapshot to current local state after clean completion,
+ * pinning each path's revision from the round's listing plus writes.
  * Re-collects inside so resolve paths snapshot post-resolution truth,
  * never a stale pre-resolution listing.
  * @param {object} storage Storage service.
  * @param {Array} configs Normalized scope.
+ * @param {Map|null} revs Path to revision from this round.
  * @returns {Promise} Stored state.
  */
-async function advanceSnapshot(storage, configs) {
+async function advanceSnapshot(storage, configs, revs) {
   const local = await collectLocal(storage, configs);
   const snapshot = local.entries.map((item) => ({
     collection: item.collection,
     id: item.id,
-    updatedAt: item.updatedAt,
     path: item.path,
+    hash: item.hash,
+    rev: revs?.get(item.path) ?? null,
   }));
   const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
   return store(storage.write(STATE_COLLECTION, {
@@ -119,7 +184,7 @@ async function readScopeForResolve(storage) {
 }
 
 /**
- * Upserts or drops one snapshot entry.
+ * Upserts or drops one snapshot entry (identity: collection + id).
  * @param {object} storage Storage service.
  * @param {object} saved State record.
  * @param {object|null} entry Entry to upsert, or null.
@@ -150,6 +215,7 @@ export {
   STATE_COLLECTION,
   advanceSnapshot,
   clearError,
+  migrateSnapshot,
   publish,
   readScopeForResolve,
   recordError,

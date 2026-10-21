@@ -1,8 +1,8 @@
 // pey.sync service: manual backend-neutral sync of storage collections.
 //
 // Local storage stays the source of truth; the remote is a mirror. Each
-// syncNow round reads the remote manifest once, plans purely, applies,
-// then rewrites the manifest and advances the snapshot only on clean
+// syncNow round captures local state plus the remote listing, plans
+// purely, applies, then advances the path-keyed snapshot only on clean
 // completion — a partial failure simply retries from the same snapshot
 // (all remote operations are idempotent).
 //
@@ -11,7 +11,7 @@
 // decisions live in the modules.
 import { syncError } from './error.js';
 import { collectLocal, withoutIgnored } from './sync-collect.js';
-import { planSync, snapshotDiff } from './sync-engine.js';
+import { snapshotDiff } from './sync-engine.js';
 import { extensionsOf, normalizeScope } from './sync-scope.js';
 import { descriptorFor, instantiateBackend, mapAdapterError } from './sync-backend.js';
 import {
@@ -27,14 +27,12 @@ import {
   requireBackend,
 } from './sync-state.js';
 import { requireStorage, store } from './sync-store.js';
-import { MANIFEST_PATH, readManifest } from './sync-remote.js';
 import {
   applyLocalResolution,
   applyRemoteResolution,
-  countRemaining,
-  fetchRoundPlan,
-  finalizeRound,
   applyRoundPlan,
+  captureRoundPlan,
+  finalizeRound,
 } from './sync-round.js';
 
 /**
@@ -104,9 +102,9 @@ function createService(state) {
     },
 
     async hasPendingChanges(input = {}) {
-      // Local-only preflight for the dirty dot: same stamp comparison the
-      // next syncNow would run, but never any network. Unconfigured means
-      // nothing can be pending, never an error.
+      // Local-only preflight for the dirty dot: the same hash comparison
+      // the next syncNow would run, but never any network. Unconfigured
+      // means nothing can be pending, never an error.
       const configs = normalizeScope(input?.scope);
       const storage = requireStorage(state);
       const backend = await store(storage.read(BACKENDS_COLLECTION, BACKEND_ID));
@@ -120,9 +118,8 @@ function createService(state) {
       const diff = snapshotDiff(snapshot, local.entries);
       return {
         pending: diff.created.length > 0
-          || diff.updated.length > 0
-          || diff.deleted.length > 0
-          || diff.moved.length > 0,
+          || diff.changed.length > 0
+          || diff.deleted.length > 0,
       };
     },
 
@@ -130,27 +127,7 @@ function createService(state) {
       const configs = normalizeScope(input?.scope);
       const { backend, storage } = await requireBackend(state);
       const { adapter, descriptor } = instantiateBackend(state, backend);
-      const round = {
-        state,
-        storage,
-        configs,
-        adapter,
-        descriptor,
-        manifestPath: descriptor.manifestPath ?? MANIFEST_PATH,
-        failMapped: (error) => {
-          throw mapAdapterError(descriptor, error);
-        },
-        report: {
-          pushed: [],
-          pulled: [],
-          deletedRemote: [],
-          deleteLocal: [],
-          relocated: [],
-          skipped: [],
-          conflicts: [],
-          completed: false,
-        },
-      };
+      const round = buildRound(state, storage, configs, adapter, descriptor);
       const fail = async (error) => {
         await recordError(storage, error);
         publish(state, 'sync:changed', {
@@ -161,9 +138,9 @@ function createService(state) {
         throw error;
       };
       try {
-        const { plan, manifestRead, local } = await fetchRoundPlan(round);
-        await applyRoundPlan(round, plan, manifestRead, local);
-        return finalizeRound(state, storage, configs, plan, round.report);
+        const context = await captureRoundPlan(round);
+        await applyRoundPlan(round, context);
+        return finalizeRound(state, storage, adapter, configs, context, round.report);
       } catch (error) {
         if (error?.code && String(error.code).startsWith('SYNC_')) {
           return fail(error);
@@ -184,39 +161,29 @@ function createService(state) {
       const { backend, storage } = await requireBackend(state);
       const { adapter, descriptor } = instantiateBackend(state, backend);
       const configs = await readScopeForResolve(storage);
-      const round = {
-        state,
-        storage,
-        configs,
-        adapter,
-        descriptor,
-        manifestPath: descriptor.manifestPath ?? MANIFEST_PATH,
-        failMapped: (error) => {
-          throw mapAdapterError(descriptor, error);
-        },
-      };
-      const manifestRead = await readManifest(adapter, round.manifestPath).catch(round.failMapped);
-      const local = await collectLocal(storage, configs);
-      const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
-      const snapshot = Array.isArray(saved.snapshot) ? saved.snapshot : [];
-      const plan = planSync(
-        snapshot,
-        local.entries,
-        manifestRead.manifest.records,
-      );
-      const conflict = plan.conflicts.find((item) => item.collection === collection && item.id === id);
+      const round = buildRound(state, storage, configs, adapter, descriptor);
+      const context = await captureRoundPlan(round).catch((error) => {
+        if (error?.code && String(error.code).startsWith('SYNC_')) {
+          throw error;
+        }
+        throw mapAdapterError(descriptor, error);
+      });
+      const conflict = context.plan.conflicts.find((item) => item.collection === collection && item.id === id);
       if (!conflict) {
         throw syncError('SYNC_INVALID_CONFIG', 'No pending conflict for that record', { collection, id });
       }
-      const before = snapshot.find((item) => item?.collection === collection && item?.id === id);
+      const saved = (await store(storage.read(STATE_COLLECTION, BACKEND_ID))) ?? {};
+      const before = context.snapshot.find((item) => item?.collection === collection && item?.id === id);
       if (choice === 'local') {
-        await applyLocalResolution(round, local, manifestRead, saved, before, collection, id);
+        await applyLocalResolution(round, context, saved, before, collection, id);
       } else {
-        await applyRemoteResolution(round, manifestRead, saved, conflict, collection, id);
+        await applyRemoteResolution(round, context, conflict, collection, id);
       }
-      const remaining = await countRemaining(storage, configs, adapter, descriptor);
+      // One record one path: the resolution can only clear its own
+      // conflict, so the remaining count comes straight from the plan.
+      const remaining = context.plan.conflicts.length - 1;
       if (remaining === 0) {
-        await advanceSnapshot(storage, configs);
+        await advanceSnapshot(storage, configs, context.revs);
         await clearError(storage);
       }
       publish(state, 'sync:changed', { pushed: [], pulled: [], conflicts: [] });
@@ -226,9 +193,40 @@ function createService(state) {
   return service;
 }
 
+/**
+ * Assembles a fresh round context (mutable report included).
+ * @param {object} state Activation state.
+ * @param {object} storage Storage service.
+ * @param {Array} configs Normalized scope.
+ * @param {object} adapter Backend adapter.
+ * @param {object} descriptor Backend descriptor.
+ * @returns {object} Round context.
+ */
+function buildRound(state, storage, configs, adapter, descriptor) {
+  return {
+    state,
+    storage,
+    configs,
+    adapter,
+    descriptor,
+    failMapped: (error) => {
+      throw mapAdapterError(descriptor, error);
+    },
+    report: {
+      pushed: [],
+      pulled: [],
+      deletedRemote: [],
+      deleteLocal: [],
+      relocated: [],
+      skipped: [],
+      conflicts: [],
+      completed: false,
+    },
+  };
+}
+
 export {
   BACKENDS_COLLECTION,
-  MANIFEST_PATH,
   SERVICE_NAME,
   STATE_COLLECTION,
   createService,
