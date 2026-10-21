@@ -7,7 +7,7 @@
 // beyond the folder maps it is handed.
 import { withoutIgnored } from './sync-collect.js';
 import { attributePath, pathEncodedId, remoteHash, SERIALIZERS } from './sync-scope.js';
-import { ensureFolderChain, resolvePathParts } from './sync-paths.js';
+import { ensureFolderChain, makeId, resolvePathParts } from './sync-paths.js';
 
 const LEGACY_MANIFEST_PATH = 'sync-manifest.json';
 
@@ -98,9 +98,10 @@ async function hashRemoteFile(adapter, configs, collection, path, revKnown) {
 
 /**
  * Builds a pulled record from a remote file: the path owns title and
- * folder chain (plus the json identity), the file owns content. Missing
- * folder rows along the chain are created on the fly so the record keeps
- * its remote address.
+ * folder chain (plus the json identity), the file owns content. Text
+ * serializers without any local occupant mint their record id here.
+ * Missing folder rows along the chain are created on the fly so the
+ * record keeps its remote address.
  * @param {object} storage Storage service (folder chain creation).
  * @param {Map} folders Folder maps by collection name.
  * @param {Array} configs Normalized scope.
@@ -137,7 +138,10 @@ async function buildPulledRecord(storage, folders, configs, item, content, stamp
     return {
       collection: item.collection,
       record: {
-        [config.idField]: item.id,
+        // Text serializers mint identity at apply time: the engine
+        // cannot name a record that has never lived locally, and the
+        // storage key (IndexedDB keyPath) rejects a null id.
+        [config.idField]: item.id ?? makeId(),
         [config.titleField]: titleFromPath(config, item.path),
         [config.folders?.folderField ?? 'folderId']: folderId,
         [config.contentField]: typeof partial[config.contentField] === 'string' ? partial[config.contentField] : '',

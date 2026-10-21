@@ -14,6 +14,10 @@
 - `SYNC_PATH_COLLISION`: two local records claiming the same remote path error out with both ids before any remote write, instead of silently overwriting.
 - Revision shortcut: paths whose listing revision matches the snapshot skip content reads entirely, so a clean round costs one tree listing.
 
+### Fixed
+
+- First pull of a remote text document into an empty library minted no record id, and a null storage key was rejected by `pey.storage` (IndexedDB `keyPath: 'id'`) — the round died mid-pull under `SYNC_STORAGE_UNAVAILABLE` («Sync storage unreachable») after the pushes: files landed on the remote while the pulled document never reached Parsinegar. Text pulls mint their id at apply time now.
+
 ### Removed
 
 - `SYNC_CORRUPT_MANIFEST` and the adapter-descriptor `manifestPath` field: no remote metadata exists to corrupt.

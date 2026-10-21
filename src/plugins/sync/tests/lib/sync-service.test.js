@@ -278,6 +278,28 @@ test('should_pull_remote_tree_when_synced', async () => {
   assert.equal(docs[0].folderId, folders[0].id);
 });
 
+test('should_mint_local_ids_for_new_remote_documents_when_pulled', async () => {
+  const { service, storage } = setup({
+    files: {
+      'README.md': { content: Buffer.from('توضیح پروژه').toString('base64'), rev: 'r1' },
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE });
+  assert.equal(report.completed, true);
+  assert.equal(report.pulled.length, 1);
+  const docs = await storage.query('docs');
+  assert.equal(docs.length, 1);
+  assert.equal(docs[0].title, 'README');
+  assert.equal(typeof docs[0].id, 'string');
+  assert.ok(docs[0].id.length > 0, 'expected a minted storage key for the pulled document');
+  assert.deepEqual(await service.hasPendingChanges({ scope: SCOPE }), { pending: false });
+  const second = await service.syncNow({ scope: SCOPE });
+  assert.equal(second.completed, true);
+  assert.deepEqual(second.pulled, []);
+  assert.deepEqual(second.pushed, []);
+});
+
 test('should_pull_minting_folder_chain_when_synced', async () => {
   const { service, storage } = setup({
     storageData: {
