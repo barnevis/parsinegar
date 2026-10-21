@@ -256,6 +256,42 @@ test('should_decode_and_rev_by_blob_when_file_is_read', async () => {
   assert.deepEqual(await backend.readFile('parsinegar/a.md'), { content: 'سلام دنیا', rev: 'blob-9' });
 });
 
+test('should_encode_nested_paths_as_one_segment_when_used', async () => {
+  // GitLab's route reads file_path as ONE URL segment: nested paths must
+  // carry percent-encoded slashes (`folder%2Ffile.md`) — literal slashes
+  // 404 on everything below the root (decisions §48, anchor 7).
+  const { backend, calls } = setup([fileRoute(() => response(200, { content: encode('سلام'), blob_id: 'b1' }))]);
+  await backend.readFile('پوشه/یادداشت.md');
+  const pathPart = calls[0].url.split('/files/')[1].split('?')[0];
+  assert.ok(pathPart.includes('%2F'), 'nested path encoded as one segment');
+  assert.ok(!pathPart.includes('/'), `no literal slash may reach the route: ${pathPart}`);
+  await backend.writeFile('پوشه/یادداشت.md', 'سلام');
+  await backend.deleteFile('پوشه/یادداشت.md', 'b1');
+  const broken = calls.filter((call) => {
+    const part = String(call.url).split('/files/')[1]?.split('?')[0] ?? null;
+    return part !== null && decodeURIComponent(part).includes('/') && !part.includes('%2F');
+  });
+  assert.deepEqual(broken, [], 'every file request must keep slashes percent-encoded');
+});
+
+test('should_round_trip_nested_path_when_written_and_read', async () => {
+  const store = new Map();
+  const keyOf = (url) => decodeURIComponent(url.split('/files/')[1].split('?')[0]);
+  const { backend } = setup([fileRoute((url, options) => {
+    const key = keyOf(url);
+    if ((options.method ?? 'GET') === 'GET') {
+      const hit = store.get(key);
+      return hit ? response(200, hit) : response(404, {});
+    }
+    const body = JSON.parse(options.body);
+    store.set(key, { content: body.content, blob_id: `b-${store.size}`, last_commit_id: null });
+    return response(201, {});
+  })]);
+  const text = 'سند داخل پوشه';
+  await backend.writeFile('مکاتبات/پیش‌نویس/سند.md', text);
+  assert.deepEqual(await backend.readFile('مکاتبات/پیش‌نویس/سند.md'), { content: text, rev: 'b-0' });
+});
+
 test('should_return_null_for_missing_file_when_read', async () => {
   const { backend } = setup([fileRoute(() => response(404, {}))]);
   assert.equal(await backend.readFile('parsinegar/nope.md'), null);

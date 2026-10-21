@@ -11,6 +11,10 @@
 
 - Sync-target contract (`adapters/README.md`): `writeFile` and `deleteFile` gained an optional `options` bag with `options.message`; skipping it or leaving `message` empty falls back to each backend's automatic default. Descriptors may declare `normalizeParams` so the service persists and echoes exactly the params the backend will use.
 
+### Fixed
+
+- gitlab backend sent nested file paths with literal slashes in the URL (`files/folder/file.md`); GitLab's route reads `file_path` as one URL segment, so every document inside a folder failed with `HTTP 404` (reads and writes alike, `{"error":"404 Not Found"}`). The whole path is now percent-encoded as a single segment (`files/folder%2Ffile.md`); verified against GitLab 17.
+
 ## [0.3.0] - 2026-10-19
 
 ### Changed

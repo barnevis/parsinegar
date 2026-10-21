@@ -177,12 +177,12 @@ export function createGitlabAdapter({ repo, branch = DEFAULT_BRANCH, token, base
     }
   }
 
+  // GitLab reads file_path as ONE URL segment: the whole path, slashes
+  // included, must be percent-encoded (`vars%2Ff.md`). Literal slashes
+  // only ever match root-level files — verified 404 vs 200 on GitLab 17
+  // (decisions §48, anchor 7).
   function filesUrl(path) {
-    const encoded = String(path ?? '')
-      .split('/')
-      .map((segment) => encodeURIComponent(segment))
-      .join('/');
-    return `${api}/projects/${encodeURIComponent(repo)}/repository/files/${encoded}`;
+    return `${api}/projects/${encodeURIComponent(repo)}/repository/files/${encodeURIComponent(String(path ?? ''))}`;
   }
 
   /**
