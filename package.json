@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "npx --yes serve --single .",
+    "build": "node scripts/build-dist.mjs",
     "test": "node --test \"tests/**/*.test.js\" \"src/**/*.test.js\""
   },
   "dependencies": {
@@ -52,6 +53,7 @@
     "w3c-keyname": "^2.2.8"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "jsdom": "^26.1.0"
   },
   "engines": {

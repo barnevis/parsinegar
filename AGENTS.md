@@ -1,6 +1,6 @@
 # AGENTS.md — Parsinegar
 
-Parsinegar is a Persian (RTL) Markdown editor built on the Pey plugin architecture. Single-page workbench, live CodeMirror 6 editing, local persistence. **No bundler**: native ESM + importmap, served statically.
+Parsinegar is a Persian (RTL) Markdown editor built on the Pey plugin architecture. Single-page workbench, live CodeMirror 6 editing, local persistence. **No bundler in development**: native ESM + importmap, served statically. Deployment only (Pages CI) bundles with `npm run build` — record §45 in `docs/decisions.md`; runtime-computed dynamic imports must targeting unit paths or importmap targets.
 
 ## Commands
 
@@ -8,6 +8,7 @@ Parsinegar is a Persian (RTL) Markdown editor built on the Pey plugin architectu
 npm install
 npm start     # static server on the repo root (serves node_modules/ for the importmap)
 npm test      # node:test + jsdom: "tests/**/*.test.js" "src/**/*.test.js"
+npm run build # deploy assembly for GitHub Pages (CI-only; esbuild via scripts/build-dist.mjs)
 ```
 
 Requirements: Node >= 20. The server must serve the repo root so that `node_modules/` and `bootstrap.json` resolve. `npm start` uses `--single` so SPA routes fall back to `index.html`.
