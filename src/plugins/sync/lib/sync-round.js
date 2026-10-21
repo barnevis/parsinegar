@@ -113,12 +113,14 @@ async function captureRoundPlan(round) {
  * @returns {Promise<void>}
  */
 async function applyRoundPlan(round, context) {
-  const { storage, configs, adapter, report } = round;
+  const { storage, configs, adapter, report, message } = round;
   const { plan, local, contents, revs } = context;
   for (const item of plan.push) {
     const held = local.byKey.get(`${item.collection}::${item.id}`);
     const content = serializeRecord(configs, item, held?.record);
-    const written = await adapter.writeFile(item.path, content, revs.get(item.path) ?? null).catch(round.failMapped);
+    const written = await adapter
+      .writeFile(item.path, content, revs.get(item.path) ?? null, { message })
+      .catch(round.failMapped);
     if (written?.rev) {
       revs.set(item.path, written.rev);
     }
@@ -146,7 +148,7 @@ async function applyRoundPlan(round, context) {
     report.pulled.push({ collection: built.collection, id: built.record.id });
   }
   for (const item of plan.deleteRemote) {
-    await adapter.deleteFile(item.path, item.rev ?? null).catch(round.failMapped);
+    await adapter.deleteFile(item.path, item.rev ?? null, { message }).catch(round.failMapped);
     report.deletedRemote.push({ collection: item.collection, id: item.id });
   }
   for (const item of plan.deleteLocal) {

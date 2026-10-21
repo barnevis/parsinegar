@@ -17,13 +17,17 @@ UTF-8 text throughout.
   validated the backend itself.
 - `readFile(path) → { content, rev } | null`
   Missing files return null (never throw): absence is data, not failure.
-- `writeFile(path, content, rev?) → { rev }`
+- `writeFile(path, content, rev?, options?) → { rev }`
   Creates when rev is absent, replaces when present. A stale rev must throw
   a rev-mismatch error (never silently overwrite) — the engine fails the run
-  so the next fresh read plans correctly.
-- `deleteFile(path, rev?) → { ok: true }`
+  so the next fresh read plans correctly. `options.message` (optional,
+  engine-supplied custom commit text) is backend-appropriate to use as the
+  commit message of this write when the backend builds commits; absent or
+  empty means the backend's own automatic message (`pey.sync write ${path}`).
+- `deleteFile(path, rev?, options?) → { ok: true }`
   Missing files succeed silently (idempotent deletes keep retries safe).
-  Resolves rev internally when absent.
+  Resolves rev internally when absent. `options.message` follows the same
+  rule with `pey.sync delete ${path}` as the automatic fallback.
 
 Error rules: thrown errors are `Error` with a machine-readable `code`
 property (backend-prefixed, e.g. `GIT_AUTH_FAILED`) and a safe message —

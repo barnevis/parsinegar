@@ -114,6 +114,45 @@ test('should_emit_sync_actions_when_configured_buttons_are_clicked', async () =>
   }
 });
 
+test('should_render_auto_commit_checkbox_from_snapshot_when_configured', async () => {
+  const element = mount({
+    activeView: 'sync',
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null, autoCommit: false },
+  });
+  try {
+    await flush();
+    const checkbox = element.shadowRoot.querySelector('[data-sync-field="autoCommit"]');
+    assert.ok(checkbox, 'expected the checkbox in the sync view');
+    assert.equal(checkbox.checked, false);
+    assert.ok(element.shadowRoot.textContent.includes('parsinegar.sync.auto-commit'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_sync_auto_commit_when_checkbox_is_toggled', async () => {
+  const element = mount({
+    activeView: 'sync',
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null, autoCommit: true },
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('sync-auto-commit', (event) => seen.push(event.detail));
+    const checkbox = element.shadowRoot.querySelector('[data-sync-field="autoCommit"]');
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    assert.deepEqual(seen, [{ enabled: false }]);
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    assert.deepEqual(seen, [{ enabled: false }, { enabled: true }]);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_emit_open_when_document_button_is_clicked', async () => {
   const element = mount({
     items: [{ id: 'a', title: 'اول' }],

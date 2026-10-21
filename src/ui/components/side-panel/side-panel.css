@@ -374,6 +374,22 @@
 [part="settings-option"] input {
   accent-color: var(--pey-color-accent, #0f6fff);
 }
+/* Sync checkbox row: same rhythm as radio rows, native checkbox look. */
+[part="settings-check"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.2rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+[part="settings-check"] input {
+  accent-color: var(--pey-color-accent, #0f6fff);
+  inline-size: 1rem;
+  block-size: 1rem;
+  margin: 0;
+  padding: 0;
+}
 [part="settings-stepper"] {
   display: flex;
   align-items: center;

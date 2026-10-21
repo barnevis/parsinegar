@@ -32,6 +32,18 @@ export const gitAdapterDescriptor = {
 const REQUEST_TIMEOUT_MS = 30000;
 
 /**
+ * Resolves the commit text for one write or delete: an explicit message
+ * from the run wins, otherwise the automatic per-path default.
+ * @param {object|null} options Run options.
+ * @param {string} fallback Automatic message (`pey.sync write|delete ${path}`).
+ * @returns {string} Commit message.
+ */
+function commitMessageOf(options, fallback) {
+  const text = typeof options?.message === 'string' ? options.message.trim() : '';
+  return text.length > 0 ? text : fallback;
+}
+
+/**
  * Builds a backend error: machine code, safe message, no secrets.
  * @param {string} code GIT_* code.
  * @param {string} message Log-safe description.
@@ -237,9 +249,9 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       return readOne(path);
     },
 
-    async writeFile(path, content, rev = null) {
+    async writeFile(path, content, rev = null, options = null) {
       const body = {
-        message: `pey.sync write ${path}`,
+        message: commitMessageOf(options, `pey.sync write ${path}`),
         content: encodeContent(content),
         branch,
       };
@@ -270,7 +282,7 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       return { rev: payload?.content?.sha ?? null };
     },
 
-    async deleteFile(path, rev = null) {
+    async deleteFile(path, rev = null, options = null) {
       let sha = rev;
       if (sha === null || sha === undefined) {
         const current = await readOne(path);
@@ -282,7 +294,7 @@ export function createGitAdapter({ repo, branch = DEFAULT_BRANCH, token, fetchFn
       const response = await request(await contentsUrl(path, true), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: `pey.sync delete ${path}`, sha, branch }),
+        body: JSON.stringify({ message: commitMessageOf(options, `pey.sync delete ${path}`), sha, branch }),
       });
       if (response.status === 404) {
         return { ok: true };

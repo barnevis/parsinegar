@@ -1,6 +1,6 @@
 {
   "name": "pey.sync",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "architecture": "0.11",
   "description": "Generic user-configured sync for pey.storage collections (first backend: git)",
   "type": "infrastructure",
@@ -49,9 +49,10 @@
         },
         {
           "name": "syncNow",
-          "description": "Pushes local news, pulls remote news, stops on first conflicts (path identity: no remote metadata files)",
+          "description": "Pushes local news, pulls remote news, stops on first conflicts (path identity: no remote metadata files); the optional message becomes the commit text of every remote write and delete this run performs",
           "params": [
-            { "name": "scope", "type": "object" }
+            { "name": "scope", "type": "object" },
+            { "name": "message", "type": "string" }
           ],
           "returns": "Promise<object>",
           "errors": ["SYNC_NOT_CONFIGURED", "SYNC_INVALID_CONFIG", "SYNC_AUTH_FAILED", "SYNC_REPO_NOT_FOUND", "SYNC_NETWORK_FAILED", "SYNC_RATE_LIMITED", "SYNC_PATH_COLLISION", "SYNC_CONCURRENT_CHANGE", "SYNC_STORAGE_UNAVAILABLE"]

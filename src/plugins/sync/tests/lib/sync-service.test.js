@@ -42,7 +42,7 @@ function fakeGitHub({ files = {}, failOpen = null } = {}) {
   };
   const fetchFn = async (url, options = {}) => {
     const method = options.method ?? 'GET';
-    calls.push({ method, url });
+    calls.push({ method, url, body: options.body });
     if (url.includes('/repos/u/r') && !url.includes('/contents') && !url.includes('/branches')) {
       if (failOpen) {
         throw failOpen;
@@ -239,6 +239,54 @@ test('should_push_everything_on_first_sync_when_synced', async () => {
   assert.equal(status.lastError, null);
   assert.ok(bus.seen.some((event) => event.type === 'sync:changed' && event.data.pushed.length === 1));
   assert.ok(!bus.seen.some((event) => event.type === 'sync:conflicts'));
+});
+
+test('should_stamp_custom_message_on_this_runs_writes_when_supplied', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      folders: [{ id: 'f1', name: 'کار', parentId: null, updatedAt: 10 }],
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: 'f1', updatedAt: 20 }],
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE, message: 'پیام من' });
+  assert.equal(report.completed, true);
+  assert.ok(remote.files.has('کار/یادداشت.md'));
+  const putBodies = remote.calls
+    .filter((call) => call.method === 'PUT')
+    .map((call) => JSON.parse(call.body));
+  assert.ok(putBodies.length > 0);
+  assert.ok(putBodies.every((body) => body.message === 'پیام من'));
+});
+
+test('should_keep_automatic_messages_when_no_custom_message_is_supplied', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE, message: '   ' });
+  assert.equal(report.completed, true);
+  const putBodies = remote.calls
+    .filter((call) => call.method === 'PUT')
+    .map((call) => JSON.parse(call.body));
+  assert.deepEqual(putBodies.map((body) => body.message), ['pey.sync write یادداشت.md']);
+});
+
+test('should_cap_long_custom_messages_instead_of_failing', async () => {
+  const { service, remote } = setup({
+    storageData: {
+      docs: [{ id: 'd1', title: 'یادداشت', content: 'سلام', folderId: null, updatedAt: 20 }],
+    },
+  });
+  await configure(service);
+  const report = await service.syncNow({ scope: SCOPE, message: 'ت'.repeat(300) });
+  assert.equal(report.completed, true);
+  const putBodies = remote.calls
+    .filter((call) => call.method === 'PUT')
+    .map((call) => JSON.parse(call.body));
+  assert.equal(putBodies[0].message.length, 200);
 });
 
 test('should_rest_without_reads_or_writes_on_repeat_sync_when_synced', async () => {

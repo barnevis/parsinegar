@@ -186,6 +186,30 @@ export function createSettingsApplier({
       }
     },
     /**
+     * Persists the sync commit-message mode without touching editor traits
+     * (no remount follows; the page only refreshed the sync panel).
+     * @param {unknown} enabled Toggle state (strict boolean).
+     * @returns {Promise<string>} 'applied', 'ignored' or 'failed'.
+     */
+    async saveSyncCommitAuto(enabled) {
+      if (!api || typeof enabled !== 'boolean') {
+        return 'ignored';
+      }
+      try {
+        return await chainWrite(async () => {
+          const saved = await api.saveSettings({ syncCommitAuto: enabled });
+          if (!isLive()) {
+            return 'failed';
+          }
+          settings = saved;
+          return 'applied';
+        });
+      } catch (error) {
+        console.error('[parsi-settings-applier] sync commit mode save failed');
+        return 'failed';
+      }
+    },
+    /**
      * Starts watching the operating-system color scheme so a `device` theme
      * flips the editor when the system changes between light and dark.
      * @param {Function} onFlip Called on system flips while the theme is `device`.

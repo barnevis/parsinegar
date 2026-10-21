@@ -13,7 +13,7 @@ import { escapeHtml } from './html.js';
  * and the single-repo advice always stay visible above the token field.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
- * @param {object|null} [options.sync] `{ configured, repo, branch, lastSyncText, errorText, busy, ignoreText }`.
+ * @param {object|null} [options.sync] `{ configured, repo, branch, lastSyncText, errorText, busy, ignoreText, autoCommit }`.
  * @returns {string} Sync view markup.
  */
 export function renderSyncView({ t, sync = null }) {
@@ -28,6 +28,11 @@ export function renderSyncView({ t, sync = null }) {
     ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.backend'))}: ${escapeHtml(snapshot.repo ?? '')} / ${escapeHtml(snapshot.branch ?? '')}</p>
       <p part="settings-note">${escapeHtml(translate('parsinegar.sync.last-sync'))}: ${escapeHtml(snapshot.lastSyncText ?? translate('parsinegar.sync.never'))}</p>
       ${error}
+      <label part="settings-check">
+        <input type="checkbox" data-sync-field="autoCommit" ${snapshot.autoCommit !== false ? 'checked' : ''}>
+        <span>${escapeHtml(translate('parsinegar.sync.auto-commit'))}</span>
+      </label>
+      <p part="settings-note">${escapeHtml(translate('parsinegar.sync.auto-commit-note'))}</p>
       <div part="settings-actions">
         <button type="button" part="settings-button" data-primary data-sync-now${busy ? ' disabled' : ''}>${busy ? spinner : ''}${escapeHtml(translate('parsinegar.sync.now'))}</button>
         <button type="button" part="settings-button" data-sync-remove${busy ? ' disabled' : ''}>${escapeHtml(translate('parsinegar.sync.remove'))}</button>

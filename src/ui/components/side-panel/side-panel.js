@@ -281,6 +281,17 @@ class ParsiSidePanel extends PeyElement {
       return;
     }
     if (event.type === 'change') {
+      const autoCommit = event.target?.closest?.('input[data-sync-field="autoCommit"]');
+      if (autoCommit) {
+        this.dispatchEvent(
+          new CustomEvent('sync-auto-commit', {
+            bubbles: true,
+            composed: true,
+            detail: { enabled: autoCommit.checked === true },
+          }),
+        );
+        return;
+      }
       const input = event.target?.closest?.('input[data-setting]');
       const key = input?.getAttribute('data-setting') ?? '';
       const value = input?.value ?? '';

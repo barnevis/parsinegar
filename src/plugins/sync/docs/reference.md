@@ -46,6 +46,10 @@ await sync.configureBackend({
 
 // ۲. اجرا با دامنه صریح (هویت مسیر: مخزن فقط اسناد واقعی را می‌بیند)
 const report = await sync.syncNow({
+  message: 'پيام کامیت سفارشی', // اختیاری (۰.۴.۰): پیام عیناً همهٔ
+  // نوشته‌ها/حذف‌های همین دور می‌شود (تریم، بیشینه ۲۰۰ نویسه)؛
+  // نبود/خالی = پیام‌های خودکارِ پیش‌فرض. حل تعارض و پاک‌سازی میراث
+  // همیشه پیام خودکار می‌گیرند.
   scope: { collections: [
     { collection: 'projects', serializer: 'json' }, // → projects/<id>.json
     { collection: 'tasks', serializer: 'markdown', titleField: 'name',

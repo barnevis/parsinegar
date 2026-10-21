@@ -1,5 +1,15 @@
 # Changelog — pey.sync
 
+## [0.4.0] - 2026-10-21
+
+### Added
+
+- `syncNow({ scope, message })` accepts an optional `message`: it is applied verbatim (trimmed, max 200 chars) as the commit subject of every write and delete this round performs. Absent or blank keeps the automatic per-path messages. Conflict-resolution writes and legacy-artifact cleanup always keep the automatic messages.
+
+### Changed
+
+- Sync-target contract (`adapters/README.md`): `writeFile` and `deleteFile` gained an optional `options` bag with `options.message`; skipping it or leaving `message` empty falls back to each backend's automatic default.
+
 ## [0.3.0] - 2026-10-19
 
 ### Changed

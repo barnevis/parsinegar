@@ -137,3 +137,21 @@
   font-size: 0.8rem;
   white-space: pre-wrap;
 }
+[part="modal-message"] {
+  margin-block: 0.75rem;
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  font: inherit;
+  resize: vertical;
+  max-block-size: 8rem;
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  padding: 0.45rem 0.6rem;
+  color: inherit;
+}
+[part="modal-message"]:focus-visible {
+  outline: 2px solid var(--pey-color-focus-ring, #5eead4);
+  outline-offset: 2px;
+}

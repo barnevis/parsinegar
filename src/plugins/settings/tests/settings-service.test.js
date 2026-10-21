@@ -63,7 +63,33 @@ test('should_save_valid_patch_and_publish_change_when_saving', async () => {
 
 test('should_keep_current_values_for_absent_fields_when_saving', async () => {
   const service = createService(createState([{ id: 'preferences', theme: 'dark', direction: 'rtl', fontSize: 18 }]));
-  assert.deepEqual(await service.saveSettings({ theme: 'light' }), { theme: 'light', direction: 'rtl', fontSize: 18, filesSort: 'updated-desc', syncIgnore: [] });
+  assert.deepEqual(await service.saveSettings({ theme: 'light' }), { theme: 'light', direction: 'rtl', fontSize: 18, filesSort: 'updated-desc', syncIgnore: [], syncCommitAuto: true });
+});
+
+test('should_accept_boolean_commit_mode_when_saving', async () => {
+  const service = createService(createState());
+  assert.equal((await service.saveSettings({ syncCommitAuto: false })).syncCommitAuto, false);
+  assert.equal((await service.getSettings()).syncCommitAuto, false);
+  assert.equal((await service.saveSettings({ syncCommitAuto: true })).syncCommitAuto, true);
+});
+
+test('should_reject_non_boolean_commit_mode_when_saving', async () => {
+  const service = createService(createState());
+  for (const syncCommitAuto of ['off', 1, null]) {
+    const error = await service.saveSettings({ syncCommitAuto }).catch((caught) => caught);
+    assert.equal(error?.code, 'SETTINGS_INVALID_VALUE', `expected rejection for ${String(syncCommitAuto)}`);
+    assert.deepEqual(error?.detail, { field: 'syncCommitAuto' });
+  }
+});
+
+test('should_backfill_commit_mode_for_old_records_when_reading', async () => {
+  const service = createService(createState([{ id: 'preferences', theme: 'dark' }]));
+  assert.equal((await service.getSettings()).syncCommitAuto, true);
+});
+
+test('should_replace_non_boolean_commit_mode_with_default_when_reading', async () => {
+  const service = createService(createState([{ id: 'preferences', syncCommitAuto: 'nope' }]));
+  assert.equal((await service.getSettings()).syncCommitAuto, true);
 });
 
 test('should_accept_valid_files_sort_when_saving', async () => {

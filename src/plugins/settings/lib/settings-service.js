@@ -22,7 +22,7 @@ const FILES_SORTS = ['name', 'name-desc', 'updated-desc', 'updated-asc', 'create
 const SYNC_IGNORE_MAX = 50;
 const SYNC_IGNORE_PATTERN_MAX = 200;
 
-const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc', syncIgnore: [] };
+const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc', syncIgnore: [], syncCommitAuto: true };
 
 /**
  * Builds a standard Bonyan boundary error.
@@ -91,6 +91,7 @@ function sanitizeSettings(input = {}) {
       : DEFAULT_SETTINGS.fontSize,
     filesSort: FILES_SORTS.includes(source.filesSort) ? source.filesSort : DEFAULT_SETTINGS.filesSort,
     syncIgnore: sanitizeSyncIgnore(source.syncIgnore),
+    syncCommitAuto: source.syncCommitAuto === false ? false : DEFAULT_SETTINGS.syncCommitAuto,
   };
 }
 
@@ -125,6 +126,9 @@ function validatePatch(patch) {
     if (bad) {
       throw settingsError('SETTINGS_INVALID_VALUE', 'Invalid syncIgnore value', { field: 'syncIgnore' });
     }
+  }
+  if ('syncCommitAuto' in source && typeof source.syncCommitAuto !== 'boolean') {
+    throw settingsError('SETTINGS_INVALID_VALUE', 'Invalid syncCommitAuto value: must be boolean', { field: 'syncCommitAuto' });
   }
 }
 

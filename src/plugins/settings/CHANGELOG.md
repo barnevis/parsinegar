@@ -1,5 +1,13 @@
 # Changelog — parsinegar.settings
 
+## [0.5.0]
+
+### Added
+
+- Accepted `syncCommitAuto` preference (strict boolean, defaulting to
+  `true`): false puts the host in custom-commit-message mode; non-boolean
+  values reject, old records backfill.
+
 ## [0.4.0]
 
 ### Added

@@ -287,6 +287,45 @@ test('should_delete_with_known_rev_when_deleted', async () => {
   assert.equal(body.branch, 'main');
 });
 
+test('should_use_custom_message_when_run_supplies_one', async () => {
+  const { backend, calls } = setup([
+    repoOk(),
+    branchOk(),
+    {
+      match: (url, options) => options.method === 'PUT',
+      reply: () => response(201, { content: { sha: 'new-sha' } }),
+    },
+    {
+      match: (url, options) => options.method === 'DELETE',
+      reply: () => response(200, {}),
+    },
+  ]);
+  await backend.open();
+  await backend.writeFile('a.md', 'سلام', null, { message: 'پیام سفارشی' });
+  await backend.deleteFile('a.md', 'sha-1', { message: 'پیام سفارشی' });
+  const putBody = JSON.parse(calls.filter((call) => call.method === 'PUT').pop().body);
+  const deleteBody = JSON.parse(calls.filter((call) => call.method === 'DELETE').pop().body);
+  assert.equal(putBody.message, 'پیام سفارشی');
+  assert.equal(deleteBody.message, 'پیام سفارشی');
+});
+
+test('should_fall_back_to_automatic_message_when_blank_or_absent', async () => {
+  const { backend, calls } = setup([
+    repoOk(),
+    branchOk(),
+    {
+      match: (url, options) => options.method === 'PUT',
+      reply: () => response(201, { content: { sha: 'new-sha' } }),
+    },
+  ]);
+  await backend.open();
+  await backend.writeFile('a.md', 'سلام', null, { message: '   ' });
+  await backend.writeFile('b.md', 'سلام', null, null);
+  const putBodies = calls.filter((call) => call.method === 'PUT').map((call) => JSON.parse(call.body));
+  assert.equal(putBodies[0].message, 'pey.sync write a.md');
+  assert.equal(putBodies[1].message, 'pey.sync write b.md');
+});
+
 test('should_resolve_rev_and_tolerate_missing_when_deleted', async () => {
   const { backend, calls } = setup([
     {

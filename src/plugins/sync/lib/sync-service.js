@@ -35,6 +35,24 @@ import {
   finalizeRound,
 } from './sync-round.js';
 
+// Custom commit messages cap at GitHub-practical length; longer input
+// truncates instead of failing a whole run over prose.
+const SYNC_MESSAGE_MAX = 200;
+
+/**
+ * Normalizes the optional custom commit message of one run: trimmed, capped;
+ * empty or non-string input means "use the automatic messages".
+ * @param {unknown} raw Sync envelope message.
+ * @returns {string|null} Message for the round, or null for auto.
+ */
+function syncMessageOf(raw) {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const text = raw.trim().slice(0, SYNC_MESSAGE_MAX);
+  return text.length > 0 ? text : null;
+}
+
 /**
  * Creates the service closing over activation-bound references.
  * @param {object} state References ({ storage, events, fetchFn? }).
@@ -127,7 +145,7 @@ function createService(state) {
       const configs = normalizeScope(input?.scope);
       const { backend, storage } = await requireBackend(state);
       const { adapter, descriptor } = instantiateBackend(state, backend);
-      const round = buildRound(state, storage, configs, adapter, descriptor);
+      const round = buildRound(state, storage, configs, adapter, descriptor, syncMessageOf(input?.message));
       const fail = async (error) => {
         await recordError(storage, error);
         publish(state, 'sync:changed', {
@@ -200,15 +218,18 @@ function createService(state) {
  * @param {Array} configs Normalized scope.
  * @param {object} adapter Backend adapter.
  * @param {object} descriptor Backend descriptor.
+ * @param {string|null} [message] Custom commit message for this run's
+ *   remote writes and deletes, or null for the backend's own defaults.
  * @returns {object} Round context.
  */
-function buildRound(state, storage, configs, adapter, descriptor) {
+function buildRound(state, storage, configs, adapter, descriptor, message = null) {
   return {
     state,
     storage,
     configs,
     adapter,
     descriptor,
+    message,
     failMapped: (error) => {
       throw mapAdapterError(descriptor, error);
     },

@@ -1,12 +1,15 @@
-// Modal dialog element: delete confirmation and document properties.
+// Modal dialog element: delete confirmation, document properties, sync
+// conflict choices and the sync commit-message prompt.
 //
 // Pure display driven entirely by configure(); the markup renderers live in
 // `workbench/modal.js` and stay unit-tested there. User gestures leave only
 // as bubbled CustomEvents: `modal-confirm` with `{ accepted }` for the
-// yes/no buttons, `modal-dismiss` for the properties close button and
-// backdrop clicks. Escape stays with the owning page (global keydown).
+// yes/no buttons, `modal-dismiss` for the properties close/message-cancel
+// buttons and backdrop clicks, `sync-message-send` with the typed text,
+// `sync-resolve`/`sync-later` for the conflict choice. Escape stays with the
+// owning page (global keydown).
 import { PeyElement } from 'pey.webui/base/pey-element';
-import { renderConfirmModal, renderPropertiesModal, renderSyncConflictModal } from '../workbench/modal.js';
+import { renderConfirmModal, renderPropertiesModal, renderSyncConflictModal, renderSyncMessageModal } from '../workbench/modal.js';
 
 const TAG = 'parsi-modal-dialog';
 const STYLE_URL = new URL('./modal-dialog.css', import.meta.url).href;
@@ -37,7 +40,7 @@ class ParsiModalDialog extends PeyElement {
   /**
    * Updates the pending overlay snapshot.
    * @param {object} data New data.
-   * @param {object|null} [data.modal] `{ kind: 'confirm', title }`, `{ kind: 'confirm-folder', title, count }`, `{ kind: 'sync-conflict', conflict }` or the formatted properties snapshot, or null when closed.
+   * @param {object|null} [data.modal] `{ kind: 'confirm', title }`, `{ kind: 'confirm-folder', title, count }`, `{ kind: 'sync-conflict', conflict }`, `{ kind: 'sync-message' }` or the formatted properties snapshot, or null when closed.
    * @returns {void}
    */
   configure({ modal } = {}) {
@@ -46,10 +49,18 @@ class ParsiModalDialog extends PeyElement {
   }
 
   eventTypes() {
-    return ['click'];
+    return ['click', 'input'];
   }
 
   handleEvent(event) {
+    if (event.type === 'input') {
+      const input = event.target?.closest?.('[data-sync-message-input]');
+      if (input) {
+        const text = String(input.value ?? '').trim();
+        this.shadowRoot?.querySelector('[data-sync-message-send]')?.toggleAttribute('disabled', text.length === 0);
+      }
+      return;
+    }
     if (event.type !== 'click') {
       return;
     }
@@ -66,6 +77,16 @@ class ParsiModalDialog extends PeyElement {
       return;
     }
     if (target?.closest?.('[data-close-props]')) {
+      this.dispatchEvent(new CustomEvent('modal-dismiss', { bubbles: true, composed: true }));
+      return;
+    }
+    const sendButton = target?.closest?.('[data-sync-message-send]');
+    if (sendButton && sendButton.disabled === false) {
+      const text = String(this.shadowRoot?.querySelector('[data-sync-message-input]')?.value ?? '').trim();
+      this.dispatchEvent(new CustomEvent('sync-message-send', { bubbles: true, composed: true, detail: { message: text } }));
+      return;
+    }
+    if (target?.closest?.('[data-sync-message-cancel]')) {
       this.dispatchEvent(new CustomEvent('modal-dismiss', { bubbles: true, composed: true }));
       return;
     }
@@ -116,6 +137,9 @@ class ParsiModalDialog extends PeyElement {
         sizeText: this.#modal.sizeText,
         assetBaseUrl: this.#assetBaseUrl,
       });
+    }
+    if (this.#modal?.kind === 'sync-message') {
+      return renderSyncMessageModal({ t: this.#t, assetBaseUrl: this.#assetBaseUrl });
     }
     if (this.#modal?.kind === 'sync-conflict') {
       return renderSyncConflictModal({

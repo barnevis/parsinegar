@@ -2436,6 +2436,120 @@ test('should_save_ignore_patterns_and_repopulate_when_saved', async () => {
   }
 });
 
+test('should_run_sync_without_modal_when_auto_commit_is_enabled', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const syncCalls = [];
+  const syncer = createSyncService({
+    async syncNow(input) {
+      syncCalls.push(input);
+      return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+  });
+  const element = await mountWithSettings(documents, settings, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.deepEqual(syncCalls, [{ scope: syncCalls[0]?.scope }]);
+    assert.ok(syncCalls[0].scope, 'expected the sync scope in the input');
+    assert.equal(syncCalls[0].message, undefined);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[data-sync-message-input]'), null, 'expected no message modal');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_sync_with_typed_message_when_auto_commit_is_disabled', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16, syncCommitAuto: false });
+  const syncCalls = [];
+  const syncer = createSyncService({
+    async syncNow(input) {
+      syncCalls.push(input);
+      return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
+    },
+  });
+  const element = await mountWithSettings(documents, settings, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    const input = inChild(element, 'parsi-modal-dialog', '[data-sync-message-input]');
+    assert.ok(input, 'expected the message modal');
+    const send = () => inChild(element, 'parsi-modal-dialog', '[data-sync-message-send]');
+    assert.equal(send().disabled, true, 'expected a disabled send with an empty message');
+    input.value = 'پیام من';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await flush();
+    assert.equal(send().disabled, false, 'expected send to enable after typing');
+    send().click();
+    await settled();
+    await settled();
+    assert.equal(syncCalls.length, 1);
+    assert.equal(syncCalls[0].message, 'پیام من');
+    assert.ok(syncCalls[0].scope, 'expected the sync scope in the input');
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[data-sync-message-input]'), null, 'expected the modal to close');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_close_message_modal_without_sync_when_cancelled', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16, syncCommitAuto: false });
+  const syncer = createSyncService();
+  const element = await mountWithSettings(documents, settings, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    assert.ok(inChild(element, 'parsi-modal-dialog', '[data-sync-message-input]'));
+    inChild(element, 'parsi-modal-dialog', '[data-sync-message-cancel]').click();
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[data-sync-message-input]'), null, 'expected the modal to close');
+    assert.deepEqual(syncer.calls, [], 'expected no sync without a message');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_save_commit_mode_and_rerender_when_checkbox_is_toggled', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: null, lastError: null };
+    },
+  });
+  const element = await mountWithSettings(documents, settings, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    const checkbox = inChild(element, 'parsi-side-panel', '[data-sync-field="autoCommit"]');
+    assert.ok(checkbox, 'expected the checkbox in the sync view');
+    assert.equal(checkbox.checked, true);
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    await settled();
+    assert.ok(settings.calls.some((patch) => JSON.stringify(patch) === JSON.stringify({ syncCommitAuto: false })));
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-sync-field="autoCommit"]').checked, false);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_show_help_view_with_cheatsheet_when_rail_selects_it', async () => {
   const documents = createDocuments([
     { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },

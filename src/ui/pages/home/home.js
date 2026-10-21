@@ -128,6 +128,7 @@ class ParsiPageHome extends PeyElement {
   #syncConflicts = [];
   #syncStatus = null;
   #syncBusy = false;
+  #syncMessageOpen = false;
   #syncAttempt = null;
   #syncDirty = false;
   #dirtyWrite = null;
@@ -239,6 +240,8 @@ class ParsiPageHome extends PeyElement {
       'sync-configure',
       'sync-remove',
       'sync-now',
+      'sync-auto-commit',
+      'sync-message-send',
       'sync-ignore-save',
       'sync-resolve',
       'sync-later',
@@ -394,7 +397,13 @@ class ParsiPageHome extends PeyElement {
           this.#requestEditor();
         }
         return;
-      }      if (event.type === 'modal-dismiss') {
+      }
+      if (event.type === 'modal-dismiss') {
+        if (this.#syncMessageOpen) {
+          this.#syncMessageOpen = false;
+          this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
+          return;
+        }
         this.#docs?.cancelOverlays();
         this.#requestEditor();
         return;
@@ -416,7 +425,15 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'sync-now') {
-        void this.#runSyncNow();
+        this.#beginSyncNow();
+        return;
+      }
+      if (event.type === 'sync-auto-commit') {
+        void this.#saveSyncCommitAuto(event.detail?.enabled);
+        return;
+      }
+      if (event.type === 'sync-message-send') {
+        this.#sendSyncMessage(event.detail?.message);
         return;
       }
       if (event.type === 'sync-ignore-save') {
@@ -1075,13 +1092,76 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
+   * True when automatic commit messages stay in charge; the preference
+   * defaults to true wherever the settings are missing.
+   * @returns {boolean}
+   */
+  #autoCommitEnabled() {
+    return this.#prefs?.getState().settings?.syncCommitAuto !== false;
+  }
+
+  /**
+   * Entry of the sync button: a straight run with automatic messages, or
+   * the commit-message prompt when the custom-message mode is on. Re-entry
+   * while busy is refused (the button is disabled too, but events can lag).
+   * @returns {void}
+   */
+  #beginSyncNow() {
+    if (!this.#syncer || this.#syncBusy) {
+      return;
+    }
+    if (this.#autoCommitEnabled()) {
+      void this.#runSyncNow();
+      return;
+    }
+    this.#syncMessageOpen = true;
+    this.#modalEl?.configure({ modal: this.#syncMessageModal() });
+  }
+
+  /**
+   * Builds the pending custom-commit-message modal snapshot, if any.
+   * @returns {object|null} `{ kind: 'sync-message' }` or null.
+   */
+  #syncMessageModal() {
+    return this.#syncMessageOpen ? { kind: 'sync-message' } : null;
+  }
+
+  /**
+   * Submits the typed commit message and starts the sync with it; an empty
+   * message cannot arrive (the confirm button stays disabled), the trim
+   * here is just belt-and-braces against whitespace-only input.
+   * @param {unknown} message Typed commit message.
+   * @returns {void}
+   */
+  #sendSyncMessage(message) {
+    this.#syncMessageOpen = false;
+    const text = typeof message === 'string' ? message.trim() : '';
+    void this.#runSyncNow(text.length > 0 ? text : null);
+  }
+
+  /**
+   * Persists the commit-message mode (no editor remount: the panel alone
+   * refreshes the checkbox from the snapshot).
+   * @param {unknown} enabled Toggle state from the event detail.
+   * @returns {Promise<void>}
+   */
+  async #saveSyncCommitAuto(enabled) {
+    await this.#prefs?.saveSyncCommitAuto(enabled === true);
+    await this.#refreshSyncStatus();
+  }
+
+  /**
    * Runs one manual sync: flushes the pending draft first so pulled content
    * can never clobber unsaved keystrokes (the flush stamps updatedAt, which
    * turns a would-be overwrite into a conflict instead), then reloads the
-   * library and repoints the editor without remounting.
+   * library and repoints the editor without remounting. A custom message
+   * (custom-message mode) becomes the commit text of every remote write
+   * and delete this run performs.
+   * @param {string|null} [message] Typed commit message, or null for the
+   *   automatic per-path messages.
    * @returns {Promise<void>}
    */
-  async #runSyncNow() {
+  async #runSyncNow(message = null) {
     if (!this.#syncer) {
       return;
     }
@@ -1090,10 +1170,15 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     this.#syncBusy = true;
+    this.#syncMessageOpen = false;
     await this.#refreshSyncStatus();
+    const text = typeof message === 'string' ? message.trim() : '';
+    const input = text.length > 0
+      ? { scope: this.#syncScope(), message: text }
+      : { scope: this.#syncScope() };
     let report = null;
     try {
-      report = await this.#syncer.syncNow({ scope: this.#syncScope() });
+      report = await this.#syncer.syncNow(input);
     } catch {
       this.#syncBusy = false;
       await this.#refreshSyncStatus();
@@ -1192,6 +1277,7 @@ class ParsiPageHome extends PeyElement {
           errorText: status.lastError?.message ?? null,
           busy: this.#syncBusy,
           ignoreText: this.#syncIgnoreText(),
+          autoCommit: this.#autoCommitEnabled(),
         };
       }
     } catch {
@@ -1203,7 +1289,7 @@ class ParsiPageHome extends PeyElement {
     }
     this.#railEl?.configure({ syncDot: this.#syncDot(), syncHint: this.#syncHint() });
     this.#sideEl?.configure({ sync: snapshot });
-    this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() });
+    this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() ?? this.#syncMessageModal() });
   }
 
   /**
@@ -1407,7 +1493,7 @@ class ParsiPageHome extends PeyElement {
       tag: 'parsi-modal-dialog',
       infrastructure,
       refs: { t: this.#t, assetBaseUrl: this.#assetBaseUrl },
-      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() }),
+      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() ?? this.#syncMessageModal() }),
     });
   }
 

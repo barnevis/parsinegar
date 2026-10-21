@@ -47,6 +47,33 @@ export function renderSyncConflictModal({ t, conflict, assetBaseUrl }) {
 }
 
 /**
+ * Renders the sync commit-message prompt, or '' when nothing is pending.
+ * The field always starts empty; the confirm button enables on the first
+ * non-empty keystroke (modal-dialog toggles it on `input`).
+ * @param {object} options Render options.
+ * @param {Function} options.t Translation function.
+ * @param {string|null} options.assetBaseUrl Resolved asset directory URL.
+ * @returns {string} Modal markup or ''.
+ */
+export function renderSyncMessageModal({ t, assetBaseUrl }) {
+  const translate = typeof t === 'function' ? t : (key) => key;
+  const icon = iconMarkup(assetBaseUrl, 'github');
+  return `
+    <div part="modal-backdrop">
+      <div part="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+        <div part="modal-icon" aria-hidden="true">${icon}</div>
+        <h2 part="modal-title" id="modal-title">${escapeHtml(translate('parsinegar.sync.message-title'))}</h2>
+        <p part="modal-desc" id="modal-desc">${escapeHtml(translate('parsinegar.sync.message-desc'))}</p>
+        <textarea part="modal-message" dir="auto" rows="3" maxlength="200" autocomplete="off" data-sync-message-input></textarea>
+        <div part="modal-actions">
+          <button type="button" part="modal-cancel" data-sync-message-cancel>${escapeHtml(translate('parsinegar.sync.message-cancel'))}</button>
+          <button type="button" part="modal-confirm" data-sync-message-send disabled>${escapeHtml(translate('parsinegar.sync.message-send'))}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/**
  * Renders the delete-confirmation modal, or '' when nothing is pending.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
