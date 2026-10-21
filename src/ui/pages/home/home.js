@@ -115,6 +115,7 @@ class ParsiPageHome extends PeyElement {
   #activeView = FILES_VIEW;
   #sideOpen = true;
   #filesSort = DEFAULT_FILES_SORT;
+  #folderCollapsed = new Set();
   #bottomOpen = true;
   #fullscreen = false;
   #renderObserver = null;
@@ -220,6 +221,7 @@ class ParsiPageHome extends PeyElement {
       'folder-create',
       'folder-create-document',
       'folder-delete',
+      'folder-toggle',
       'document-download',
       'document-download-html',
       'document-properties',
@@ -358,6 +360,18 @@ class ParsiPageHome extends PeyElement {
         if (this.#docs?.armFolderDelete(event.detail.id)) {
           this.#requestEditor();
         }
+        return;
+      }
+      if (event.type === 'folder-toggle' && typeof event.detail?.id === 'string') {
+        // Collapse state is ours (the panel remounts with every page
+        // render): toggling reports up, the page owns and re-sends it.
+        const id = event.detail.id;
+        if (this.#folderCollapsed.has(id)) {
+          this.#folderCollapsed.delete(id);
+        } else {
+          this.#folderCollapsed.add(id);
+        }
+        this.#requestEditor();
         return;
       }
       if (event.type === 'document-download') {
@@ -1347,6 +1361,7 @@ class ParsiPageHome extends PeyElement {
           settings: this.#prefs?.getState().settings ?? null,
           formatNumber: (value) => this.#formatNumber(value),
           sortMode: this.#filesSort,
+          folderCollapsed: [...this.#folderCollapsed],
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
@@ -1359,6 +1374,7 @@ class ParsiPageHome extends PeyElement {
           activeLine: this.#spy.getActiveLine(),
           sortMode: this.#filesSort,
           sync: this.#syncStatus,
+          folderCollapsed: [...this.#folderCollapsed],
         }),
       });
     } else {

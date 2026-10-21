@@ -1906,6 +1906,27 @@ test('should_create_folder_when_header_button_is_clicked', async () => {
   }
 });
 
+test('should_keep_folder_collapsed_when_document_is_opened', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'تودرتو', content: '', folderId: 'folder-1', updatedAt: 2 },
+    { id: 'd2', title: 'بالا', content: '', folderId: null, updatedAt: 1 },
+  ]);
+  await documents.createFolder('کار');
+  const element = await mountWithDocuments(documents);
+  try {
+    inChild(element, 'parsi-side-panel', '[data-folder-toggle="folder-1"]').click();
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]'), null, 'expected the collapsed folder to hide its document');
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]').click();
+    await settled();
+    await settled();
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]'), null, 'expected the collapse to survive the document open');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_swap_center_to_mindmap_when_rail_selects_it', async () => {
   const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف\n  - ب', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);

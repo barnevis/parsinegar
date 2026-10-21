@@ -53,7 +53,7 @@ class ParsiSidePanel extends PeyElement {
   #filesSort = DEFAULT_FILES_SORT;
   #sync = null;
   #collapsedLines = new Set();
-  #folderCollapsed = new Set();
+  #folderCollapsed = [];
   #moveMenuId = null;
   #applied = null;
 
@@ -99,7 +99,7 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync } = {}) {
+  #store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
     }
@@ -133,6 +133,11 @@ class ParsiSidePanel extends PeyElement {
     if (sync !== undefined) {
       this.#sync = sync;
     }
+    // Collapse state belongs to the parent for the same reason the sort
+    // does: the panel remounts with every page render.
+    if (folderCollapsed !== undefined) {
+      this.#folderCollapsed = Array.isArray(folderCollapsed) ? folderCollapsed : [];
+    }
     return {
       activeView: this.#activeView,
       mindmapMode: this.#mindmapMode,
@@ -149,6 +154,7 @@ class ParsiSidePanel extends PeyElement {
       renameError: this.#renameError,
       filesSort: this.#filesSort,
       sync: this.#sync,
+      folderCollapsed: [...this.#folderCollapsed].sort().join('|'),
       collapsed: [...this.#collapsedLines].sort((left, right) => left - right).join(','),
       signature: outlineSignature(this.#documentText),
     };
@@ -216,10 +222,11 @@ class ParsiSidePanel extends PeyElement {
    * @param {string|null} [data.renameError] Translation key for a rename failure.
    * @param {string} [data.sortMode] Files ordering (one of `FILES_SORT_MODES`).
    * @param {object|null} [data.sync] Sync snapshot for the settings view.
+   * @param {Array<string>} [data.folderCollapsed] Collapsed folder ids (parent-owned, survives panel remounts).
    * @returns {void}
    */
-  configure({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync } = {}) {
-    const next = this.#store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync });
+  configure({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed } = {}) {
+    const next = this.#store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -242,6 +249,7 @@ class ParsiSidePanel extends PeyElement {
       && prev.renameError === next.renameError
       && prev.filesSort === next.filesSort
       && prev.sync === next.sync
+      && prev.folderCollapsed === next.folderCollapsed
       && prev.collapsed === next.collapsed
       && prev.signature === next.signature;
     if (!same) {
@@ -396,13 +404,12 @@ class ParsiSidePanel extends PeyElement {
     }
     const folderToggle = event.target?.closest?.('[data-folder-toggle]');
     if (folderToggle) {
-      const key = folderToggle.getAttribute('data-folder-toggle') ?? '';
-      if (this.#folderCollapsed.has(key)) {
-        this.#folderCollapsed.delete(key);
-      } else {
-        this.#folderCollapsed.add(key);
-      }
-      this.requestRender();
+      const id = folderToggle.getAttribute('data-folder-toggle') ?? '';
+      this.dispatchEvent(new CustomEvent('folder-toggle', {
+        bubbles: true,
+        composed: true,
+        detail: { id },
+      }));
       return;
     }
     const moveToggle = event.target?.closest?.('[data-move-toggle]');
@@ -548,8 +555,8 @@ class ParsiSidePanel extends PeyElement {
     ));
     const scope = this.#mindmapMode ? filterMindmapTree(sortDocuments(liveItems, this.#filesSort), this.#folders) : null;
     const body = this.#mindmapMode
-      ? renderFilesView({ t: this.#t, items: scope.items, folders: scope.folders, currentId: this.#currentId, openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed], mindmap: true })
-      : view.render({ t: this.#t, items: ordered, folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: [...this.#folderCollapsed], sync: this.#sync });
+      ? renderFilesView({ t: this.#t, items: scope.items, folders: scope.folders, currentId: this.#currentId, openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, mindmap: true })
+      : view.render({ t: this.#t, items: ordered, folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, sync: this.#sync });
     return `
       <aside part="side">
         <div part="side-header">

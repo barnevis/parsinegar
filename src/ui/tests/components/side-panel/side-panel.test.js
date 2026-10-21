@@ -652,7 +652,7 @@ test('should_match_menubar_type_size_when_file_menu_is_rendered', async () => {
   }
 });
 
-test('should_toggle_folders_when_toggle_is_clicked', async () => {
+test('should_report_folder_toggle_upward_when_clicked', async () => {
   const element = mount({
     items: [{ id: 'd', title: 'سند', folderId: 'f1' }],
     folders: [{ id: 'f1', name: 'کار', parentId: null }],
@@ -661,9 +661,15 @@ test('should_toggle_folders_when_toggle_is_clicked', async () => {
   try {
     await flush();
     assert.ok(element.shadowRoot.querySelector('[data-doc-id="d"]'), 'expected the nested document');
+    const seen = [];
+    element.addEventListener('folder-toggle', (event) => seen.push(event.detail));
     element.shadowRoot.querySelector('[data-folder-toggle="f1"]').click();
     await flush();
-    assert.equal(element.shadowRoot.querySelector('[data-doc-id="d"]'), null, 'expected the folder collapsed');
+    assert.deepEqual(seen, [{ id: 'f1' }]);
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="d"]'), 'expected the panel to wait for the parent word');
+    element.configure({ folderCollapsed: ['f1'] });
+    await flush();
+    assert.equal(element.shadowRoot.querySelector('[data-doc-id="d"]'), null, 'expected the parent-owned collapse to hide the document');
   } finally {
     element.remove();
   }

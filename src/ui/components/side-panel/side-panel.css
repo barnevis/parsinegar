@@ -169,9 +169,6 @@
   color: inherit;
   text-align: start;
 }
-[part="docs-toggle"]:hover {
-  background-color: var(--pey-color-canvas, #ffffff);
-}
 [part="docs-toggle"] > [part="outline-chevron"] {
   /* Overlays the row's inline-start padding so the label starts exactly
      where document labels start (root documents keep their edge distance).
