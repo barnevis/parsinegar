@@ -30,17 +30,22 @@ function patternsText(text) {
 }
 
 /**
- * Builds an info icon whose hover/focus shows the long help as a tooltip.
- * The text lives in a real child span (part="sync-tip-pop") so styled
- * fragments (an orange warning) can ride inside; aria-label carries the
- * plain text for assistive tech.
+ * Builds the tip icon and its tooltip as SEPARATE fragments: the icon is
+ * the trigger, the pop is a full-width-anchored sibling inside the labeled
+ * field. The pop must anchor to the field (the panel-width box), never to
+ * the icon — an icon-anchored pop overflows the panel edge and gets clipped
+ * beside the rail ([part="side"] overflow hidden). The panel's :has() rules
+ * (side-panel.css) open the pop on the icon's hover/focus.
  * @param {string|null} assetBaseUrl Resolved asset directory URL.
- * @param {string} label Accessible label for the icon.
+ * @param {string} label Accessible label for the icon (the help text).
  * @param {string} contentHtml Tooltip content (already escaped).
- * @returns {string} Tip markup.
+ * @returns {string} Icon markup followed by the pop markup.
  */
 function tip(assetBaseUrl, label, contentHtml) {
-  return `<span part="sync-tip" tabindex="0" aria-label="${escapeHtml(label)}">${iconMarkup(assetBaseUrl, 'help')}<span part="sync-tip-pop" role="tooltip">${contentHtml}</span></span>`;
+  return {
+    icon: `<span part="sync-tip" tabindex="0" aria-label="${escapeHtml(label)}">${iconMarkup(assetBaseUrl, 'help')}</span>`,
+    pop: `<span part="sync-tip-pop" role="tooltip">${contentHtml}</span>`,
+  };
 }
 
 /**
@@ -71,6 +76,15 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
   // save"), so render always starts the button disabled; the live
   // enable/disable rides the panel's 'input' handler (side-panel.js).
   const ignoreSaved = typeof snapshot?.ignoreText === 'string' ? snapshot.ignoreText : '';
+  const longText = (key) => escapeHtml(translate(key));
+  const baseUrlTip = tip(assetBaseUrl, translate('parsinegar.sync.base-url-note'), longText('parsinegar.sync.base-url-note'));
+  const tokenTip = tip(
+    assetBaseUrl,
+    `${translate('parsinegar.sync.warn')} ${translate('parsinegar.sync.token-note')} ${translate('parsinegar.sync.single-repo')}`,
+    `<strong part="sync-tip-warn">${longText('parsinegar.sync.warn')}:</strong> ${longText('parsinegar.sync.token-note')} ${longText('parsinegar.sync.single-repo')}`,
+  );
+  const autoCommitTip = tip(assetBaseUrl, translate('parsinegar.sync.auto-commit-note'), longText('parsinegar.sync.auto-commit-note'));
+  const ignoreTip = tip(assetBaseUrl, translate('parsinegar.sync.ignore-note'), longText('parsinegar.sync.ignore-note'));
   const status = snapshot?.configured === true
     ? `<p part="settings-note" data-sync-status="host">${escapeHtml(translate('parsinegar.sync.host'))}: ${escapeHtml(hostLabel)}</p>
       <p part="settings-note" data-sync-status="repo">${escapeHtml(translate('parsinegar.sync.backend'))}: ${escapeHtml(snapshot.repo ?? '')}</p>
@@ -82,7 +96,8 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
           <input type="checkbox" data-sync-field="autoCommit" ${snapshot.autoCommit !== false ? 'checked' : ''}>
           <span>${escapeHtml(translate('parsinegar.sync.auto-commit'))}</span>
         </label>
-        ${tip(assetBaseUrl, translate('parsinegar.sync.auto-commit-note'), escapeHtml(translate('parsinegar.sync.auto-commit-note')))}
+        ${autoCommitTip.icon}
+        ${autoCommitTip.pop}
       </span>
       <div part="settings-actions">
         <button type="button" part="settings-button" data-primary data-sync-now${busy || clean ? ' disabled' : ''}>${busy ? spinner : ''}${escapeHtml(translate('parsinegar.sync.now'))}</button>
@@ -102,7 +117,8 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
           <span>${escapeHtml(translate('parsinegar.sync.host.gitlab'))}</span>
         </label>
         <label part="settings-field" data-sync-base-url>
-          <span>${escapeHtml(translate('parsinegar.sync.base-url'))}${tip(assetBaseUrl, translate('parsinegar.sync.base-url-note'), escapeHtml(translate('parsinegar.sync.base-url-note')))}</span>
+          <span>${escapeHtml(translate('parsinegar.sync.base-url'))}${baseUrlTip.icon}</span>
+          ${baseUrlTip.pop}
           <input type="text" dir="ltr" data-sync-field="baseUrl" autocomplete="off" value="${escapeHtml(snapshot?.baseUrl ?? '')}">
         </label>
       </div>
@@ -115,7 +131,8 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
         <input type="text" dir="ltr" data-sync-field="branch" value="${escapeHtml(snapshot?.branch ?? 'main')}" autocomplete="off">
       </label>
       <label part="settings-field">
-        <span>${escapeHtml(translate('parsinegar.sync.token'))}${tip(assetBaseUrl, `${translate('parsinegar.sync.warn')} ${translate('parsinegar.sync.token-note')} ${translate('parsinegar.sync.single-repo')}`, `<strong part="sync-tip-warn">${escapeHtml(translate('parsinegar.sync.warn'))}:</strong> ${escapeHtml(translate('parsinegar.sync.token-note'))} ${escapeHtml(translate('parsinegar.sync.single-repo'))}`)}</span>
+        <span>${escapeHtml(translate('parsinegar.sync.token'))}${tokenTip.icon}</span>
+        ${tokenTip.pop}
         <input type="password" dir="ltr" data-sync-field="token" required autocomplete="off">
       </label>
       <div part="settings-actions">
@@ -130,7 +147,7 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
         ${status}
       </fieldset>
       <fieldset part="settings-group">
-        <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.ignore-title'))}${tip(assetBaseUrl, translate('parsinegar.sync.ignore-note'), escapeHtml(translate('parsinegar.sync.ignore-note')))}</legend>
+        <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.ignore-title'))}${ignoreTip.icon}${ignoreTip.pop}</legend>
         <label part="settings-field">
           <textarea dir="auto" rows="6" data-sync-field="ignore" autocomplete="off" spellcheck="false">${escapeHtml(ignoreSaved)}</textarea>
         </label>

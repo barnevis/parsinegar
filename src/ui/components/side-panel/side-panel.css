@@ -540,11 +540,16 @@
 }
 /* Help tips in the sync form: a small icon opens the long explanation on
  * hover AND keyboard focus (custom pop, not the OS-font native title).
- * The pop is a real child so styled fragments (an orange warning) can ride
- * inside; it anchors to the icon's inline edge and wraps so long sentences
- * stay readable. */
-[part="sync-tip"] {
+ * The pop anchors to the FIELD the icon lives in (panel-width box), never
+ * to the icon: an icon-anchored pop crosses the panel edge beside the rail
+ * and gets clipped by [part="side"] overflow hidden. :has() keeps the
+ * trigger on the icon alone (focusing the input shows nothing). */
+[part="settings-field"],
+[part="sync-check-row"],
+[part="settings-legend"] {
   position: relative;
+}
+[part="sync-tip"] {
   display: inline-flex;
   align-items: center;
   vertical-align: -0.15em;
@@ -562,12 +567,14 @@
   display: none;
   position: absolute;
   inset-block-start: calc(100% + 0.35rem);
-  inset-inline-end: -0.35rem;
+  inset-inline: 0.2rem;
   z-index: 80;
-  /* max-content beats the abs-pos shrink-to-fit (whose available width is
-   * the tiny icon box — the per-letter wrap); the cap keeps sentences. */
+  /* max-content beats the abs-pos shrink-to-fit (the per-letter wrap); the
+   * cap borrows the field's own width, so the pop can never be wider than
+   * the panel interior. Over-constrained cases drop the inline-end inset
+   * (RTL), keeping the pop flush with the labels' edge. */
   inline-size: max-content;
-  max-inline-size: 16rem;
+  max-inline-size: calc(100% - 0.4rem);
   box-sizing: border-box;
   font-size: 0.8rem;
   font-weight: 400;
@@ -582,8 +589,12 @@
   overflow-wrap: anywhere;
   pointer-events: none;
 }
-[part="sync-tip"]:hover > [part="sync-tip-pop"],
-[part="sync-tip"]:focus-visible > [part="sync-tip-pop"] {
+[part="settings-field"]:has([part="sync-tip"]:hover) [part="sync-tip-pop"],
+[part="settings-field"]:has([part="sync-tip"]:focus-visible) [part="sync-tip-pop"],
+[part="sync-check-row"]:has([part="sync-tip"]:hover) [part="sync-tip-pop"],
+[part="sync-check-row"]:has([part="sync-tip"]:focus-visible) [part="sync-tip-pop"],
+[part="settings-legend"]:has([part="sync-tip"]:hover) [part="sync-tip-pop"],
+[part="settings-legend"]:has([part="sync-tip"]:focus-visible) [part="sync-tip-pop"] {
   display: block;
 }
 [part="sync-tip"]:focus-visible {
