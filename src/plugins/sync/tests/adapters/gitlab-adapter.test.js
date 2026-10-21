@@ -129,15 +129,17 @@ test('should_map_auth_and_missing_repo_when_opened', async () => {
 });
 
 test('should_map_forbidden_access_as_auth_when_opened', async () => {
-  // 403 on an open project read: valid token, wrong project or scope —
-  // surfaced as auth so the UI points at the token.
+  // 403 on an open project read: valid token, wrong project or missing
+  // api scope (write_repository does not authenticate the REST API) —
+  // surfaced as auth so the UI points at the token, and the message
+  // names the scope fix.
   const denied = setup([{
     match: () => true,
-    reply: () => response(403, {}),
+    reply: () => response(403, { error: 'insufficient_scope' }),
   }]);
   const error = await denied.backend.open().catch((caught) => caught);
   assert.equal(error.code, 'GITL_AUTH_FAILED');
-  assert.ok(error.message.includes('project'), 'expected the project-scope hint');
+  assert.ok(error.message.includes('api scope'), 'expected the scope hint');
 });
 
 test('should_map_network_failure_when_opened', async () => {

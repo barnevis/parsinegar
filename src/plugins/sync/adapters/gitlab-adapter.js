@@ -60,16 +60,18 @@ function gitlabError(code, message, detail = {}) {
 
 /**
  * Builds the permission-denied error for HTTP 403: the token is valid but
- * cannot touch this project (project access token bound to another
- * project, or a missing read/write scope). Surfaced as auth, not network,
- * so the UI can point at the token instead of the connection.
+ * cannot touch these endpoints — chiefly the `insufficient_scope` case
+ * (the REST files API needs the `api` scope; `write_repository` alone
+ * only authenticates Git-over-HTTP) or a project token bound to another
+ * project. Surfaced as auth, not network, so the UI can point at the
+ * token instead of the connection.
  * @param {object} [detail] Safe metadata (never the token).
  * @returns {Error} Coded error.
  */
-function accessDenied(detail = {}) {
+function insufficientScopes(detail = {}) {
   return gitlabError(
     'GITL_AUTH_FAILED',
-    'GitLab backend token cannot access this project (check the project the token belongs to and its write scope)',
+    'GitLab backend token cannot access these endpoints (a project/personal token with the api scope is required; write_repository does not authenticate the REST API)',
     detail,
   );
 }
@@ -103,7 +105,8 @@ export function normalizeBaseUrl(raw) {
  * @param {string} config.repo `owner/name`.
  * @param {string} [config.branch] Branch, default main.
  * @param {string} config.token Project or personal access token
- *   (`write_repository` or `api` scope).
+ *   (`api` scope — `write_repository` authenticates only Git-over-HTTP,
+ *   never the REST files API).
  * @param {string} [config.baseUrl] Instance base URL, default gitlab.com.
  * @param {Function} [config.fetchFn] Fetch implementation (tests).
  * @returns {object} Backend implementing the sync-target contract.
@@ -170,7 +173,7 @@ export function createGitlabAdapter({ repo, branch = DEFAULT_BRANCH, token, base
       throw gitlabError('GITL_RATE_LIMITED', 'GitLab backend rate limit exhausted', { repo, ...context });
     }
     if (response.status === 403) {
-      throw accessDenied({ repo, ...context });
+      throw insufficientScopes({ repo, ...context });
     }
   }
 
@@ -279,7 +282,7 @@ export function createGitlabAdapter({ repo, branch = DEFAULT_BRANCH, token, base
         throw gitlabError('GITL_RATE_LIMITED', 'GitLab backend rate limit exhausted', { repo });
       }
       if (projectResponse.status === 403) {
-        throw accessDenied({ repo });
+        throw insufficientScopes({ repo });
       }
       if (!projectResponse.ok) {
         throw gitlabError('GITL_REQUEST_FAILED', `GitLab backend check failed: HTTP ${projectResponse.status}`, { repo });

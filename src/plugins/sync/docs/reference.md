@@ -131,7 +131,7 @@ await sync.syncNow({
 |---|---|
 | `SYNC_NOT_CONFIGURED` | فراخوانی sync/resolve بدون بک‌اند |
 | `SYNC_INVALID_CONFIG` | kind ناشناس، آدرس پایه بد گیت‌لب (غیر http(s))، اسکوپ بد، choice بد، تعارض ناموجود |
-| `SYNC_AUTH_FAILED` | رد توکن (۴۰۱) یا دسترسی ناکافی (۴۰۳: گیت‌هاب — مخزن انتخاب نشده یا مجوز Contents کم؛ گیت‌لب — توکن پروژه/مخزن دیگری یا فاقد اسکوپ) |
+| `SYNC_AUTH_FAILED` | رد توکن (۴۰۱) یا دسترسی ناکافی (۴۰۳: گیت‌هاب — مخزن انتخاب نشده یا مجوز Contents کم؛ گیت‌لب — توکن پروژه/مخزن دیگری یا توکن بی‌اسکوپ `api`: اسکوپ‌های `write_repository`/`read_repository` برای REST API بی‌اعتبارند) |
 | `SYNC_REPO_NOT_FOUND` | نبود مخزن/شاخه (گیت‌لب: نبود پروژه با مسیر owner/name یا شاخه آن) |
 | `SYNC_NETWORK_FAILED` | قطع شبکه، خطای HTTP متفرقه یا تمام‌شدن مهلت ۳۰ ثانیه‌ای درخواست |
 | `SYNC_RATE_LIMITED` | سقف نرخ (۴۰۳ + هدر) |
