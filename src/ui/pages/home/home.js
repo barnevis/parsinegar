@@ -1432,7 +1432,13 @@ class ParsiPageHome extends PeyElement {
   }
 
   async #switchDocument(id) {
-    this.#applyResult(await this.#docs?.switchDocument(id));
+    const result = await this.#docs?.switchDocument(id);
+    // In mindmap mode the panel is only the picker: once a target is
+    // chosen it collapses so the map takes the whole center area.
+    if (result && this.#centerMode === 'mindmap' && this.#sideOpen) {
+      this.#sideOpen = false;
+    }
+    this.#applyResult(result);
   }
 
   async #createDocument() {

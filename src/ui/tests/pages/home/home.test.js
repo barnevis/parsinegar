@@ -1947,6 +1947,28 @@ test('should_swap_center_to_mindmap_when_rail_selects_it', async () => {
   }
 });
 
+test('should_fill_map_after_document_is_opened_in_mindmap_view', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'نقشه', content: '- الف\n  - ب', updatedAt: 2 },
+    { id: 'd2', title: 'نقشه دیگر', content: '- ج', updatedAt: 1 },
+  ]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[data-slot="side"]'), 'expected the picker panel open');
+    inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]').click();
+    await settled();
+    await settled();
+    assert.equal(element.shadowRoot.querySelector('[data-slot="side"]'), null, 'expected the panel collapsed after the pick');
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the map on the center');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]') === null);
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_create_templated_document_when_mindmap_new_is_requested', async () => {
   const documents = createDocuments([{ id: 'd1', title: 'ریشه', content: '- الف', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
