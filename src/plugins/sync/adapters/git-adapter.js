@@ -2,6 +2,8 @@
 // record plus the engine manifest, addressed by repo path. UTF-8 end to
 // end; network is the only transport (fetch injected for tests).
 
+import { REQUEST_TIMEOUT_MS, commitMessageOf, decodeContent, encodeContent } from './shared.js';
+
 const API_BASE = 'https://api.github.com';
 const API_VERSION = '2022-11-28';
 const DEFAULT_BRANCH = 'main';
@@ -9,7 +11,7 @@ const DEFAULT_BRANCH = 'main';
 /**
  * Backend descriptor registering the GitHub Contents backend with the sync
  * engine: factory, error translation and the concurrent-write signal. New
- * backends (e.g. WebDAV) register their own descriptor without touching
+ * backends (e.g. GitLab) register their own descriptor without touching
  * the engine; see adapters/README.md.
  */
 export const gitAdapterDescriptor = {
@@ -26,22 +28,6 @@ export const gitAdapterDescriptor = {
   },
   revMismatchCode: 'GIT_REV_MISMATCH',
 };
-// Sanctioned/blackholed networks hang instead of refusing: without a
-// deadline the UI stalls forever with zero feedback. t.mock.timers drives
-// this timer in tests; real clocks everywhere else.
-const REQUEST_TIMEOUT_MS = 30000;
-
-/**
- * Resolves the commit text for one write or delete: an explicit message
- * from the run wins, otherwise the automatic per-path default.
- * @param {object|null} options Run options.
- * @param {string} fallback Automatic message (`pey.sync write|delete ${path}`).
- * @returns {string} Commit message.
- */
-function commitMessageOf(options, fallback) {
-  const text = typeof options?.message === 'string' ? options.message.trim() : '';
-  return text.length > 0 ? text : fallback;
-}
 
 /**
  * Builds a backend error: machine code, safe message, no secrets.
@@ -68,32 +54,6 @@ function accessDenied(detail = {}) {
     'Git backend token cannot access this repository (check repository access and Contents permission)',
     detail,
   );
-}
-
-/**
- * Encodes text to base64 without blowing the stack on long files.
- * @param {string} content UTF-8 text.
- * @returns {string} Base64.
- */
-function encodeContent(content) {
-  const bytes = new TextEncoder().encode(content);
-  let binary = '';
-  const CHUNK = 8192;
-  for (let index = 0; index < bytes.length; index += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + CHUNK));
-  }
-  return btoa(binary);
-}
-
-/**
- * Decodes base64 file content to text (GitHub wraps lines).
- * @param {string} content Base64 payload.
- * @returns {string} UTF-8 text.
- */
-function decodeContent(content) {
-  const cleaned = String(content ?? '').replace(/\s/g, '');
-  const bytes = Uint8Array.from(atob(cleaned), (character) => character.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
 }
 
 /**

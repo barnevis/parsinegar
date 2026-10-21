@@ -2,7 +2,7 @@
 
 ## هدف
 
-موتور همگام‌سازی دستی و backend-neutral برای مجموعه‌های `pey.storage.service` به فضای انتخابی کاربر (نسخه اول: مخزن گیت).
+موتور همگام‌سازی دستی و backend-neutral برای مجموعه‌های `pey.storage.service` به فضای انتخابی کاربر (بک‌اند‌های همراه: GitHub و GitLab « شامل سرور خودمیزبان با آدرس پایه دلخواه).
 
 ## ساختار
 
@@ -21,6 +21,8 @@
 - `lib/sync-store.js` — نگهبان قطع استوریج.
 - `lib/sync-service.js` — شش متد سرویس (مونتاژ لاغر روی ماژول‌ها).
 - `adapters/git-adapter.js` — بک‌اند گیت روی GitHub Contents API.
+- `adapters/gitlab-adapter.js` — بک‌اند گیت‌لب روی GitLab Files API (گیت‌لب.کام و خودمیزبان با `baseUrl`)؛ rev = blob sha و قفل روی `last_commit_id` پس از راستی‌آزمایی GET.
+- `adapters/shared.js` — مهلت ۳۰ ثانیه، کدک base64 و پیام کامیت مشترک بک‌اند‌های گیت.
 - `adapters/README.md` — قرارداد kind تازه برای ذخیره‌سازهای بعدی.
 - `tests/` — تست هر فایل سورس.
 - `docs/requirements.md` — تنها منبع حقیقت پیاده‌سازی.
@@ -42,7 +44,16 @@ await sync.configureBackend({
   kind: 'git',
   params: { repo: 'user/notes', branch: 'main', token: '<pat>' },
 });
-// → { ok: true, kind: 'git', repo: 'user/notes', branch: 'main' }
+// → { ok: true, kind: 'git', repo: 'user/notes', branch: 'main', baseUrl: null }
+
+// ۱الف. گیت‌لب: baseUrl اختیاری برای سرور خودمیزبان (ریشهٔ میزبان،
+// مثل https://gitlab.example.com)؛ خالی/ناموجود = گیت‌لب.کام.
+await sync.configureBackend({
+  kind: 'gitlab',
+  params: { repo: 'user/notes', branch: 'main', token: '<pat>',
+            baseUrl: 'https://gitlab.example.com' },
+});
+// → { ok: true, kind: 'gitlab', ..., baseUrl: 'https://gitlab.example.com' }
 
 // ۲. اجرا با دامنه صریح (هویت مسیر: مخزن فقط اسناد واقعی را می‌بیند)
 const report = await sync.syncNow({
@@ -66,7 +77,7 @@ await sync.resolveConflict({ collection: 'tasks', id: 't1', choice: 'local' });
 
 // ۴. وضعیت و حذف
 await sync.getStatus();
-// → { configured, kind, repo, branch, lastSyncAt, lastError }
+// → { configured, kind, repo, branch, baseUrl, lastSyncAt, lastError }
 await sync.removeBackend(); // → { ok: true } (داده محلی دست نمی‌خورد)
 
 // ۵. پیش‌پرواز محلی (بدون هیچ شبکه‌ای)
@@ -119,9 +130,9 @@ await sync.syncNow({
 | کد | کی |
 |---|---|
 | `SYNC_NOT_CONFIGURED` | فراخوانی sync/resolve بدون بک‌اند |
-| `SYNC_INVALID_CONFIG` | kind ناشناس، اسکوپ بد، choice بد، تعارض ناموجود |
-| `SYNC_AUTH_FAILED` | رد توکن (۴۰۱) یا دسترسی ناکافی (۴۰۳: مخزن انتخاب نشده یا مجوز Contents کم است) |
-| `SYNC_REPO_NOT_FOUND` | نبود مخزن/شاخه |
+| `SYNC_INVALID_CONFIG` | kind ناشناس، آدرس پایه بد گیت‌لب (غیر http(s))، اسکوپ بد، choice بد، تعارض ناموجود |
+| `SYNC_AUTH_FAILED` | رد توکن (۴۰۱) یا دسترسی ناکافی (۴۰۳: گیت‌هاب — مخزن انتخاب نشده یا مجوز Contents کم؛ گیت‌لب — توکن پروژه/مخزن دیگری یا فاقد اسکوپ) |
+| `SYNC_REPO_NOT_FOUND` | نبود مخزن/شاخه (گیت‌لب: نبود پروژه با مسیر owner/name یا شاخه آن) |
 | `SYNC_NETWORK_FAILED` | قطع شبکه، خطای HTTP متفرقه یا تمام‌شدن مهلت ۳۰ ثانیه‌ای درخواست |
 | `SYNC_RATE_LIMITED` | سقف نرخ (۴۰۳ + هدر) |
 | `SYNC_PATH_COLLISION` | دو رکورد محلی یک مسیر ریموت را ادعا می‌کنند (با هر دو شناسه، پیش از هر نوشتن ریموت) |
@@ -142,6 +153,7 @@ await sync.syncNow({
 - محتوای یکسان با هش برابر هرگز بازنویسی نمی‌شود؛ برابری بی‌پایه (مهاجرت بی‌هش) هم در صورت برابری محتوا بی‌پرسش منعقد می‌شود.
 - تغییرنام = push به مسیر تازه + حذف مسیر قبلی؛ دو سند محلی به یک مسیر `SYNC_PATH_COLLISION` می‌دهد؛ رکورد بی‌شناسه رد می‌شود.
 - کالکشن json با هویت مسیرشده (`<base>/<id>.json`)؛ کالکشن متنی عنوان و پوشه را از مسیر می‌گیرد.
+- روی گیت‌لب، rev = blob sha است (tree و پاسخ نوشتن `last_commit_id` را نمی‌دهند)؛ نوشته/حذفِ فایلِ دیده‌شده پیش از تغییر یک GET راستی‌آزمایی می‌کند (تباهی یا نبود blob = تعارض، همان GitLab 400 عمومی که به `SYNC_CONCURRENT_CHANGE` نقشه می‌خورد) و پس از نوشتن سکه با یک GET تعقیبی blob تازه برمی‌گردد.
 
 ## محدودیت‌ها
 

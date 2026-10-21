@@ -46,12 +46,16 @@ export const webdavAdapterDescriptor = {
   errorMap: { DAV_AUTH_FAILED: 'SYNC_AUTH_FAILED' /* … */ },
   revMismatchCode: 'DAV_REV_MISMATCH', // optional; without it every
                                        // failure maps through errorMap
+  // optional: normalizes config params before open() — the service then
+  // persists and echoes exactly what the backend will use (gitlab uses it
+  // to normalize baseUrl and reject a bad URL before the first request)
+  normalizeParams: (params) => params,
 };
 ```
 
-Pass `{ webdav: webdavAdapterDescriptor }` (plus `git`) as `adapters` on
-the service state from the host entry point. `errorMap` translates every
-adapter code the backend throws; unmapped codes become
+Pass `{ webdav: webdavAdapterDescriptor }` (plus `git` and `gitlab`) as
+`adapters` on the service state from the host entry point. `errorMap`
+translates every adapter code the backend throws; unmapped codes become
 `SYNC_NETWORK_FAILED` with the adapter code preserved in
 `detail.adapterCode`. `revMismatchCode` names the concurrent-write signal
 the engine turns into `SYNC_CONCURRENT_CHANGE`. The remote side holds no

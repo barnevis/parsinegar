@@ -5,11 +5,12 @@
 // new kind plugs in from the host entry point without touching the engine.
 import { syncError } from './error.js';
 import { gitAdapterDescriptor } from '../adapters/git-adapter.js';
+import { gitlabAdapterDescriptor } from '../adapters/gitlab-adapter.js';
 
 // Backend kinds register here by default; a host entry point may pass its
 // own `adapters` map on the service state to add kinds (e.g. WebDAV)
 // without touching this file. See adapters/README.md for the descriptor.
-const DEFAULT_ADAPTERS = { git: gitAdapterDescriptor };
+const DEFAULT_ADAPTERS = { git: gitAdapterDescriptor, gitlab: gitlabAdapterDescriptor };
 
 /**
  * Maps a backend failure to the sync error contract through the backend

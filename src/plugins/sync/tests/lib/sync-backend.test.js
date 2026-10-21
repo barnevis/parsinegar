@@ -17,7 +17,8 @@ function stateWith(adapters) {
 test('should_resolve_registered_kind_when_describing', () => {
   assert.equal(descriptorFor(stateWith({ fake: fakeDescriptor }), 'fake'), fakeDescriptor);
   assert.equal(descriptorFor({ storage: null }, 'git').kind, 'git');
-  assert.deepEqual(Object.keys(DEFAULT_ADAPTERS), ['git']);
+  assert.deepEqual(Object.keys(DEFAULT_ADAPTERS), ['git', 'gitlab']);
+  assert.equal(DEFAULT_ADAPTERS.gitlab.revMismatchCode, 'GITL_REV_MISMATCH');
 });
 
 test('should_reject_unknown_kind_when_describing', () => {

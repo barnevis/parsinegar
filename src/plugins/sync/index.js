@@ -1,11 +1,12 @@
 // Pey sync plugin: entry point wiring prepare/activate.
 import { gitAdapterDescriptor } from './adapters/git-adapter.js';
+import { gitlabAdapterDescriptor } from './adapters/gitlab-adapter.js';
 import { syncCriticalError, syncStartupError } from './lib/error.js';
 import { SERVICE_NAME, createService } from './lib/sync-service.js';
 
 const STORAGE_SERVICE = 'pey.storage.service';
 
-const state = { storage: null, events: null, fetchFn: globalThis.fetch, adapters: { git: gitAdapterDescriptor } };
+const state = { storage: null, events: null, fetchFn: globalThis.fetch, adapters: { git: gitAdapterDescriptor, gitlab: gitlabAdapterDescriptor } };
 let savedContext = null;
 let unsubscribeUnavailable = null;
 

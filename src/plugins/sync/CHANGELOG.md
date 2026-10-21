@@ -1,14 +1,15 @@
 # Changelog — pey.sync
 
-## [0.4.0] - 2026-10-21
+## [0.4.0]
 
 ### Added
 
 - `syncNow({ scope, message })` accepts an optional `message`: it is applied verbatim (trimmed, max 200 chars) as the commit subject of every write and delete this round performs. Absent or blank keeps the automatic per-path messages. Conflict-resolution writes and legacy-artifact cleanup always keep the automatic messages.
+- A second backend kind, `gitlab`: the GitLab Files API (gitlab.com and self-hosted instances through `baseUrl`). Config gains the optional `baseUrl` (host root like `https://gitlab.example.com`; empty/absent = gitlab.com). The rev is the blob sha; mutating calls on an already-seen file verify the blob first and refuse on divergence (`SYNC_CONCURRENT_CHANGE`), since GitLab turns every commit failure into a generic HTTP 400 — the engine plan plus the double check make that read as a concurrent change, nothing is ever overwritten. Auth rides the `PRIVATE-TOKEN` header; a 403 (valid token, wrong project/scope) maps to `SYNC_AUTH_FAILED`.
 
 ### Changed
 
-- Sync-target contract (`adapters/README.md`): `writeFile` and `deleteFile` gained an optional `options` bag with `options.message`; skipping it or leaving `message` empty falls back to each backend's automatic default.
+- Sync-target contract (`adapters/README.md`): `writeFile` and `deleteFile` gained an optional `options` bag with `options.message`; skipping it or leaving `message` empty falls back to each backend's automatic default. Descriptors may declare `normalizeParams` so the service persists and echoes exactly the params the backend will use.
 
 ## [0.3.0] - 2026-10-19
 

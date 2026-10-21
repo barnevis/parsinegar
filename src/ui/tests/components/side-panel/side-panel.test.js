@@ -59,7 +59,25 @@ test('should_emit_sync_configure_when_save_is_clicked', async () => {
     element.shadowRoot.querySelector('[data-sync-field="token"]').value = 'tok';
     element.shadowRoot.querySelector('[data-sync-save]').click();
     await flush();
-    assert.deepEqual(seen, [{ repo: 'u/r', branch: 'main', token: 'tok' }]);
+    assert.deepEqual(seen, [{ kind: 'git', repo: 'u/r', branch: 'main', token: 'tok', baseUrl: '' }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_emit_gitlab_kind_and_base_url_when_save_is_clicked', async () => {
+  const element = mount({ activeView: 'sync', sync: null });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('sync-configure', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('input[data-sync-field="git-kind"][value="gitlab"]').checked = true;
+    element.shadowRoot.querySelector('[data-sync-field="repo"]').value = 'u/r';
+    element.shadowRoot.querySelector('[data-sync-field="token"]').value = 'tok';
+    element.shadowRoot.querySelector('[data-sync-field="baseUrl"]').value = 'https://git.self.test';
+    element.shadowRoot.querySelector('[data-sync-save]').click();
+    await flush();
+    assert.deepEqual(seen, [{ kind: 'gitlab', repo: 'u/r', branch: 'main', token: 'tok', baseUrl: 'https://git.self.test' }]);
   } finally {
     element.remove();
   }

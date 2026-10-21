@@ -57,7 +57,7 @@ export function renderSyncConflictModal({ t, conflict, assetBaseUrl }) {
  */
 export function renderSyncMessageModal({ t, assetBaseUrl }) {
   const translate = typeof t === 'function' ? t : (key) => key;
-  const icon = iconMarkup(assetBaseUrl, 'github');
+  const icon = iconMarkup(assetBaseUrl, 'sync');
   return `
     <div part="modal-backdrop">
       <div part="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">

@@ -1001,31 +1001,36 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Configures the git backend from the settings form. Validation failures
+   * Configures the sync backend from the settings form. Validation failures
    * surface through the next status refresh (the service records run
    * errors; field emptiness is already guarded by reportValidity).
-   * @param {object} detail `{ repo, branch, token }`.
+   * @param {object} detail `{ kind, repo, branch, token, baseUrl }`.
    * @returns {Promise<void>}
    */
   async #configureSyncBackend(detail) {
     if (!this.#syncer) {
       return;
     }
+    const kind = detail?.kind === 'gitlab' ? 'gitlab' : 'git';
     const repo = typeof detail?.repo === 'string' ? detail.repo.trim() : '';
     const branch = typeof detail?.branch === 'string' && detail.branch.trim().length > 0
       ? detail.branch.trim()
       : 'main';
     const token = typeof detail?.token === 'string' ? detail.token : '';
+    const baseUrl = typeof detail?.baseUrl === 'string' ? detail.baseUrl.trim() : '';
     if (repo.length === 0 || token.length === 0) {
       return;
     }
     // The attempt survives a failed configure so the form repopulates
-    // (repo and branch only — the token is never echoed back).
-    this.#syncAttempt = { repo, branch };
+    // (host, repo and branch only — the token is never echoed back).
+    this.#syncAttempt = { repo, branch, kind, baseUrl };
     this.#syncBusy = true;
     await this.#refreshSyncStatus();
+    const params = kind === 'gitlab'
+      ? { repo, branch, token, baseUrl: baseUrl.length > 0 ? baseUrl : undefined }
+      : { repo, branch, token };
     try {
-      await this.#syncer.configureBackend({ kind: 'git', params: { repo, branch, token } });
+      await this.#syncer.configureBackend({ kind, params });
       this.#syncAttempt = null;
     } catch {
       // Failure lands in status via getStatus on refresh below.
@@ -1271,8 +1276,10 @@ class ParsiPageHome extends PeyElement {
         const attempt = this.#syncAttempt;
         snapshot = {
           configured: status.configured === true,
+          kind: status.kind ?? attempt?.kind ?? null,
           repo: status.repo ?? attempt?.repo ?? null,
           branch: status.branch ?? attempt?.branch ?? null,
+          baseUrl: status.baseUrl ?? attempt?.baseUrl ?? null,
           lastSyncText: typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null,
           errorText: status.lastError?.message ?? null,
           busy: this.#syncBusy,

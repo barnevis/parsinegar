@@ -430,6 +430,26 @@
   padding: 0.35rem 0.5rem;
   color: inherit;
 }
+/* Host radio group (github/gitlab) reuses the checkbox row rhythm; the
+ * GitLab-only base URL shows and hides with the checked radio (:has keeps
+ * this a pure-CSS toggle, no re-render on radio change). */
+[part="sync-host-group"] {
+  border: 1px solid var(--pey-color-border, #d8d8de);
+  border-radius: 8px;
+  margin-block: 0.4rem;
+  padding-inline: 0.2rem;
+}
+[part="sync-host-group"] legend {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding-inline: 0.25rem;
+}
+[data-sync-base-url] {
+  display: none;
+}
+[part="sync-host-group"]:has(input[value="gitlab"]:checked) [data-sync-base-url] {
+  display: flex;
+}
 /* Ignore-patterns box: width locked to the panel with vertical-only growth
  * (capped), so the resize handle can never swallow the side panel. */
 [data-sync-field="ignore"] {

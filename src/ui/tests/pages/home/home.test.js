@@ -2219,6 +2219,61 @@ test('should_repopulate_form_after_failed_configure_when_refreshed', async () =>
   }
 });
 
+test('should_send_gitlab_envelope_when_gitlab_form_is_saved', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService();
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', {
+      bubbles: true,
+      detail: { kind: 'gitlab', repo: 'u/r', branch: 'trunk', token: 'tok', baseUrl: 'https://git.self.test' },
+    }));
+    await settled();
+    await settled();
+    assert.deepEqual(syncer.calls, [[
+      'configureBackend',
+      { kind: 'gitlab', params: { repo: 'u/r', branch: 'trunk', token: 'tok', baseUrl: 'https://git.self.test' } },
+    ]]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_repopulate_gitlab_attempt_after_failed_configure_when_refreshed', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async configureBackend() {
+      throw { code: 'SYNC_INVALID_CONFIG' };
+    },
+    async getStatus() {
+      return { configured: false, lastSyncAt: null, lastError: { code: 'SYNC_INVALID_CONFIG', message: 'nope', at: 1 } };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-configure', {
+      bubbles: true,
+      detail: { kind: 'gitlab', repo: 'u/r', branch: 'main', token: 'tok', baseUrl: 'https://git.self.test' },
+    }));
+    await settled();
+    await settled();
+    const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
+    assert.equal(panel().querySelector('input[data-sync-field="git-kind"][value="gitlab"]').checked, true, 'gitlab stays selected');
+    assert.equal(panel().querySelector('[data-sync-field="baseUrl"]').value, 'https://git.self.test');
+    assert.equal(panel().querySelector('[data-sync-field="repo"]').value, 'u/r');
+    assert.equal(panel().querySelector('[data-sync-field="token"]').value, '');
+  } finally {
+    element.remove();
+  }
+});
+
 function syncDot(element) {
   return inChild(element, 'parsi-activity-rail', '[data-view="sync"] [data-sync-dot]')?.getAttribute('data-sync-dot') ?? null;
 }

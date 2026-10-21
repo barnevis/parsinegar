@@ -25,7 +25,7 @@ const registry = [
   { id: FILES_VIEW, icon: 'file-copy', labelKey: 'parsinegar.views.files', render: renderFilesView },
   { id: OUTLINE_VIEW, icon: 'toc', labelKey: 'parsinegar.views.outline', render: renderOutlineView },
   { id: MINDMAP_VIEW, icon: 'account-tree', labelKey: 'parsinegar.views.mindmap', area: 'center' },
-  { id: SYNC_VIEW, icon: 'github', labelKey: 'parsinegar.views.sync', render: renderSyncView },
+  { id: SYNC_VIEW, icon: 'sync', labelKey: 'parsinegar.views.sync', render: renderSyncView },
   { id: ABOUT_VIEW, icon: 'logo', labelKey: 'parsinegar.about.title', render: renderAboutView, rail: false },
   { id: HELP_VIEW, icon: 'help', labelKey: 'parsinegar.views.help', render: renderHelpView, align: 'end' },
   { id: SETTINGS_VIEW, icon: 'settings', labelKey: 'parsinegar.views.settings', render: renderSettingsView, align: 'end' },

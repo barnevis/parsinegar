@@ -66,6 +66,11 @@ function createService(state) {
       const params = source.params && typeof source.params === 'object' ? source.params : {};
       requireStorage(state);
       const descriptor = descriptorFor(state, kind);
+      // Echo and storage mirror what the backend will actually use: the
+      // descriptor may normalize params (e.g. the gitlab base URL).
+      const normalized = typeof descriptor.normalizeParams === 'function'
+        ? descriptor.normalizeParams(params)
+        : params;
       let backend = null;
       try {
         backend = descriptor.create({ kind, ...params }, state.fetchFn ?? globalThis.fetch);
@@ -87,12 +92,13 @@ function createService(state) {
       await store(storage.write(BACKENDS_COLLECTION, {
         id: BACKEND_ID,
         kind,
-        repo: params.repo ?? null,
-        branch: params.branch ?? null,
-        token: params.token ?? null,
+        repo: normalized.repo ?? null,
+        branch: normalized.branch ?? null,
+        token: normalized.token ?? null,
+        baseUrl: normalized.baseUrl ?? null,
         updatedAt: Date.now(),
       }));
-      return { ok: true, kind, repo: params.repo ?? null, branch: params.branch ?? null };
+      return { ok: true, kind, repo: normalized.repo ?? null, branch: normalized.branch ?? null, baseUrl: normalized.baseUrl ?? null };
     },
 
     async removeBackend() {
@@ -114,6 +120,7 @@ function createService(state) {
         kind: backend.kind,
         repo: backend.repo ?? null,
         branch: backend.branch ?? null,
+        baseUrl: backend.baseUrl ?? null,
         lastSyncAt: saved?.lastSyncAt ?? null,
         lastError: saved?.lastError ?? null,
       };

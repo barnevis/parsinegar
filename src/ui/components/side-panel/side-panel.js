@@ -331,6 +331,10 @@ class ParsiSidePanel extends PeyElement {
       const fields = [...(this.shadowRoot?.querySelectorAll('[data-sync-field]') ?? [])];
       const values = {};
       for (const field of fields) {
+        // Radios share one field name: only the checked one contributes.
+        if (field.type === 'radio' && field.checked !== true) {
+          continue;
+        }
         values[field.getAttribute('data-sync-field')] = field.value ?? '';
       }
       const invalid = fields.find((field) => typeof field.reportValidity === 'function' && !field.checkValidity());
@@ -342,7 +346,13 @@ class ParsiSidePanel extends PeyElement {
         new CustomEvent('sync-configure', {
           bubbles: true,
           composed: true,
-          detail: { repo: values.repo ?? '', branch: values.branch || 'main', token: values.token ?? '' },
+          detail: {
+            kind: values['git-kind'] === 'gitlab' ? 'gitlab' : 'git',
+            repo: values.repo ?? '',
+            branch: values.branch || 'main',
+            token: values.token ?? '',
+            baseUrl: values.baseUrl ?? '',
+          },
         }),
       );
       return;

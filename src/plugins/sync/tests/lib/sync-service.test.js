@@ -132,10 +132,30 @@ async function configure(service) {
 test('should_store_redacted_backend_when_configured', async () => {
   const { service, storage } = setup();
   const result = await configure(service);
-  assert.deepEqual(result, { ok: true, kind: 'git', repo: 'u/r', branch: 'main' });
+  assert.deepEqual(result, { ok: true, kind: 'git', repo: 'u/r', branch: 'main', baseUrl: null });
   const stored = await storage.read('sync_backends', 'active');
   assert.equal(stored.token, 'tok');
   assert.equal(JSON.stringify(result).includes('tok'), false);
+});
+
+test('should_store_and_echo_base_url_when_gitlab_configured', async () => {
+  const storage = memoryStorage();
+  const service = createService({
+    storage,
+    events: events(),
+    fetchFn: async () => ({ status: 200, ok: true, headers: { get: () => null }, json: async () => ({}) }),
+  });
+  const result = await service.configureBackend({
+    kind: 'gitlab',
+    params: { repo: 'u/r', branch: 'main', token: 'tok', baseUrl: 'https://git.self.test/' },
+  });
+  assert.deepEqual(result, { ok: true, kind: 'gitlab', repo: 'u/r', branch: 'main', baseUrl: 'https://git.self.test' });
+  const stored = await storage.read('sync_backends', 'active');
+  assert.equal(stored.kind, 'gitlab');
+  assert.equal(stored.baseUrl, 'https://git.self.test');
+  const status = await service.getStatus();
+  assert.equal(status.kind, 'gitlab');
+  assert.equal(status.baseUrl, 'https://git.self.test');
 });
 
 test('should_reject_unknown_backend_when_configured', async () => {
