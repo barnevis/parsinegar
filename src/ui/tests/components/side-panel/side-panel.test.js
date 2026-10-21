@@ -104,9 +104,38 @@ test('should_emit_sync_ignore_save_with_cleaned_patterns_when_clicked', async ()
     const seen = [];
     element.addEventListener('sync-ignore-save', (event) => seen.push(event.detail));
     element.shadowRoot.querySelector('[data-sync-field="ignore"]').value = '  پیش‌نویس  \n\n# نظر\nکار/';
+    // Real flow: the input event enables the button, then the click saves.
+    element.shadowRoot.querySelector('[data-sync-field="ignore"]').dispatchEvent(new Event('input', { bubbles: true }));
     element.shadowRoot.querySelector('[data-sync-ignore-save]').click();
     await flush();
     assert.deepEqual(seen, [{ patterns: ['پیش‌نویس', 'کار/'] }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_hold_ignore_save_disabled_until_patterns_change', async () => {
+  const element = mount({
+    activeView: 'sync',
+    sync: { configured: false, repo: null, branch: null, lastSyncText: null, errorText: null, busy: false, ignoreText: 'پیش‌نویس' },
+  });
+  try {
+    await flush();
+    const button = element.shadowRoot.querySelector('[data-sync-ignore-save]');
+    const area = element.shadowRoot.querySelector('[data-sync-field="ignore"]');
+    assert.equal(button.disabled, true, 'expected the saved state to disable the button');
+    area.value = '  پیش‌نویس  \n# یادداشت\n';
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    await flush();
+    assert.equal(button.disabled, true, 'comment-only edits are not patterns');
+    area.value = 'پیش‌نویس\nکار/';
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    await flush();
+    assert.equal(button.disabled, false, 'expected a new pattern to enable the button');
+    area.value = 'پیش‌نویس';
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    await flush();
+    assert.equal(button.disabled, true, 'expected reverting to the stored patterns to disable it again');
   } finally {
     element.remove();
   }

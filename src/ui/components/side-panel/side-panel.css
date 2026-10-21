@@ -430,25 +430,29 @@
   padding: 0.35rem 0.5rem;
   color: inherit;
 }
-/* Host radio group (github/gitlab) reuses the checkbox row rhythm; the
- * GitLab-only base URL shows and hides with the checked radio (:has keeps
- * this a pure-CSS toggle, no re-render on radio change). */
-[part="sync-host-group"] {
-  border: 1px solid var(--pey-color-border, #d8d8de);
-  border-radius: 8px;
-  margin-block: 0.4rem;
-  padding-inline: 0.2rem;
-}
-[part="sync-host-group"] legend {
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding-inline: 0.25rem;
-}
+/* Host radio group (github/gitlab) lives inside the sync group as a plain
+ * labeled cluster (no second box); the GitLab-only base URL shows and hides
+ * with the checked radio (:has keeps this a pure-CSS toggle, no re-render
+ * on radio change). */
 [data-sync-base-url] {
   display: none;
 }
 [part="sync-host-group"]:has(input[value="gitlab"]:checked) [data-sync-base-url] {
   display: flex;
+}
+[part="sync-host-label"] {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0.4rem 0 0.15rem;
+}
+/* Checkbox rows that carry a help icon keep the control and the icon on
+ * one line (the icon must stay outside the <label> or a click toggles). */
+[part="sync-check-row"] {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.25rem 0;
 }
 /* Ignore-patterns box: width locked to the panel with vertical-only growth
  * (capped), so the resize handle can never swallow the side panel. */
@@ -534,6 +538,63 @@
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
 }
+/* Help tips in the sync form: a small icon opens the long explanation on
+ * hover AND keyboard focus (custom pop, not the OS-font native title).
+ * The pop is a real child so styled fragments (an orange warning) can ride
+ * inside; it anchors to the icon's inline edge and wraps so long sentences
+ * stay readable. */
+[part="sync-tip"] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -0.15em;
+  cursor: help;
+  color: inherit;
+  padding: 0.1rem;
+}
+[part="sync-tip"] svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+  display: block;
+  opacity: 0.75;
+}
+[part="sync-tip-pop"] {
+  display: none;
+  position: absolute;
+  inset-block-start: calc(100% + 0.35rem);
+  inset-inline-end: -0.35rem;
+  z-index: 80;
+  /* max-content beats the abs-pos shrink-to-fit (whose available width is
+   * the tiny icon box — the per-letter wrap); the cap keeps sentences. */
+  inline-size: max-content;
+  max-inline-size: 16rem;
+  box-sizing: border-box;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.6;
+  text-align: start;
+  color: var(--pey-color-text, #1a1a1a);
+  background-color: var(--pey-color-canvas, #ffffff);
+  border: 1px solid var(--pey-color-border, #e2e2e8);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+[part="sync-tip"]:hover > [part="sync-tip-pop"],
+[part="sync-tip"]:focus-visible > [part="sync-tip-pop"] {
+  display: block;
+}
+[part="sync-tip"]:focus-visible {
+  outline: 2px solid var(--pey-color-focus-ring, #5eead4);
+  outline-offset: 2px;
+}
+/* The warning lead-in inside the token tip reads in orange, not the alert
+ * red: it is advice, not a failure. */
+[part="sync-tip-warn"] {
+  color: #d97706;
+}
 /* Soft experimental banner: accent wash with a matching edge, calm in
  * all themes (error red would misread as failure). */
 [part="settings-notice"] {
@@ -589,9 +650,15 @@ a[part="settings-button"] {
   text-decoration: none;
   text-align: center;
 }
+/* Failure banner: red wash with a matching edge so errors read like the
+ * experimental notice but signal a failure. */
 [part="settings-error"] {
   font-size: 0.8rem;
-  margin: 0.25rem 0;
+  margin: 0.35rem 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid color-mix(in srgb, #b91c1c 35%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, #b91c1c 10%, transparent);
   color: #b91c1c;
   overflow-wrap: anywhere;
 }

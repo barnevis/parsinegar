@@ -52,6 +52,7 @@ class ParsiSidePanel extends PeyElement {
   #renameError = null;
   #filesSort = DEFAULT_FILES_SORT;
   #sync = null;
+  #ignoreSavedText = '';
   #collapsedLines = new Set();
   #folderCollapsed = [];
   #moveMenuId = null;
@@ -132,6 +133,11 @@ class ParsiSidePanel extends PeyElement {
     }
     if (sync !== undefined) {
       this.#sync = sync;
+      // The stored patterns keep «ذخیره الگوها» disabled until the textarea
+      // actually differs; render's initial state comes from this.
+      this.#ignoreSavedText = typeof sync === 'object' && sync !== null && typeof sync.ignoreText === 'string'
+        ? sync.ignoreText
+        : '';
     }
     // Collapse state belongs to the parent for the same reason the sort
     // does: the panel remounts with every page render.
@@ -259,10 +265,35 @@ class ParsiSidePanel extends PeyElement {
   }
 
   eventTypes() {
-    return ['click', 'change', 'keydown'];
+    return ['click', 'change', 'keydown', 'input'];
+  }
+
+  /**
+   * Compares a textarea draft with the stored patterns the way the save
+   * flow cleans them: equal means «ذخیره الگوها» has nothing to do.
+   * @param {string} value Textarea text.
+   * @returns {boolean} True when the draft matches the stored patterns.
+   */
+  #ignoreUnchanged(value) {
+    const cleaned = String(value ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'))
+      .join('\n');
+    return cleaned === this.#ignoreSavedText;
   }
 
   handleEvent(event) {
+    if (event.type === 'input') {
+      const area = event.target?.closest?.('[data-sync-field="ignore"]');
+      if (area) {
+        const button = this.shadowRoot?.querySelector('[data-sync-ignore-save]');
+        if (button) {
+          button.disabled = this.#ignoreUnchanged(area.value);
+        }
+      }
+      return;
+    }
     if (event.type === 'keydown') {
       const input = event.target?.closest?.('[data-rename-input]');
       if (input && event.key === 'Enter') {

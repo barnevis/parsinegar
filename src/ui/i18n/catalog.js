@@ -153,6 +153,7 @@ const catalog = {
     'parsinegar.sync.repo': 'مخزن (owner/name)',
     'parsinegar.sync.branch': 'شاخه',
     'parsinegar.sync.token': 'کلید دسترسی',
+    'parsinegar.sync.warn': 'هشدار',
     'parsinegar.sync.token-note': 'کلید به‌صورت امن ذخیره نمی‌شود: در همین مرورگر خوانا می‌ماند و تنها محافظ آن قفل دستگاه شماست.',
     'parsinegar.sync.single-repo': 'از کلیدی استفاده کنید که فقط به همین یک مخزن دسترسی دارد، نه به همه مخزن‌ها.',
     'parsinegar.sync.dot-ok': 'همگام است',

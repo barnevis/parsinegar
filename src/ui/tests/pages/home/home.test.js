@@ -2480,6 +2480,9 @@ test('should_save_ignore_patterns_and_repopulate_when_saved', async () => {
     await settled();
     await settled();
     inChild(element, 'parsi-side-panel', '[data-sync-field="ignore"]').value = 'a\n\n# نظر\nb';
+    // The save button stays disabled on the stored patterns: the input
+    // event (like real typing) enables it first.
+    inChild(element, 'parsi-side-panel', '[data-sync-field="ignore"]').dispatchEvent(new Event('input', { bubbles: true }));
     inChild(element, 'parsi-side-panel', '[data-sync-ignore-save]').click();
     await settled();
     await settled();

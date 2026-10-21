@@ -1274,17 +1274,25 @@ class ParsiPageHome extends PeyElement {
       const status = await this.#syncer?.getStatus();
       if (status) {
         const attempt = this.#syncAttempt;
+        const lastSyncText = typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null;
+        const errorText = status.lastError?.message ?? null;
         snapshot = {
           configured: status.configured === true,
           kind: status.kind ?? attempt?.kind ?? null,
           repo: status.repo ?? attempt?.repo ?? null,
           branch: status.branch ?? attempt?.branch ?? null,
           baseUrl: status.baseUrl ?? attempt?.baseUrl ?? null,
-          lastSyncText: typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null,
-          errorText: status.lastError?.message ?? null,
+          lastSyncText,
+          errorText,
           busy: this.#syncBusy,
           ignoreText: this.#syncIgnoreText(),
           autoCommit: this.#autoCommitEnabled(),
+          clean: status.configured === true
+            && !this.#syncBusy
+            && this.#syncConflicts.length === 0
+            && !this.#syncDirty
+            && !errorText
+            && typeof lastSyncText === 'string',
         };
       }
     } catch {
@@ -1365,6 +1373,20 @@ class ParsiPageHome extends PeyElement {
       }
       this.#syncDirty = dirty;
       this.#railEl?.configure({ syncDot: this.#syncDot(), syncHint: this.#syncHint() });
+      // The settings view gates «همگام‌سازی» on cleanliness too: refresh the
+      // stored snapshot's flag without a service round-trip.
+      if (this.#syncStatus) {
+        this.#syncStatus = {
+          ...this.#syncStatus,
+          clean: this.#syncStatus.configured === true
+            && !this.#syncBusy
+            && this.#syncConflicts.length === 0
+            && !dirty
+            && !this.#syncStatus.errorText
+            && typeof this.#syncStatus.lastSyncText === 'string',
+        };
+        this.#sideEl?.configure({ sync: this.#syncStatus });
+      }
     });
     this.#dirtyWrite = run.catch(() => {});
     return run;

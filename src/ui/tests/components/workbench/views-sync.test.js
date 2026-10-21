@@ -14,20 +14,39 @@ test('should_render_sync_form_when_unconfigured', () => {
   assert.ok(!markup.includes('data-sync-remove'), 'expected no remove button without a backend');
 });
 
-test('should_warm_about_token_safety_when_unconfigured', () => {
+test('should_render_experimental_notice_above_the_sync_group', () => {
   const markup = renderSyncView({ t: (key) => key, sync: null });
-  assert.ok(markup.includes('parsinegar.sync.token-note'));
-  assert.ok(markup.includes('parsinegar.sync.single-repo'));
+  const notice = markup.indexOf('part="settings-notice"');
+  const group = markup.indexOf('part="settings-group"');
+  assert.ok(notice > -1 && group > -1, 'expected notice and group');
+  assert.ok(notice < group, 'expected the notice outside, before the sync box');
+  assert.ok(!markup.includes('<fieldset part="sync-host-group"'), 'expected no nested host fieldset');
+  assert.ok(markup.includes('part="sync-host-label"'), 'expected a plain host label inside the sync box');
 });
 
-test('should_render_sync_status_when_configured', () => {
+test('should_warm_about_token_safety_on_a_tip_icon_when_unconfigured', () => {
+  const markup = renderSyncView({ t: (key) => key, sync: null, assetBaseUrl: 'http://a/' });
+  assert.ok(markup.includes('part="sync-tip-pop"'), 'expected the tooltip pop');
+  assert.ok(markup.includes('parsinegar.sync.token-note'));
+  assert.ok(markup.includes('parsinegar.sync.single-repo'));
+  assert.ok(markup.includes('parsinegar.sync.warn'), 'expected the warning lead-in');
+  assert.ok(markup.includes('part="sync-tip-warn"'), 'expected the styled warning fragment');
+  assert.ok(!markup.includes('parsinegar.sync.token-note</p>'), 'expected no print row under the field');
+});
+
+test('should_render_status_lines_separately_when_configured', () => {
   const markup = renderSyncView({
     t: (key) => key,
-    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null },
+    sync: { configured: true, kind: 'gitlab', repo: 'u/r', branch: 'dev', lastSyncText: 'امروز', errorText: null },
   });
-  assert.ok(markup.includes('data-sync-now'));
-  assert.ok(markup.includes('data-sync-remove'));
+  assert.ok(markup.includes('data-sync-status="host"'));
+  assert.ok(markup.includes('data-sync-status="repo"'));
+  assert.ok(markup.includes('data-sync-status="branch"'));
+  assert.ok(markup.includes('data-sync-status="last"'));
+  assert.ok(/data-sync-status="host"[^<]*<\/p>\s*<p/.test(markup.replace(/\n/g, ' ')), 'expected the host line closed before the next');
+  assert.ok(markup.includes('parsinegar.sync.host.gitlab'), 'expected the host name');
   assert.ok(markup.includes('u/r'));
+  assert.ok(markup.includes('dev'));
   assert.ok(markup.includes('parsinegar.sync.experimental'), 'expected the experimental notice when configured');
   assert.ok(!markup.includes('data-sync-field="token"'), 'expected no token field when configured');
 });
@@ -38,6 +57,7 @@ test('should_render_sync_error_when_present', () => {
     sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: 'boom' },
   });
   assert.ok(markup.includes('boom'));
+  assert.ok(markup.includes('part="settings-error"'));
 });
 
 test('should_render_sync_error_when_unconfigured', () => {
@@ -46,6 +66,20 @@ test('should_render_sync_error_when_unconfigured', () => {
     sync: { configured: false, repo: 'u/r', branch: 'dev', lastSyncText: null, errorText: 'boom', busy: false },
   });
   assert.ok(markup.includes('boom'));
+});
+
+test('should_disable_sync_now_when_clean_or_busy', () => {
+  const clean = renderSyncView({
+    t: (key) => key,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null, busy: false, clean: true },
+  });
+  assert.ok(clean.includes('data-sync-now disabled'), 'expected the clean state to disable sync');
+  assert.ok(!clean.includes('data-sync-remove disabled'), 'expected remove to stay available');
+  const dirty = renderSyncView({
+    t: (key) => key,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null, busy: false, clean: false },
+  });
+  assert.ok(!dirty.includes('data-sync-now disabled'), 'expected sync enabled when there is news to send');
 });
 
 test('should_disable_actions_and_rename_labels_when_busy', () => {
@@ -88,6 +122,23 @@ test('should_repopulate_attempt_without_token_when_unconfigured', () => {
   assert.ok(!markup.includes('value="tok"'), 'token must never echo back');
 });
 
+test('should_render_base_url_and_auto_commit_help_on_tip_icons', () => {
+  const configured = renderSyncView({
+    t: (key) => key,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: null, errorText: null },
+    assetBaseUrl: 'http://a/',
+  });
+  assert.ok(configured.includes('parsinegar.sync.auto-commit-note'), 'expected the auto-commit help in the pop');
+  assert.ok(!configured.includes('parsinegar.sync.auto-commit-note</p>'), 'auto-commit note must not appear as a plain print row');
+  const unconfigured = renderSyncView({
+    t: (key) => key,
+    sync: { configured: false, repo: null, branch: null, lastSyncText: null, errorText: null, busy: false },
+    assetBaseUrl: 'http://a/',
+  });
+  assert.ok(unconfigured.includes('parsinegar.sync.base-url-note'), 'expected the base-url help in the pop');
+  assert.ok(!unconfigured.includes('parsinegar.sync.base-url-note</p>'), 'expected no print note under the base URL');
+});
+
 test('should_render_ignore_form_with_current_patterns', () => {
   const markup = renderSyncView({
     t: (key) => key,
@@ -97,6 +148,6 @@ test('should_render_ignore_form_with_current_patterns', () => {
   assert.ok(markup.includes('rows="6"'));
   assert.ok(markup.includes('data-sync-ignore-save'));
   assert.ok(markup.includes('پیش‌نویس\nکار/'));
-  assert.ok(markup.includes('parsinegar.sync.single-repo'));
-  assert.ok(markup.includes('parsinegar.sync.ignore-note'));
+  assert.ok(markup.includes('parsinegar.sync.ignore-note'), 'expected the patterns help in the pop');
+  assert.ok(/data-sync-ignore-save[^>]*disabled/.test(markup), 'expected the save disabled until edited');
 });
