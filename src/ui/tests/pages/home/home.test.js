@@ -1936,12 +1936,22 @@ test('should_swap_center_to_mindmap_when_rail_selects_it', async () => {
     await settled();
     assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the mindmap host');
     assert.equal(element.shadowRoot.querySelector('[part="editor-host"]'), null);
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="mindmap"]').getAttribute('aria-pressed'), 'true', 'expected the map icon lit on entry');
     assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]'), 'expected the map document listed');
     child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
     await settled();
     await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]'), 'expected the editor back');
+    // Identical toggle law with files: the second click only collapses the
+    // panel; the map section keeps the center.
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the map to stay on the center');
+    assert.equal(element.shadowRoot.querySelector('[data-slot="side"]'), null, 'expected the panel collapsed on the second click');
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'files' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]'), 'expected the editor back via the files icon');
     assert.equal(element.shadowRoot.querySelector('[part="mindmap-host"]'), null);
+    assert.ok(element.shadowRoot.querySelector('[data-slot="side"]'), 'expected the files panel open beside the editor');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="files"]').getAttribute('aria-pressed'), 'true', 'expected the files icon lit after the exit');
   } finally {
     element.remove();
   }
@@ -1961,9 +1971,51 @@ test('should_fill_map_after_document_is_opened_in_mindmap_view', async () => {
     inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]').click();
     await settled();
     await settled();
-    assert.equal(element.shadowRoot.querySelector('[data-slot="side"]'), null, 'expected the panel collapsed after the pick');
+    assert.ok(element.shadowRoot.querySelector('[data-slot="side"]'), 'expected the panel to stay open after the pick');
     assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the map on the center');
-    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]') === null);
+    assert.ok(element.value.includes('- ج'), 'expected the picked document draft');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]'), 'expected the picker to keep listing documents');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_show_side_view_from_rail_while_map_stays_on_center', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف\n  - ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the map to stay on the center');
+    assert.ok(element.shadowRoot.querySelector('[data-slot="side"]'), 'expected the sync panel open');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('aria-pressed'), 'true', 'expected the sync icon marked active');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="mindmap"]').getAttribute('aria-pressed'), 'false', 'expected the map icon unmarked while a panel is open');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_collapse_panel_on_active_rail_click_while_map_stays_on_center', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف\n  - ب', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the map to stay on the center');
+    assert.equal(element.shadowRoot.querySelector('[data-slot="side"]'), null, 'expected the panel collapsed on the second click');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="sync"]').getAttribute('aria-pressed'), 'true', 'expected the stale sync mark kept, like files after a close');
+    assert.equal(inChild(element, 'parsi-activity-rail', '[data-view="mindmap"]').getAttribute('aria-pressed'), 'false', 'expected the sync selection to carry the mark');
   } finally {
     element.remove();
   }
@@ -1988,7 +2040,7 @@ test('should_create_templated_document_when_mindmap_new_is_requested', async () 
   }
 });
 
-test('should_return_to_editor_when_builtin_opens_from_mindmap', async () => {
+test('should_show_about_panel_from_mindmap_while_map_stays', async () => {
   const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف', updatedAt: 1 }]);
   const element = await mountWithDocuments(documents);
   try {
@@ -1999,8 +2051,8 @@ test('should_return_to_editor_when_builtin_opens_from_mindmap', async () => {
     element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('about-open', { bubbles: true, composed: true }));
     await settled();
     await settled();
-    assert.ok(element.shadowRoot.querySelector('[part="editor-host"]'), 'expected the editor back');
-    assert.equal(element.shadowRoot.querySelector('[part="mindmap-host"]'), null);
+    assert.ok(element.shadowRoot.querySelector('[part="mindmap-host"]'), 'expected the map to stay on the center');
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="about-title"]'), 'expected the about card in the panel');
   } finally {
     element.remove();
   }

@@ -836,6 +836,27 @@ test('should_render_filtered_files_when_mindmap_mode_is_on', async () => {
   }
 });
 
+test('should_render_files_picker_when_mindmap_view_is_active', async () => {
+  const element = mount({
+    mindmapMode: true,
+    activeView: 'mindmap',
+    items: [{ id: 'm', title: 'نقشه', folderId: null, content: '- الف' }],
+    currentId: 'm',
+    documentText: '- الف',
+  });
+  try {
+    await flush();
+    assert.equal(
+      element.shadowRoot.querySelector('[part="side-title"]').textContent,
+      'parsinegar.views.mindmap',
+    );
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="m"]'), 'expected the files picker beside the map');
+    assert.ok(element.shadowRoot.querySelector('[data-mindmap-new]'), 'expected the new-map button');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_hide_folders_without_maps_when_mindmap_mode_is_on', async () => {
   const element = mount({
     mindmapMode: true,

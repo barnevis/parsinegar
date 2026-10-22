@@ -783,8 +783,10 @@ class ParsiPageHome extends PeyElement {
 
   #switchView(id) {
     if (id === MINDMAP_VIEW) {
-      if (this.#centerMode === 'mindmap') {
-        this.#exitMindmap();
+      // Identical rail law for both center sections: a click shows the
+      // section, a click on the active one only toggles the side panel.
+      if (this.#activeView === MINDMAP_VIEW) {
+        this.#sideOpen = !this.#sideOpen;
       } else {
         this.#enterMindmap();
         return;
@@ -794,9 +796,11 @@ class ParsiPageHome extends PeyElement {
       if (!view) {
         return;
       }
-      // Any side view exits the mindmap back to the editor first.
-      this.#exitMindmap();
-      if (id === this.#activeView) {
+      if (id === FILES_VIEW && this.#centerMode === 'mindmap') {
+        // Files means the editor, even while the map is on the center.
+        this.#exitMindmap();
+        this.#sideOpen = true;
+      } else if (id === this.#activeView) {
         this.#sideOpen = !this.#sideOpen;
       } else {
         this.#activeView = id;
@@ -809,7 +813,8 @@ class ParsiPageHome extends PeyElement {
   /**
    * Enters the mindmap center mode: parks the editor draft and its visible
    * line, then re-renders onto the mindmap host (the observer mounts it).
-   * No-op when already there or disconnected.
+   * The map owns the rail mark while it is displayed; the picker panel
+   * opens beside it. No-op when already there or disconnected.
    * @returns {void}
    */
   #enterMindmap() {
@@ -818,6 +823,7 @@ class ParsiPageHome extends PeyElement {
     }
     this.#mindmapReturnLine = this.#editor?.visibleLine?.(0) ?? 1;
     this.#centerMode = 'mindmap';
+    this.#activeView = MINDMAP_VIEW;
     this.#sideOpen = true;
     this.#requestEditor();
   }
@@ -825,6 +831,7 @@ class ParsiPageHome extends PeyElement {
   /**
    * Returns to the editor center mode, landing on the given line (or the
    * line parked on entry). The pending line is consumed by the fresh mount.
+   * The heading mark falls back to files, the editor's rail section.
    * Rendering stays with the caller. No-op outside mindmap mode.
    * @param {number|null} [line] 1-based line to land on.
    * @returns {void}
@@ -834,6 +841,7 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     this.#centerMode = 'editor';
+    this.#activeView = FILES_VIEW;
     this.#pendingGotoLine = line ?? this.#mindmapReturnLine;
     this.#unmountMindmap();
   }
@@ -1452,11 +1460,11 @@ class ParsiPageHome extends PeyElement {
         t: this.#t,
         assetBaseUrl: this.#assetBaseUrl,
         views: listViews(),
-        activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView,
+        activeView: this.#activeView,
         syncDot: this.#syncDot(),
         syncHint: this.#syncHint(),
       },
-      configure: (element) => element.configure({ views: listViews(), activeView: this.#centerMode === 'mindmap' ? MINDMAP_VIEW : this.#activeView, syncDot: this.#syncDot(), syncHint: this.#syncHint() }),
+      configure: (element) => element.configure({ views: listViews(), activeView: this.#activeView, syncDot: this.#syncDot(), syncHint: this.#syncHint() }),
     });
     if (this.#sideOpen) {
       this.#sideEl = mountComponent({
@@ -1548,11 +1556,6 @@ class ParsiPageHome extends PeyElement {
 
   async #switchDocument(id) {
     const result = await this.#docs?.switchDocument(id);
-    // In mindmap mode the panel is only the picker: once a target is
-    // chosen it collapses so the map takes the whole center area.
-    if (result && this.#centerMode === 'mindmap' && this.#sideOpen) {
-      this.#sideOpen = false;
-    }
     this.#applyResult(result);
   }
 

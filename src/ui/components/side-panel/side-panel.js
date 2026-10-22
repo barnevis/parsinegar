@@ -7,7 +7,7 @@
 // CustomEvents for the parent to map to behavior.
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml } from '../workbench/html.js';
-import { FILES_VIEW, getView } from '../workbench/views.js';
+import { FILES_VIEW, MINDMAP_VIEW, getView } from '../workbench/views.js';
 import { DEFAULT_FILES_SORT, FILES_SORT_MODES, filterMindmapTree, renderFilesView, sortDocuments } from '../workbench/views-files.js';
 import { outlineSignature } from '../workbench/outline.js';
 
@@ -595,7 +595,11 @@ class ParsiSidePanel extends PeyElement {
 
   render() {
     const view = getView(this.#activeView) ?? getView(FILES_VIEW);
-    const titleKey = this.#mindmapMode ? 'parsinegar.views.mindmap' : view.labelKey;
+    // In map mode the flag forces the files picker for the map section
+    // itself (its side content) or for files; every other view renders
+    // itself, so the rail law shows exactly the picked panel next to map.
+    const filesActive = view.id === FILES_VIEW || view.id === MINDMAP_VIEW;
+    const titleKey = this.#mindmapMode && filesActive ? 'parsinegar.views.mindmap' : view.labelKey;
     const ordered = sortDocuments(this.#items, this.#filesSort);
     // Like the outline (which reads live text, not stored content), the
     // filter judges the open document by its current text: a fresh map
@@ -605,8 +609,8 @@ class ParsiSidePanel extends PeyElement {
         ? { ...item, content: this.#documentText }
         : item
     ));
-    const scope = this.#mindmapMode ? filterMindmapTree(sortDocuments(liveItems, this.#filesSort), this.#folders) : null;
-    const body = this.#mindmapMode
+    const scope = this.#mindmapMode && filesActive ? filterMindmapTree(sortDocuments(liveItems, this.#filesSort), this.#folders) : null;
+    const body = scope
       ? renderFilesView({ t: this.#t, items: scope.items, folders: scope.folders, currentId: this.#currentId, openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, mindmap: true })
       : view.render({ t: this.#t, items: ordered, folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, sync: this.#sync });
     return `
