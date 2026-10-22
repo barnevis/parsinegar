@@ -20,13 +20,17 @@
 
 ## API عمومی
 
-**سرویس:** `parsinegar.settings.service`. تنظیمات `{ theme, direction, fontSize }`‌اند:
+**سرویس:** `parsinegar.settings.service`. تنظیمات `{ theme, direction, fontSize, filesSort, mindmapLayout, syncIgnore, syncCommitAuto }`‌اند:
 
 - `theme`: برابر `'light'` یا `'dark'` یا `'device'` (پیروی از سیستم‌عامل) یا `'sepia'`.
 - `direction`: برابر `'auto'` یا `'rtl'` یا `'ltr'` — جهت مبنای سند ویرایش‌شده.
 - `fontSize`: اندازه قلم صحیح ادیتور به پیکسل، `12` تا `24`.
+- `filesSort`: ترتیب فهرست فایل‌ها — `'name'`/`'name-desc'`/`'updated-desc'`/`'updated-asc'`/`'created-desc'`/`'created-asc'`.
+- `mindmapLayout`: چیدمان نقشه ذهنی — `'rtl'` (ریشه راست، شاخه‌ها به چپ) یا `'ltr'` یا `'side'` یا `'down'`.
+- `syncIgnore`: آرایهٔ الگوهای gitignore-گونه (بیشینهٔ ۵۰ الگوی ۲۰۰ نویسه‌ای).
+- `syncCommitAuto`: بولین — پیام کامیت خودکار در همگام‌سازی.
 
-پیش‌فرض‌ها `{ theme: 'device', direction: 'auto', fontSize: 16 }`‌اند.
+پیش‌فرض‌ها `{ theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc', mindmapLayout: 'rtl', syncIgnore: [], syncCommitAuto: true }`‌اند.
 
 ### `getSettings()`
 

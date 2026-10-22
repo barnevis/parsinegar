@@ -156,6 +156,32 @@ export function createSettingsApplier({
       }
     },
     /**
+     * Persists the mindmap layout without touching editor traits (no
+     * remount follows; the host re-inits and only re-renders the map).
+     * Validation stays in the service: invalid values fail the save and
+     * the map keeps its live layout.
+     * @param {unknown} layout Layout key ('rtl'/'ltr'/'side'/'down').
+     * @returns {Promise<string>} 'applied', 'ignored' or 'failed'.
+     */
+    async saveMindmapLayout(layout) {
+      if (!api || typeof layout !== 'string' || layout.length === 0) {
+        return 'ignored';
+      }
+      try {
+        return await chainWrite(async () => {
+          const saved = await api.saveSettings({ mindmapLayout: layout });
+          if (!isLive()) {
+            return 'failed';
+          }
+          settings = saved;
+          return 'applied';
+        });
+      } catch (error) {
+        console.error('[parsi-settings-applier] mindmap layout save failed');
+        return 'failed';
+      }
+    },
+    /**
      * Persists the sync ignore patterns without touching editor traits (no
      * remount follows; the page only rechecks dirtiness). Cleans like the
      * view does (trimmed, no blanks or comments) so the service validator

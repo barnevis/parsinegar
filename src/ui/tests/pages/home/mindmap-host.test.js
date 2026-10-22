@@ -14,6 +14,19 @@ function mountHost() {
   return host;
 }
 
+// Toolbar switches run fire-and-forget (void applyLayout); jsdom rebuilds
+// through the cached module import, so a settled state poll replaces
+// fixed sleeps in the switch tests.
+async function waitUntil(condition, message = 'condition not met in time') {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.ok(condition(), message);
+}
+
 test('should_throw_when_host_is_missing', () => {
   assert.throws(() => createMindmapHost(null), /requires an element host/);
 });
@@ -93,7 +106,110 @@ test('should_render_persian_toolbar_when_mounted', async () => {
   try {
     await controller.ready;
     const labels = [...host.querySelectorAll('[data-mind-btn]')].map((button) => button.textContent);
-    assert.deepEqual(labels, ['فرزند', 'هم‌سطح', 'حذف', 'پرش به متن']);
+    assert.deepEqual(labels, ['فرزند', 'هم‌سطح', 'حذف', 'پرش به متن', 'چیدمان']);
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
+
+test('should_render_layout_menu_closed_with_rtl_active_by_default', async () => {
+  const host = mountHost();
+  const controller = createMindmapHost(host, { getText: () => '- الف\n  - ب', t: translate, onChange: () => {} });
+  try {
+    await controller.ready;
+    const menu = host.querySelector('[data-mind-menu]');
+    assert.ok(menu, 'expected a layout menu');
+    assert.equal(menu.hidden, true, 'expected the menu closed initially');
+    assert.deepEqual(
+      [...menu.querySelectorAll('[data-mind-layout]')].map((item) => item.textContent),
+      ['راست‌به‌چپ', 'چپ‌به‌راست', 'دوطرفه', 'عمودی'],
+    );
+    const active = menu.querySelector('[data-mind-layout-active]')?.getAttribute('data-mind-layout');
+    assert.equal(active, 'rtl', 'expected rtl marked active by default');
+    assert.ok(host.querySelector('me-main.lhs me-tpc'), 'expected rtl (root right, children left)');
+    assert.ok(!host.querySelector('me-main.rhs me-tpc'), 'expected no right-side subtree by default');
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
+
+test('should_switch_layout_from_the_menu_and_persist_through_callback', async () => {
+  const host = mountHost();
+  const layouts = [];
+  const controller = createMindmapHost(host, {
+    getText: () => '- الف\n  - ب\n  - ج',
+    t: translate,
+    onChange: () => {},
+    onLayoutChange: (next) => layouts.push(next),
+  });
+  try {
+    await controller.ready;
+    host.querySelector('[data-mind-btn="layout"]').click();
+    assert.equal(host.querySelector('[data-mind-menu]').hidden, false, 'expected the menu open after the toolbar click');
+    host.querySelector('[data-mind-layout="side"]').click();
+    // The active mark applies synchronously; the rebuilt subtree is the
+    // settlement signal.
+    await waitUntil(
+      () => layouts.length === 1
+        && host.querySelector('me-main.lhs me-tpc') !== null
+        && host.querySelector('me-main.rhs me-tpc') !== null,
+      'expected the menu switch reported once and the map rebuilt on both sides',
+    );
+    assert.deepEqual(layouts, ['side'], 'expected the switch reported exactly once');
+    assert.equal(host.querySelector('[data-mind-menu]').hidden, true, 'expected the menu closed after choosing');
+    const active = host.querySelector('[data-mind-layout-active]')?.getAttribute('data-mind-layout');
+    assert.equal(active, 'side', 'expected the chosen option marked active');
+    await controller.refresh();
+    assert.ok(host.querySelector('me-main.lhs me-tpc') && host.querySelector('me-main.rhs me-tpc'),
+      'expected the layout to survive a text refresh');
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
+
+test('should_ignore_invalid_and_current_layout_switches', async () => {
+  const host = mountHost();
+  const layouts = [];
+  const controller = createMindmapHost(host, {
+    getText: () => '- الف\n  - ب',
+    t: translate,
+    onChange: () => {},
+    onLayoutChange: (next) => layouts.push(next),
+  });
+  try {
+    await controller.ready;
+    await controller.setLayout('bogus');
+    await controller.setLayout('rtl');
+    assert.deepEqual(layouts, [], 'expected nothing persisted for invalid or unchanged layout');
+    assert.ok(host.querySelector('[data-mind-menu] me-tpc') === null && host.querySelector('[data-mindmap-canvas] me-tpc'),
+      'expected the map intact after ignored switches');
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
+
+test('should_rebuild_the_map_in_the_requested_layout_through_setLayout', async () => {
+  const host = mountHost();
+  const layouts = [];
+  const controller = createMindmapHost(host, {
+    getText: () => '- الف\n  - ب',
+    t: translate,
+    onChange: () => {},
+    onLayoutChange: (next) => layouts.push(next),
+  });
+  try {
+    await controller.ready;
+    await controller.setLayout('down');
+    assert.deepEqual(layouts, ['down']);
+    assert.ok(host.querySelector('me-main.down me-tpc'), 'expected the vertical layout class applied');
+    await controller.setLayout('ltr');
+    assert.deepEqual(layouts, ['down', 'ltr']);
+    assert.ok(host.querySelector('me-main.rhs me-tpc'), 'expected children on the right for ltr');
+    assert.ok(!host.querySelector('me-main.lhs me-tpc'), 'expected no left-side subtree for ltr');
   } finally {
     controller.destroy();
     host.remove();

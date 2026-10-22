@@ -189,6 +189,26 @@ test('should_ignore_files_sort_without_api_or_mode_when_requested', async () => 
   assert.equal(await applier.saveFilesSort(null), 'ignored');
 });
 
+test('should_save_mindmap_layout_without_touching_traits_when_requested', async () => {
+  const service = createService();
+  const applier = createSettingsApplier({ settingsApi: service });
+  await applier.load();
+  assert.equal(await applier.saveMindmapLayout('side'), 'applied');
+  assert.equal(applier.getState().settings.mindmapLayout, 'side');
+  assert.deepEqual(service.calls, [{ mindmapLayout: 'side' }]);
+  assert.equal(applier.getState().direction, 'auto');
+  assert.equal(applier.getState().fontSize, 16);
+});
+
+test('should_ignore_mindmap_layout_without_api_or_key_when_requested', async () => {
+  const missing = createSettingsApplier({});
+  assert.equal(await missing.saveMindmapLayout('side'), 'ignored');
+  const applier = createSettingsApplier({ settingsApi: createService() });
+  await applier.load();
+  assert.equal(await applier.saveMindmapLayout(''), 'ignored');
+  assert.equal(await applier.saveMindmapLayout(null), 'ignored');
+});
+
 test('should_save_cleaned_ignore_patterns_when_requested', async () => {
   const service = createService();
   const applier = createSettingsApplier({ settingsApi: service });

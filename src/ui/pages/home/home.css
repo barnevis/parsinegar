@@ -207,6 +207,42 @@ parsi-status-bar {
   background-color: var(--pey-color-surface, #f1f1f5);
 }
 
+[data-mindmap-layout-group] {
+  position: relative;
+  display: inline-block;
+}
+
+[data-mind-menu] {
+  position: absolute;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-start: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border: 1px solid var(--pey-color-border, #b9b9c4);
+  border-radius: 8px;
+  background-color: var(--pey-color-canvas, #ffffff);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  z-index: 3;
+}
+
+[data-mind-menu][hidden] {
+  display: none;
+}
+
+[data-mind-menu] button {
+  border: none;
+  text-align: start;
+  min-inline-size: 8rem;
+  white-space: nowrap;
+}
+
+[data-mind-menu] button[data-mind-layout-active] {
+  background-color: var(--pey-color-surface, #f1f1f5);
+  font-weight: 700;
+}
+
 [part="editor-host"][hidden] {
   display: none;
 }

@@ -63,7 +63,7 @@ test('should_save_valid_patch_and_publish_change_when_saving', async () => {
 
 test('should_keep_current_values_for_absent_fields_when_saving', async () => {
   const service = createService(createState([{ id: 'preferences', theme: 'dark', direction: 'rtl', fontSize: 18 }]));
-  assert.deepEqual(await service.saveSettings({ theme: 'light' }), { theme: 'light', direction: 'rtl', fontSize: 18, filesSort: 'updated-desc', syncIgnore: [], syncCommitAuto: true });
+  assert.deepEqual(await service.saveSettings({ theme: 'light' }), { theme: 'light', direction: 'rtl', fontSize: 18, filesSort: 'updated-desc', mindmapLayout: 'rtl', syncIgnore: [], syncCommitAuto: true });
 });
 
 test('should_accept_boolean_commit_mode_when_saving', async () => {
@@ -108,6 +108,26 @@ test('should_reject_invalid_files_sort_when_saving', async () => {
   const error = await service.saveSettings({ filesSort: 'random' }).catch((caught) => caught);
   assert.equal(error?.code, 'SETTINGS_INVALID_VALUE');
   assert.deepEqual(error?.detail, { field: 'filesSort' });
+  assert.deepEqual(published, []);
+});
+
+test('should_accept_valid_mindmap_layout_when_saving', async () => {
+  const service = createService(createState());
+  assert.deepEqual((await service.saveSettings({ mindmapLayout: 'side' })).mindmapLayout, 'side');
+  assert.deepEqual((await service.getSettings()).mindmapLayout, 'side');
+});
+
+test('should_backfill_mindmap_layout_for_old_records_when_reading', async () => {
+  const service = createService(createState([{ id: 'preferences', theme: 'dark' }]));
+  assert.equal((await service.getSettings()).mindmapLayout, 'rtl');
+});
+
+test('should_reject_invalid_mindmap_layout_when_saving', async () => {
+  const published = [];
+  const service = createService(createState([], published));
+  const error = await service.saveSettings({ mindmapLayout: 'diagonal' }).catch((caught) => caught);
+  assert.equal(error?.code, 'SETTINGS_INVALID_VALUE');
+  assert.deepEqual(error?.detail, { field: 'mindmapLayout' });
   assert.deepEqual(published, []);
 });
 

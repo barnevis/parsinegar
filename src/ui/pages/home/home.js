@@ -2121,6 +2121,7 @@ class ParsiPageHome extends PeyElement {
         getText: () => this.value,
         t: this.#t,
         dark: this.#resolveColorScheme() === 'dark',
+        layout: this.#prefs?.getState().settings?.mindmapLayout,
         onChange: (text) => {
           this.#docs?.setDraft(text);
           this.#docs?.scheduleSave();
@@ -2128,6 +2129,9 @@ class ParsiPageHome extends PeyElement {
         onJump: (line) => {
           this.#exitMindmap(line);
           this.#requestEditor();
+        },
+        onLayoutChange: (value) => {
+          this.#prefs?.saveMindmapLayout(value);
         },
       });
       this.#mindmapHost = host;

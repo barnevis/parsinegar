@@ -2084,6 +2084,54 @@ test('should_show_about_panel_from_mindmap_while_map_stays', async () => {
   }
 });
 
+test('should_persist_layout_switch_from_the_map_toolbar', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف\n  - ب\n  - ج', updatedAt: 1 }]);
+  const settings = createSettings();
+  const element = await mountWithSettings(documents, settings);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    await settled();
+    await settled();
+    const layoutButton = element.shadowRoot.querySelector('[part="mindmap-host"] [data-mind-btn="layout"]');
+    assert.ok(layoutButton, 'expected the layout control on the map toolbar');
+    layoutButton.click();
+    await settled();
+    element.shadowRoot.querySelector('[part="mindmap-host"] [data-mind-layout="side"]').click();
+    for (let attempt = 0; attempt < 100 && !settings.calls.some((patch) => patch.mindmapLayout === 'side'); attempt += 1) {
+      await settled();
+    }
+    assert.ok(settings.calls.some((patch) => patch.mindmapLayout === 'side'), 'expected the layout persisted');
+    assert.equal(
+      element.shadowRoot.querySelector('[part="mindmap-host"] [data-mind-layout-active]')?.getAttribute('data-mind-layout'),
+      'side',
+      'expected the active mark on the map toolbar',
+    );
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_boot_the_map_in_the_persisted_layout_after_reload', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 'نقشه', content: '- الف\n  - ب\n  - ج', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'auto', fontSize: 16, mindmapLayout: 'ltr' });
+  const element = await mountWithSettings(documents, settings);
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
+    for (let attempt = 0; attempt < 100 && element.shadowRoot.querySelector('[part="mindmap-host"] me-main.rhs me-tpc') === null; attempt += 1) {
+      await settled();
+    }
+    // The library keeps both subtree containers mounted; the children's
+    // side is the observable layout.
+    assert.ok(
+      element.shadowRoot.querySelector('[part="mindmap-host"] me-main.rhs me-tpc') !== null
+        && element.shadowRoot.querySelector('[part="mindmap-host"] me-main.lhs me-tpc') === null,
+      'expected the persisted ltr layout applied at boot',
+    );
+  } finally {
+    element.remove();
+  }
+});
+
 function createSyncService(overrides = {}) {
   const calls = [];
   return {

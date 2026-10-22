@@ -11,6 +11,9 @@ const CHANGED_EVENT = 'settings:changed';
 
 const THEMES = ['light', 'dark', 'device', 'sepia'];
 const DIRECTIONS = ['auto', 'rtl', 'ltr'];
+// Mindmap layouts. Named by visual behavior (rtl = children flow left from a
+// root on the right), mapped to library constants at the view layer.
+const MINDMAP_LAYOUTS = ['rtl', 'ltr', 'side', 'down'];
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 24;
 // Document sort orders. Mirrored (not imported) from the files view
@@ -22,7 +25,7 @@ const FILES_SORTS = ['name', 'name-desc', 'updated-desc', 'updated-asc', 'create
 const SYNC_IGNORE_MAX = 50;
 const SYNC_IGNORE_PATTERN_MAX = 200;
 
-const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc', syncIgnore: [], syncCommitAuto: true };
+const DEFAULT_SETTINGS = { theme: 'device', direction: 'auto', fontSize: 16, filesSort: 'updated-desc', mindmapLayout: 'rtl', syncIgnore: [], syncCommitAuto: true };
 
 /**
  * Builds a standard Bonyan boundary error.
@@ -90,6 +93,7 @@ function sanitizeSettings(input = {}) {
       ? fontSize
       : DEFAULT_SETTINGS.fontSize,
     filesSort: FILES_SORTS.includes(source.filesSort) ? source.filesSort : DEFAULT_SETTINGS.filesSort,
+    mindmapLayout: MINDMAP_LAYOUTS.includes(source.mindmapLayout) ? source.mindmapLayout : DEFAULT_SETTINGS.mindmapLayout,
     syncIgnore: sanitizeSyncIgnore(source.syncIgnore),
     syncCommitAuto: source.syncCommitAuto === false ? false : DEFAULT_SETTINGS.syncCommitAuto,
   };
@@ -117,6 +121,9 @@ function validatePatch(patch) {
   }
   if ('filesSort' in source && !FILES_SORTS.includes(source.filesSort)) {
     throw settingsError('SETTINGS_INVALID_VALUE', `Invalid filesSort value: ${String(source.filesSort)}`, { field: 'filesSort' });
+  }
+  if ('mindmapLayout' in source && !MINDMAP_LAYOUTS.includes(source.mindmapLayout)) {
+    throw settingsError('SETTINGS_INVALID_VALUE', `Invalid mindmapLayout value: ${String(source.mindmapLayout)}`, { field: 'mindmapLayout' });
   }
   if ('syncIgnore' in source) {
     const patterns = source.syncIgnore;
@@ -163,6 +170,7 @@ export {
   FILES_SORTS,
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
+  MINDMAP_LAYOUTS,
   RECORD_ID,
   SERVICE_NAME,
   STORAGE_SERVICE,
