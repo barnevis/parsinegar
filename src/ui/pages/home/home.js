@@ -16,6 +16,9 @@ import { createDocumentController, deriveImportTitle } from './document-controll
 import { createMindmapHost } from './mindmap-host.js';
 import { createBuiltinDocs } from './builtin-docs.js';
 import { createSettingsApplier } from './settings-applier.js';
+import { createSyncController } from './sync-controller.js';
+import { createExportFlow } from './export-flow.js';
+import { createDiskImport } from './disk-import.js';
 import { createScrollSpy } from './scroll-spy.js';
 import '../../components/menu-bar/menu-bar.js';
 import '../../components/activity-rail/activity-rail.js';
@@ -31,18 +34,6 @@ const EXPORT_SERVICE = 'parsinegar.export.service';
 const FILESYSTEM_SERVICE = 'pey.filesystem.service';
 const SYNC_SERVICE = 'pey.sync.service';
 const SYNC_METHODS = ['configureBackend', 'removeBackend', 'getStatus', 'syncNow', 'resolveConflict'];
-// Path identity: only document lives on the remote; folders become the
-// directory chain of each document (created on pull), never synced data.
-const SYNC_SCOPE = {
-  collections: [
-    {
-      collection: 'documents',
-      serializer: 'markdown',
-      titleField: 'title',
-      folders: { collection: 'folders', nameField: 'name' },
-    },
-  ],
-};
 // Side-panel ids for folders: documents keep raw ids, folders travel
 // prefixed so rename/delete/move route to the folder flows.
 const FOLDER_ID_PREFIX = 'folder:';
@@ -78,23 +69,6 @@ const INSERT_MARK_KINDS = [
 ];
 const STYLE_URL = new URL('./home.css', import.meta.url).href;
 
-/**
- * Resolves a stored theme preference to an export theme. `device` follows
- * the OS preference; anything unknown falls back to light (the export
- * service accepts only light, dark and sepia).
- * @param {unknown} value Stored theme value.
- * @returns {string} Export theme name.
- */
-function resolveExportTheme(value) {
-  if (value === 'dark' || value === 'sepia' || value === 'light') {
-    return value;
-  }
-  if (value === 'device' && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches === true ? 'dark' : 'light';
-  }
-  return 'light';
-}
-
 class ParsiPageHome extends PeyElement {
   #t = (key) => key;
   #format = null;
@@ -125,19 +99,15 @@ class ParsiPageHome extends PeyElement {
   #menuEl = null;
   #searchOpen = false;
   #exporter = null;
+  #downloads = null;
   #documentsService = null;
   #syncer = null;
-  #syncConflicts = [];
-  #syncStatus = null;
-  #syncBusy = false;
-  #syncMessageOpen = false;
-  #syncAttempt = null;
-  #syncDirty = false;
-  #dirtyWrite = null;
+  #sync = null;
   #searchSpec = null;
   #builtIn = null;
   #guides = null;
   #filesystem = null;
+  #disk = null;
   #railEl = null;
   #sideEl = null;
   #statusEl = null;
@@ -176,7 +146,7 @@ class ParsiPageHome extends PeyElement {
         ...docRefs,
         isLive: () => this.isConnected,
         readEditorContent: () => this.#editor?.getValue(),
-        onSaved: () => void this.#updateSyncDirty(),
+        onSaved: () => void this.#sync?.updateDirty(),
       });
     } else {
       this.#docs.reconnect(docRefs);
@@ -191,15 +161,59 @@ class ParsiPageHome extends PeyElement {
       this.#prefs.reconnect({ settingsApi });
     }
     const exporter = refs.services?.[EXPORT_SERVICE] ?? null;
-    this.#exporter = exporter && typeof exporter.exportHtml === 'function' ? exporter : null;
+    this.#exporter = exporter && typeof exporter.exportHtml === 'function'
+      ? exporter
+      : null;
+    if (!this.#downloads) {
+      this.#downloads = createExportFlow({
+        getDocs: () => this.#docs,
+        getExporter: () => this.#exporter,
+        getSettings: () => this.#prefs,
+        getShadowRoot: () => this.shadowRoot,
+        isConnected: () => this.isConnected,
+      });
+    }
     const syncer = refs.services?.[SYNC_SERVICE] ?? null;
     this.#syncer = syncer && SYNC_METHODS.every((method) => typeof syncer[method] === 'function')
       ? syncer
       : null;
+    if (!this.#sync) {
+      this.#sync = createSyncController({
+        getSyncer: () => this.#syncer,
+        getSettings: () => this.#prefs,
+        formatDate: (value) => this.#formatDate(value),
+        translate: (key) => this.#t(key),
+        isConnected: () => this.isConnected,
+        flushDraft: async () => {
+          await this.#docs?.flushSave();
+        },
+        onSettled: async () => {
+          await this.#reloadLibrary();
+        },
+        onChromeChanged: ({ dot, hint }) => {
+          this.#railEl?.configure({ syncDot: dot, syncHint: hint });
+        },
+        onPanelChanged: ({ snapshot }) => {
+          this.#sideEl?.configure({ sync: snapshot });
+        },
+        onModalChanged: () => {
+          this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#sync?.conflictModal() ?? this.#sync?.messageModal() ?? null });
+        },
+      });
+    }
     const filesystem = refs.services?.[FILESYSTEM_SERVICE] ?? null;
     this.#filesystem = filesystem && FILESYSTEM_METHODS.every((method) => typeof filesystem[method] === 'function')
       ? filesystem
       : null;
+    if (!this.#disk) {
+      this.#disk = createDiskImport({
+        getFilesystem: () => this.#filesystem,
+        getDocs: () => this.#docs,
+        getShadowRoot: () => this.shadowRoot,
+        isConnected: () => this.isConnected,
+        applyResult: (result) => this.#applyResult(result),
+      });
+    }
     if (!this.#guides) {
       this.#guides = createBuiltinDocs({ t: this.#t, isLive: () => this.isConnected });
     }
@@ -375,11 +389,11 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'document-download') {
-        void this.#downloadDocument(event.detail?.id);
+        void this.#downloads?.downloadDocument(event.detail?.id);
         return;
       }
       if (event.type === 'document-download-html') {
-        void this.#downloadHtmlDocument(event.detail?.id);
+        void this.#downloads?.downloadHtmlDocument(event.detail?.id);
         return;
       }
       if (event.type === 'document-properties' && typeof event.detail?.id === 'string') {
@@ -396,8 +410,8 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'modal-dismiss') {
-        if (this.#syncMessageOpen) {
-          this.#syncMessageOpen = false;
+        if (this.#sync?.messageOpen()) {
+          this.#sync.dismissMessage();
           this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
           return;
         }
@@ -414,37 +428,36 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'sync-configure') {
-        void this.#configureSyncBackend(event.detail);
+        void this.#sync?.configureBackend(event.detail);
         return;
       }
       if (event.type === 'sync-remove') {
-        void this.#removeSyncBackend();
+        void this.#sync?.removeBackend();
         return;
       }
       if (event.type === 'sync-now') {
-        this.#beginSyncNow();
+        this.#sync?.beginNow();
         return;
       }
       if (event.type === 'sync-auto-commit') {
-        void this.#saveSyncCommitAuto(event.detail?.enabled);
+        void this.#sync?.saveCommitAuto(event.detail?.enabled);
         return;
       }
       if (event.type === 'sync-message-send') {
-        this.#sendSyncMessage(event.detail?.message);
+        this.#sync?.sendMessage(event.detail?.message);
         return;
       }
       if (event.type === 'sync-ignore-save') {
-        void this.#saveSyncIgnore(event.detail?.patterns);
+        void this.#sync?.saveIgnore(event.detail?.patterns);
         return;
       }
       if (event.type === 'sync-resolve') {
-        void this.#resolveSyncConflict(event.detail);
+        void this.#sync?.resolveConflict(event.detail);
         return;
       }
       if (event.type === 'sync-later') {
-        this.#syncConflicts = [];
         this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
-        void this.#refreshSyncStatus();
+        void this.#sync?.later();
         return;
       }
       if (event.type === 'help-open-full') {
@@ -593,7 +606,7 @@ class ParsiPageHome extends PeyElement {
           await this.#importDocument();
           return;
         case 'open-folder':
-          await this.#openDiskFolder();
+          await this.#disk?.openDiskFolder();
           return;
         case 'about':
           this.#switchView(ABOUT_VIEW);
@@ -611,7 +624,7 @@ class ParsiPageHome extends PeyElement {
           if (!this.#builtIn) {
             const { currentId = null } = this.#docs?.getState() ?? {};
             if (currentId) {
-              await this.#downloadDocument(currentId);
+              await this.#downloads?.downloadDocument(currentId);
             }
           }
           return;
@@ -620,14 +633,14 @@ class ParsiPageHome extends PeyElement {
           if (!this.#builtIn) {
             const { currentId = null } = this.#docs?.getState() ?? {};
             if (currentId) {
-              await this.#downloadHtmlDocument(currentId);
+              await this.#downloads?.downloadHtmlDocument(currentId);
             }
           }
           return;
         }
         case 'download-zip': {
           if (!this.#builtIn) {
-            await this.#downloadZipLibrary();
+            await this.#downloads?.downloadZipLibrary();
           }
           return;
         }
@@ -1006,226 +1019,6 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Configures the sync backend from the settings form. Validation failures
-   * surface through the next status refresh (the service records run
-   * errors; field emptiness is already guarded by reportValidity).
-   * @param {object} detail `{ kind, repo, branch, token, baseUrl }`.
-   * @returns {Promise<void>}
-   */
-  async #configureSyncBackend(detail) {
-    if (!this.#syncer) {
-      return;
-    }
-    const kind = detail?.kind === 'gitlab' ? 'gitlab' : 'git';
-    const repo = typeof detail?.repo === 'string' ? detail.repo.trim() : '';
-    const branch = typeof detail?.branch === 'string' && detail.branch.trim().length > 0
-      ? detail.branch.trim()
-      : 'main';
-    const token = typeof detail?.token === 'string' ? detail.token : '';
-    const baseUrl = typeof detail?.baseUrl === 'string' ? detail.baseUrl.trim() : '';
-    if (repo.length === 0 || token.length === 0) {
-      return;
-    }
-    // The attempt survives a failed configure so the form repopulates
-    // (host, repo and branch only — the token is never echoed back).
-    this.#syncAttempt = { repo, branch, kind, baseUrl };
-    this.#syncBusy = true;
-    await this.#refreshSyncStatus();
-    const params = kind === 'gitlab'
-      ? { repo, branch, token, baseUrl: baseUrl.length > 0 ? baseUrl : undefined }
-      : { repo, branch, token };
-    try {
-      await this.#syncer.configureBackend({ kind, params });
-      this.#syncAttempt = null;
-    } catch {
-      // Failure lands in status via getStatus on refresh below.
-    } finally {
-      this.#syncBusy = false;
-      await this.#refreshSyncStatus();
-    }
-  }
-
-  /**
-   * Builds the sync scope with the stored ignore patterns on the documents
-   * collection (folders stay fully mapped; the service drops ignored folder
-   * records by display path itself).
-   * @returns {object} Scope for syncNow and hasPendingChanges.
-   */
-  #syncScope() {
-    const stored = this.#prefs?.getState().settings?.syncIgnore;
-    const ignore = Array.isArray(stored) ? stored.filter((pattern) => typeof pattern === 'string') : [];
-    return {
-      collections: SYNC_SCOPE.collections.map((entry) => entry.collection === 'documents'
-        ? { ...entry, ignore }
-        : entry),
-    };
-  }
-
-  /**
-   * Reads the stored ignore patterns as textarea text for the sync view.
-   * @returns {string} Patterns joined by newlines.
-   */
-  #syncIgnoreText() {
-    const stored = this.#prefs?.getState().settings?.syncIgnore;
-    return Array.isArray(stored) ? stored.filter((pattern) => typeof pattern === 'string').join('\n') : '';
-  }
-
-  /**
-   * Persists the ignore patterns from the sync view (no editor remount:
-   * only dirtiness and the panel refresh), then rechecks.
-   * @param {unknown} patterns Raw pattern list from the event detail.
-   * @returns {Promise<void>}
-   */
-  async #saveSyncIgnore(patterns) {
-    const cleaned = Array.isArray(patterns) ? patterns.filter((pattern) => typeof pattern === 'string') : [];
-    const outcome = await this.#prefs?.saveSyncIgnore(cleaned);
-    if (!this.isConnected || outcome !== 'applied') {
-      return;
-    }
-    await this.#updateSyncDirty();
-    await this.#refreshSyncStatus();
-  }
-
-  /**
-   * Removes the sync backend and closes any pending conflict view.
-   * @returns {Promise<void>}
-   */
-  async #removeSyncBackend() {
-    try {
-      await this.#syncer?.removeBackend();
-    } catch {
-      // Best effort; status refresh reports the truth.
-    }
-    this.#syncConflicts = [];
-    this.#syncDirty = false;
-    await this.#refreshSyncStatus();
-  }
-
-  /**
-   * True when automatic commit messages stay in charge; the preference
-   * defaults to true wherever the settings are missing.
-   * @returns {boolean}
-   */
-  #autoCommitEnabled() {
-    return this.#prefs?.getState().settings?.syncCommitAuto !== false;
-  }
-
-  /**
-   * Entry of the sync button: a straight run with automatic messages, or
-   * the commit-message prompt when the custom-message mode is on. Re-entry
-   * while busy is refused (the button is disabled too, but events can lag).
-   * @returns {void}
-   */
-  #beginSyncNow() {
-    if (!this.#syncer || this.#syncBusy) {
-      return;
-    }
-    if (this.#autoCommitEnabled()) {
-      void this.#runSyncNow();
-      return;
-    }
-    this.#syncMessageOpen = true;
-    this.#modalEl?.configure({ modal: this.#syncMessageModal() });
-  }
-
-  /**
-   * Builds the pending custom-commit-message modal snapshot, if any.
-   * @returns {object|null} `{ kind: 'sync-message' }` or null.
-   */
-  #syncMessageModal() {
-    return this.#syncMessageOpen ? { kind: 'sync-message' } : null;
-  }
-
-  /**
-   * Submits the typed commit message and starts the sync with it; an empty
-   * message cannot arrive (the confirm button stays disabled), the trim
-   * here is just belt-and-braces against whitespace-only input.
-   * @param {unknown} message Typed commit message.
-   * @returns {void}
-   */
-  #sendSyncMessage(message) {
-    this.#syncMessageOpen = false;
-    const text = typeof message === 'string' ? message.trim() : '';
-    void this.#runSyncNow(text.length > 0 ? text : null);
-  }
-
-  /**
-   * Persists the commit-message mode (no editor remount: the panel alone
-   * refreshes the checkbox from the snapshot).
-   * @param {unknown} enabled Toggle state from the event detail.
-   * @returns {Promise<void>}
-   */
-  async #saveSyncCommitAuto(enabled) {
-    await this.#prefs?.saveSyncCommitAuto(enabled === true);
-    await this.#refreshSyncStatus();
-  }
-
-  /**
-   * Runs one manual sync: flushes the pending draft first so pulled content
-   * can never clobber unsaved keystrokes (the flush stamps updatedAt, which
-   * turns a would-be overwrite into a conflict instead), then reloads the
-   * library and repoints the editor without remounting. A custom message
-   * (custom-message mode) becomes the commit text of every remote write
-   * and delete this run performs.
-   * @param {string|null} [message] Typed commit message, or null for the
-   *   automatic per-path messages.
-   * @returns {Promise<void>}
-   */
-  async #runSyncNow(message = null) {
-    if (!this.#syncer) {
-      return;
-    }
-    await this.#docs?.flushSave();
-    if (!this.isConnected) {
-      return;
-    }
-    this.#syncBusy = true;
-    this.#syncMessageOpen = false;
-    await this.#refreshSyncStatus();
-    const text = typeof message === 'string' ? message.trim() : '';
-    const input = text.length > 0
-      ? { scope: this.#syncScope(), message: text }
-      : { scope: this.#syncScope() };
-    let report = null;
-    try {
-      report = await this.#syncer.syncNow(input);
-    } catch {
-      this.#syncBusy = false;
-      await this.#refreshSyncStatus();
-      return;
-    }
-    this.#syncBusy = false;
-    this.#syncConflicts = Array.isArray(report?.conflicts) ? report.conflicts : [];
-    await this.#reloadLibrary();
-    await this.#updateSyncDirty();
-    await this.#refreshSyncStatus();
-  }
-
-  /**
-   * Applies one conflict choice, then advances the dialog or closes it.
-   * A stale choice (remote moved on) drops the queue view and refreshes.
-   * @param {object} detail `{ collection, id, choice }`.
-   * @returns {Promise<void>}
-   */
-  async #resolveSyncConflict(detail) {
-    if (!this.#syncer) {
-      return;
-    }
-    const { collection, id, choice } = detail ?? {};
-    try {
-      await this.#syncer.resolveConflict({ collection, id, choice });
-      this.#syncConflicts = this.#syncConflicts.filter(
-        (item) => !(item.collection === collection && item.id === id),
-      );
-    } catch {
-      this.#syncConflicts = [];
-    }
-    await this.#reloadLibrary();
-    await this.#updateSyncDirty();
-    await this.#refreshSyncStatus();
-  }
-
-  /**
    * Reloads the library snapshot after external (sync) writes and repoints
    * the editor surgically: no remount, undo preserved unless pulled content
    * actually replaced the open text.
@@ -1269,156 +1062,6 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Refreshes the sync snapshot shown in settings (and the conflict
-   * dialog): status from the service, preformatted for the pure renderer.
-   * @returns {Promise<void>}
-   */
-  async #refreshSyncStatus() {
-    let snapshot = null;
-    try {
-      const status = await this.#syncer?.getStatus();
-      if (status) {
-        const attempt = this.#syncAttempt;
-        const lastSyncText = typeof status.lastSyncAt === 'number' ? this.#formatDate(status.lastSyncAt) : null;
-        const errorText = status.lastError?.message ?? null;
-        snapshot = {
-          configured: status.configured === true,
-          kind: status.kind ?? attempt?.kind ?? null,
-          repo: status.repo ?? attempt?.repo ?? null,
-          branch: status.branch ?? attempt?.branch ?? null,
-          baseUrl: status.baseUrl ?? attempt?.baseUrl ?? null,
-          lastSyncText,
-          errorText,
-          busy: this.#syncBusy,
-          ignoreText: this.#syncIgnoreText(),
-          autoCommit: this.#autoCommitEnabled(),
-          clean: status.configured === true
-            && !this.#syncBusy
-            && this.#syncConflicts.length === 0
-            && !this.#syncDirty
-            && !errorText
-            && typeof lastSyncText === 'string',
-        };
-      }
-    } catch {
-      snapshot = null;
-    }
-    this.#syncStatus = snapshot;
-    if (!this.isConnected) {
-      return;
-    }
-    this.#railEl?.configure({ syncDot: this.#syncDot(), syncHint: this.#syncHint() });
-    this.#sideEl?.configure({ sync: snapshot });
-    this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() ?? this.#syncMessageModal() });
-  }
-
-  /**
-   * Derives the rail sync dot from the latest snapshot: blinking orange
-   * while an operation runs, red on error or pending conflict, steady
-   * orange while local news awaits sending (or no clean sync yet), green
-   * once a clean sync completed.
-   * @returns {string} 'ok', 'stale', 'busy' or 'bad'.
-   */
-  #syncDot() {
-    if (this.#syncBusy) {
-      return 'busy';
-    }
-    if (this.#syncConflicts.length > 0) {
-      return 'bad';
-    }
-    const status = this.#syncStatus;
-    if (!status || status.configured !== true) {
-      return 'stale';
-    }
-    if (status.errorText) {
-      return 'bad';
-    }
-    if (this.#syncDirty) {
-      return 'stale';
-    }
-    return status.lastSyncText ? 'ok' : 'stale';
-  }
-
-  /**
-   * Builds the sync button tooltip: names the unsent changes only while the
-   * dot shows the steady-orange dirty state, otherwise nothing.
-   * @returns {string|null} Hint text or null.
-   */
-  #syncHint() {
-    if (this.#syncBusy || !this.#syncDirty || this.#syncConflicts.length > 0) {
-      return null;
-    }
-    const status = this.#syncStatus;
-    if (!status || status.configured !== true || status.errorText) {
-      return null;
-    }
-    return this.#t('parsinegar.sync.unsent-changes');
-  }
-
-  /**
-   * Rechecks local dirtiness against the sync snapshot (local reads only,
-   * never network) and moves the rail dot when it flips. Runs serialize
-   * like the theme queue so rapid saves converge instead of racing.
-   * @returns {Promise<void>}
-   */
-  async #updateSyncDirty() {
-    const run = (this.#dirtyWrite ?? Promise.resolve()).then(async () => {
-      let dirty = false;
-      try {
-        if (this.#syncer && typeof this.#syncer.hasPendingChanges === 'function' && this.isConnected) {
-          const checked = await this.#syncer.hasPendingChanges({ scope: this.#syncScope() });
-          dirty = checked?.pending === true;
-        }
-      } catch {
-        // A failed check never flips the dot; the next trigger retries.
-        return;
-      }
-      if (!this.isConnected || this.#syncDirty === dirty) {
-        return;
-      }
-      this.#syncDirty = dirty;
-      this.#railEl?.configure({ syncDot: this.#syncDot(), syncHint: this.#syncHint() });
-      // The settings view gates «همگام‌سازی» on cleanliness too: refresh the
-      // stored snapshot's flag without a service round-trip.
-      if (this.#syncStatus) {
-        this.#syncStatus = {
-          ...this.#syncStatus,
-          clean: this.#syncStatus.configured === true
-            && !this.#syncBusy
-            && this.#syncConflicts.length === 0
-            && !dirty
-            && !this.#syncStatus.errorText
-            && typeof this.#syncStatus.lastSyncText === 'string',
-        };
-        this.#sideEl?.configure({ sync: this.#syncStatus });
-      }
-    });
-    this.#dirtyWrite = run.catch(() => {});
-    return run;
-  }
-
-  /**
-   * Builds the pending conflict modal snapshot, if any.
-   * @returns {object|null} `{ kind: 'sync-conflict', ... }` or null.
-   */
-  #syncModal() {
-    const head = this.#syncConflicts[0];
-    if (!head) {
-      return null;
-    }
-    return {
-      kind: 'sync-conflict',
-      conflict: {
-        collection: head.collection,
-        id: head.id,
-        title: head.title ?? head.id,
-        local: head.local,
-        remote: head.remote,
-      },
-    };
-  }
-
-  /**
    * Mounts region children into their placeholders (or reconfigures the
    * mounted ones). Runs after render lands; skipped entirely without the
    * events facade, in which case only the editor is available.
@@ -1458,10 +1101,10 @@ class ParsiPageHome extends PeyElement {
         assetBaseUrl: this.#assetBaseUrl,
         views: listViews(),
         activeView: this.#activeView,
-        syncDot: this.#syncDot(),
-        syncHint: this.#syncHint(),
+        syncDot: this.#sync?.dot(),
+        syncHint: this.#sync?.hint(),
       },
-      configure: (element) => element.configure({ views: listViews(), activeView: this.#activeView, syncDot: this.#syncDot(), syncHint: this.#syncHint() }),
+      configure: (element) => element.configure({ views: listViews(), activeView: this.#activeView, syncDot: this.#sync?.dot(), syncHint: this.#sync?.hint() }),
     });
     if (this.#sideOpen) {
       this.#sideEl = mountComponent({
@@ -1493,7 +1136,7 @@ class ParsiPageHome extends PeyElement {
           settings: this.#prefs?.getState().settings ?? null,
           activeLine: this.#spy.getActiveLine(),
           sortMode: this.#filesSort,
-          sync: this.#syncStatus,
+          sync: this.#sync?.snapshot(),
           folderCollapsed: [...this.#folderCollapsed],
         }),
       });
@@ -1527,7 +1170,7 @@ class ParsiPageHome extends PeyElement {
       tag: 'parsi-modal-dialog',
       infrastructure,
       refs: { t: this.#t, assetBaseUrl: this.#assetBaseUrl },
-      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? this.#syncModal() ?? this.#syncMessageModal() }),
+      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? this.#sync?.conflictModal() ?? this.#sync?.messageModal() ?? null }),
     });
   }
 
@@ -1548,7 +1191,7 @@ class ParsiPageHome extends PeyElement {
       return;
     }
     this.#applyResult(result);
-    void this.#refreshSyncStatus();
+    void this.#sync?.refresh();
   }
 
   async #switchDocument(id) {
@@ -1657,103 +1300,6 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Opens a device folder and imports it as browser documents: the system
-   * picker first (Chromium), a hidden webkitdirectory input second
-   * (Firefox has no directory picker). Files read as Markdown text and
-   * handed to the controller, which reuses the same-named browser folder
-   * and updates changed files in place. Unreadable files are skipped.
-   * @returns {Promise<void>}
-   */
-  async #openDiskFolder() {
-    const filesystem = this.#filesystem;
-    if (!filesystem) {
-      return;
-    }
-    if (typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function') {
-      try {
-        const picked = await filesystem.pickDirectory(window.showDirectoryPicker.bind(window));
-        if (!this.isConnected || !picked?.handle) {
-          return;
-        }
-        const entries = await filesystem.listDirectory(picked.handle);
-        if (!this.isConnected) {
-          return;
-        }
-        if (entries.length === 0) {
-          console.error('[parsi-page-home] disk folder has no markdown files');
-          return;
-        }
-        const files = [];
-        for (const entry of entries) {
-          try {
-            files.push({ name: entry.name, path: entry.path, content: await filesystem.readEntry(entry) });
-          } catch (error) {
-            console.error('[parsi-page-home] disk file skipped');
-          }
-        }
-        if (!this.isConnected || files.length === 0) {
-          return;
-        }
-        this.#applyResult(await this.#docs?.importFolder({ rootName: picked.name, files }));
-      } catch (error) {
-        console.error('[parsi-page-home] disk folder open failed');
-      }
-      return;
-    }
-    this.#diskFallbackInput();
-  }
-
-  /**
-   * Fallback folder input for browsers without a directory picker: the
-   * File list carries relative paths, so files read straight into the
-   * same folder-import flow as the picker path.
-   * @returns {void}
-   */
-  #diskFallbackInput() {
-    if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
-      return;
-    }
-    const picker = document.createElement('input');
-    picker.type = 'file';
-    picker.setAttribute('webkitdirectory', '');
-    picker.style.display = 'none';
-    this.shadowRoot.append(picker);
-    const cleanup = () => picker.remove();
-    picker.addEventListener('cancel', cleanup, { once: true });
-    picker.addEventListener('change', async () => {
-      try {
-        const listed = await this.#filesystem?.collectEntries([...(picker.files ?? [])]) ?? [];
-        if (!this.isConnected) {
-          return;
-        }
-        if (listed.length === 0) {
-          console.error('[parsi-page-home] disk fallback found no markdown files');
-          return;
-        }
-        const files = [];
-        for (const item of listed) {
-          try {
-            files.push({ name: item.name, path: item.path, content: await item.file.text() });
-          } catch (error) {
-            console.error('[parsi-page-home] disk file skipped');
-          }
-        }
-        if (!this.isConnected || files.length === 0) {
-          return;
-        }
-        const root = listed[0].path.split('/')[0] ?? '';
-        this.#applyResult(await this.#docs?.importFolder({ rootName: root, files }));
-      } catch (error) {
-        console.error('[parsi-page-home] disk fallback failed');
-      } finally {
-        cleanup();
-      }
-    }, { once: true });
-    picker.click();
-  }
-
-
-  /**
    * Renames a document through the service, keeping the inline editor open
    * with an error when the title is taken. Empty titles cancel silently.
    * @param {unknown} id Document id from the event detail.
@@ -1783,119 +1329,6 @@ class ParsiPageHome extends PeyElement {
     }
     if (outcome === 'duplicate') {
       this.#sideEl?.configure({ renameError: 'parsinegar.documents.duplicate' });
-    }
-  }
-
-  /**
-   * Downloads a document as a Markdown file through a temporary anchor in
-   * the page shadow (released right after the click).
-   * @param {unknown} id Document id from the event detail.
-   * @returns {Promise<void>}
-   */
-  async #downloadDocument(id) {
-    if (typeof URL.createObjectURL !== 'function') {
-      console.error('[parsi-page-home] download is unsupported here');
-      return;
-    }
-    try {
-      const record = await this.#docs?.prepareDownload(id);
-      if (!this.isConnected || !record) {
-        return;
-      }
-      const url = URL.createObjectURL(new Blob([record.content ?? ''], { type: 'text/markdown' }));
-      try {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `${String(record.title ?? '').replace(/[\\/]/g, '-')}.md`;
-        this.shadowRoot.append(anchor);
-        anchor.click();
-        anchor.remove();
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('[parsi-page-home] document download failed');
-    }
-  }
-
-  /**
-   * Downloads a document as a standalone HTML file: the export service
-   * renders the content with the effective theme, the page only delivers
-   * the resulting bytes through a temporary anchor (released after click).
-   * @param {unknown} id Document id from the event detail.
-   * @returns {Promise<void>}
-   */
-  async #downloadHtmlDocument(id) {
-    if (typeof URL.createObjectURL !== 'function') {
-      console.error('[parsi-page-home] download is unsupported here');
-      return;
-    }
-    try {
-      const record = await this.#docs?.prepareDownload(id);
-      const exporter = this.#exporter;
-      if (!this.isConnected || !record || !exporter) {
-        return;
-      }
-      const stored = this.#prefs?.getState().settings ?? null;
-      const result = await exporter.exportHtml({
-        markdown: record.content ?? '',
-        title: record.title ?? '',
-        theme: resolveExportTheme(stored?.theme),
-      });
-      if (!this.isConnected || !result) {
-        return;
-      }
-      const url = URL.createObjectURL(new Blob([result.html ?? ''], { type: 'text/html' }));
-      try {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = result.filename ?? 'document.html';
-        this.shadowRoot.append(anchor);
-        anchor.click();
-        anchor.remove();
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('[parsi-page-home] html download failed');
-    }
-  }
-
-  /**
-   * Downloads the whole library as a Markdown zip archive: every document
-   * with its folder path goes through the export service, the page only
-   * delivers the resulting bytes through a temporary anchor.
-   * @returns {Promise<void>}
-   */
-  async #downloadZipLibrary() {
-    if (typeof URL.createObjectURL !== 'function') {
-      console.error('[parsi-page-home] download is unsupported here');
-      return;
-    }
-    try {
-      const exporter = this.#exporter;
-      if (!this.isConnected || !exporter || typeof exporter.exportZip !== 'function') {
-        return;
-      }
-      const result = await exporter.exportZip({
-        documents: this.#docs?.collectLibraryDocuments() ?? [],
-      });
-      if (!this.isConnected || !result) {
-        return;
-      }
-      const url = URL.createObjectURL(result.blob);
-      try {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = result.filename ?? 'parsinegar-documents.zip';
-        this.shadowRoot.append(anchor);
-        anchor.click();
-        anchor.remove();
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('[parsi-page-home] zip download failed');
     }
   }
 
@@ -1981,7 +1414,7 @@ class ParsiPageHome extends PeyElement {
       this.#menuEl?.configure({ searchOpen: false, search: null });
     }
     this.#requestEditor();
-    void this.#updateSyncDirty();
+    void this.#sync?.updateDirty();
   }
 
   #requestEditor() {
