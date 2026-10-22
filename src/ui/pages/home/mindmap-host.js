@@ -13,12 +13,17 @@
 // native (double-click/F2 edit, Tab/Enter/Delete, drag-move); the toolbar
 // only triggers the same public methods in Persian.
 import { buildMindmapTree, isListOnlyDocument, mindmapSignature, parseMindmap } from '../../components/workbench/mindmap.js';
+import { renderInlineHtml } from '../../components/workbench/mindmap-inline.js';
 import { applyMapOperation, MAP_NEW_TOPIC } from '../../components/workbench/mindmap-edit.js';
 import { describeOperation, generateSubBranch, lineOfNodeId, toMindElixirData } from '../../components/workbench/mindmap-adapter.js';
 
 const MINDMAP_CSS_PATH = './node_modules/mind-elixir/dist/MindElixir.css';
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
-const FONT_OVERRIDE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc{direction:rtl;text-align:start;}`;
+const MONO_FONT = "'Vazirmatn', ui-monospace, monospace";
+const MINDMAP_STYLE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc{direction:rtl;text-align:start;}`
+  + `[data-mindmap-root] .text strong{font-weight:700;}[data-mindmap-root] .text em{font-style:italic;}[data-mindmap-root] .text del{text-decoration:line-through;}`
+  + `[data-mindmap-root] .text code{font-family:${MONO_FONT};background-color:var(--pey-color-surface,#f1f1f4);border-radius:4px;padding-inline:0.25em;}`
+  + `[data-mindmap-root] .text a{color:var(--pey-color-accent,#5eead4);text-decoration:underline;}`;
 
 let cachedCss = null;
 
@@ -284,7 +289,7 @@ export function createMindmapHost(host, options = {}) {
       }
       const style = document.createElement('style');
       style.setAttribute('data-mindmap-css', '');
-      style.textContent = css === '' ? FONT_OVERRIDE : `${css}\n${FONT_OVERRIDE}`;
+      style.textContent = css === '' ? MINDMAP_STYLE : `${css}\n${MINDMAP_STYLE}`;
       styleScope.append(style);
     }
     host.setAttribute('data-mindmap-root', '');
@@ -303,6 +308,7 @@ export function createMindmapHost(host, options = {}) {
       toolBar: false,
       nodeMenu: false,
       newTopicName: MAP_NEW_TOPIC,
+      markdown: renderInlineHtml,
       theme: { ...(dark ? MindElixir.DARK_THEME : MindElixir.THEME), generateSubBranch },
     });
     mind.bus.addListener('operation', handleOperation);

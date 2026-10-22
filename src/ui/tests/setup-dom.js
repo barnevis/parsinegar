@@ -31,5 +31,18 @@ for (const [name, value] of Object.entries({
 }
 
 globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+globalThis.HTMLCollection = dom.window.HTMLCollection;
+globalThis.NodeList = dom.window.NodeList;
+
+// jsdom has no matchMedia; mind-elixir (the map library) reads it on init.
+dom.window.matchMedia = (query) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  addListener: () => {},
+  removeListener: () => {},
+});
 
 export { dom };

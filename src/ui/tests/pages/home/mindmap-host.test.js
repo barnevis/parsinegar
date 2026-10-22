@@ -112,3 +112,52 @@ test('should_hide_bar_with_guidance_when_document_is_not_list', async () => {
     host.remove();
   }
 });
+
+test('should_render_parity_marks_in_node_labels_when_mounted', async () => {
+  const host = mountHost();
+  const controller = createMindmapHost(host, {
+    getText: () => '- **ریشه**\n  - *شاخه* با [متن](https://x) و `کد`',
+    onChange: () => {},
+  });
+  try {
+    await controller.ready;
+    const labels = [...host.querySelectorAll('me-tpc .text')].map((span) => span.innerHTML);
+    assert.ok(
+      labels.some((label) => label.includes('<strong>ریشه</strong>')),
+      `expected the root label to render strong, got ${JSON.stringify(labels)}`,
+    );
+    assert.ok(
+      labels.some((label) => label.includes('<em>شاخه</em>') && label.includes('<code>کد</code>')),
+      `expected the child label to render marks, got ${JSON.stringify(labels)}`,
+    );
+    assert.ok(
+      labels.some((label) => label.includes('href="https://x"') && label.includes('rel="noopener"')),
+      `expected the child link to open safely, got ${JSON.stringify(labels)}`,
+    );
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
+
+test('should_keep_labels_styled_after_edit_commit_when_node_topic_changes', async () => {
+  let text = '- **ریشه**\n  - شاخه';
+  const host = mountHost();
+  const controller = createMindmapHost(host, { getText: () => text, onChange: (next) => { text = next; } });
+  try {
+    await controller.ready;
+    const changed = text.replace('شاخه', '*شاخه*');
+    // The library re-labels through the markdown hook on every commit too;
+    // here we drive the same hook through a direct rebuild to pin it.
+    text = changed;
+    await controller.refresh();
+    const labels = [...host.querySelectorAll('me-tpc .text')].map((span) => span.innerHTML);
+    assert.ok(
+      labels.some((label) => label.includes('<em>شاخه</em>')),
+      `expected the rebuilt label to render em, got ${JSON.stringify(labels)}`,
+    );
+  } finally {
+    controller.destroy();
+    host.remove();
+  }
+});
