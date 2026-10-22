@@ -162,10 +162,20 @@ parsi-status-bar {
 }
 
 [part="mindmap-host"] {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
   min-block-size: 100%;
   block-size: 100%;
+}
+
+/* The map's stage: everything below the toolbar fills the remaining center
+   height, so MindElixir measures and centers (and can zoom out) against
+   the real visible area instead of its own content height. */
+[data-mindmap-canvas] {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 [part="mindmap-host"] [part="mindmap-empty"] {
@@ -177,6 +187,7 @@ parsi-status-bar {
 
 [data-mindmap-bar] {
   display: flex;
+  flex: 0 0 auto;
   gap: 0.5rem;
   padding: 0.75rem 2.25rem 0;
 }

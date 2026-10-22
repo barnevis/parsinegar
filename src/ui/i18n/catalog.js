@@ -100,7 +100,6 @@ const catalog = {
     'parsinegar.views.outline-collapse': 'بستن زیرعنوان‌ها',
     'parsinegar.views.mindmap': 'نقشه ذهنی',
     'parsinegar.views.mindmap-empty': 'این سند فقط فهرست نیست؛ نقشه ذهنی از سندهای تمام‌فهرستی ساخته می‌شود',
-    'parsinegar.views.mindmap-new': 'نقشه تازه',
     'parsinegar.views.sync': 'همگام‌سازی',
     'parsinegar.views.help': 'راهنما',
     'parsinegar.mindmap.addChild': 'فرزند',

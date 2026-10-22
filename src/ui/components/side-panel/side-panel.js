@@ -7,8 +7,8 @@
 // CustomEvents for the parent to map to behavior.
 import { PeyElement } from 'pey.webui/base/pey-element';
 import { escapeHtml } from '../workbench/html.js';
-import { FILES_VIEW, MINDMAP_VIEW, getView } from '../workbench/views.js';
-import { DEFAULT_FILES_SORT, FILES_SORT_MODES, filterMindmapTree, renderFilesView, sortDocuments } from '../workbench/views-files.js';
+import { FILES_VIEW, getView } from '../workbench/views.js';
+import { DEFAULT_FILES_SORT, FILES_SORT_MODES, sortDocuments } from '../workbench/views-files.js';
 import { outlineSignature } from '../workbench/outline.js';
 
 const TAG = 'parsi-side-panel';
@@ -39,7 +39,6 @@ class ParsiSidePanel extends PeyElement {
     }
   };
   #activeView = FILES_VIEW;
-  #mindmapMode = false;
   #items = [];
   #folders = [];
   #currentId = null;
@@ -100,12 +99,9 @@ class ParsiSidePanel extends PeyElement {
    * @param {object} data Partial data.
    * @returns {object} Snapshot with signature.
    */
-  #store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed } = {}) {
+  #store({ activeView, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed } = {}) {
     if (typeof activeView === 'string') {
       this.#activeView = activeView;
-    }
-    if (mindmapMode !== undefined) {
-      this.#mindmapMode = mindmapMode === true;
     }
     if (Array.isArray(items)) {
       this.#items = items;
@@ -146,7 +142,6 @@ class ParsiSidePanel extends PeyElement {
     }
     return {
       activeView: this.#activeView,
-      mindmapMode: this.#mindmapMode,
       items: this.#items,
       folders: this.#folders,
       currentId: this.#currentId,
@@ -218,7 +213,6 @@ class ParsiSidePanel extends PeyElement {
    * scroll or focus.
    * @param {object} data New data (absent fields keep current values).
    * @param {string} [data.activeView] Active view id.
-   * @param {boolean} [data.mindmapMode] Force the filtered mindmap files view.
    * @param {Array<object>} [data.items] Documents for the files view.
    * @param {Array<object>} [data.folders] Folders for the files tree.
    * @param {string|null} [data.currentId] Open document id.
@@ -231,8 +225,8 @@ class ParsiSidePanel extends PeyElement {
    * @param {Array<string>} [data.folderCollapsed] Collapsed folder ids (parent-owned, survives panel remounts).
    * @returns {void}
    */
-  configure({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed } = {}) {
-    const next = this.#store({ activeView, mindmapMode, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed });
+  configure({ activeView, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed } = {}) {
+    const next = this.#store({ activeView, items, folders, currentId, documentText, settings, activeLine, renameError, sortMode, sync, folderCollapsed });
     const prev = this.#applied;
     // Collapsed lines refer to line numbers, so a changed document (new
     // signature) invalidates them.
@@ -242,7 +236,6 @@ class ParsiSidePanel extends PeyElement {
     }
     const same = prev !== null
       && prev.activeView === next.activeView
-      && prev.mindmapMode === next.mindmapMode
       && prev.items === next.items
       && prev.folders === next.folders
       && prev.currentId === next.currentId
@@ -498,10 +491,6 @@ class ParsiSidePanel extends PeyElement {
       this.dispatchEvent(new CustomEvent('document-import', { bubbles: true, composed: true }));
       return;
     }
-    if (event.target?.closest?.('[data-mindmap-new]')) {
-      this.dispatchEvent(new CustomEvent('document-create-mindmap', { bubbles: true, composed: true }));
-      return;
-    }
     const menuButton = event.target?.closest?.('[data-doc-menu]');
     if (menuButton) {
       const id = menuButton.getAttribute('data-doc-menu');
@@ -595,31 +584,15 @@ class ParsiSidePanel extends PeyElement {
 
   render() {
     const view = getView(this.#activeView) ?? getView(FILES_VIEW);
-    // In map mode the flag forces the files picker for the map section
-    // itself (its side content) or for files; every other view renders
-    // itself, so the rail law shows exactly the picked panel next to map.
-    const filesActive = view.id === FILES_VIEW || view.id === MINDMAP_VIEW;
-    const titleKey = this.#mindmapMode && filesActive ? 'parsinegar.views.mindmap' : view.labelKey;
-    const ordered = sortDocuments(this.#items, this.#filesSort);
-    // Like the outline (which reads live text, not stored content), the
-    // filter judges the open document by its current text: a fresh map
-    // template lives in the draft before its first save.
-    const liveItems = (this.#items ?? []).map((item) => (
-      item && item.id === this.#currentId && typeof this.#documentText === 'string'
-        ? { ...item, content: this.#documentText }
-        : item
-    ));
-    const scope = this.#mindmapMode && filesActive ? filterMindmapTree(sortDocuments(liveItems, this.#filesSort), this.#folders) : null;
-    const body = scope
-      ? renderFilesView({ t: this.#t, items: scope.items, folders: scope.folders, currentId: this.#currentId, openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, mindmap: true })
-      : view.render({ t: this.#t, items: ordered, folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, sync: this.#sync });
+    // A mindmap is just a document: the picker beside the map is the plain
+    // files view (every document, every folder), never a filtered map list.
     return `
       <aside part="side">
         <div part="side-header">
-          <h2 part="side-title">${escapeHtml(this.#t(titleKey))}</h2>
+          <h2 part="side-title">${escapeHtml(this.#t(view.labelKey))}</h2>
           <button type="button" part="side-close" aria-label="${escapeHtml(this.#t('parsinegar.views.close'))}">×</button>
         </div>
-        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${body}</div>
+        <div part="side-body" data-pey-preserve="side-body" data-pey-preserve-state="scroll">${view.render({ t: this.#t, items: sortDocuments(this.#items, this.#filesSort), folders: this.#folders, currentId: this.#currentId, documentText: this.#documentText, settings: this.#settings, activeLine: this.#activeLine, collapsed: [...this.#collapsedLines], openMenuId: this.#openFileMenu, moveMenuId: this.#moveMenuId, sortMenuOpen: this.#sortMenuOpen, editing: this.#editingId === null ? null : { id: this.#editingId, error: this.#renameError }, formatNumber: this.#formatNumber ?? String, assetBaseUrl: this.#assetBaseUrl, sortMode: this.#filesSort, folderCollapsed: this.#folderCollapsed, sync: this.#sync })}</div>
       </aside>`;
   }
 }

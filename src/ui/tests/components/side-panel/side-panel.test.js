@@ -811,9 +811,9 @@ test('should_emit_move_when_move_target_is_clicked', async () => {
   }
 });
 
-test('should_render_filtered_files_when_mindmap_mode_is_on', async () => {
+test('should_render_plain_files_view_when_mindmap_is_active_view', async () => {
   const element = mount({
-    mindmapMode: true,
+    activeView: 'mindmap',
     items: [
       { id: 'm', title: 'نقشه', folderId: null, content: '- الف\n  - ب' },
       { id: 'p', title: 'متن', folderId: null, content: 'متن ساده' },
@@ -823,73 +823,16 @@ test('should_render_filtered_files_when_mindmap_mode_is_on', async () => {
   });
   try {
     await flush();
+    // A mindmap is just a document: beside the map the panel falls back to
+    // the plain files view with every document and no mindmap button.
     assert.equal(
       element.shadowRoot.querySelector('[part="side-title"]').textContent,
-      'parsinegar.views.mindmap',
+      'parsinegar.views.files',
     );
     assert.ok(element.shadowRoot.querySelector('[data-doc-id="m"]'), 'expected the map document');
-    assert.equal(element.shadowRoot.querySelector('[data-doc-id="p"]'), null);
-    assert.ok(element.shadowRoot.querySelector('[data-mindmap-new]'), 'expected the new-map button');
-    assert.equal(element.shadowRoot.querySelector('[part="docs-new"]'), null);
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_render_files_picker_when_mindmap_view_is_active', async () => {
-  const element = mount({
-    mindmapMode: true,
-    activeView: 'mindmap',
-    items: [{ id: 'm', title: 'نقشه', folderId: null, content: '- الف' }],
-    currentId: 'm',
-    documentText: '- الف',
-  });
-  try {
-    await flush();
-    assert.equal(
-      element.shadowRoot.querySelector('[part="side-title"]').textContent,
-      'parsinegar.views.mindmap',
-    );
-    assert.ok(element.shadowRoot.querySelector('[data-doc-id="m"]'), 'expected the files picker beside the map');
-    assert.ok(element.shadowRoot.querySelector('[data-mindmap-new]'), 'expected the new-map button');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_hide_folders_without_maps_when_mindmap_mode_is_on', async () => {
-  const element = mount({
-    mindmapMode: true,
-    items: [
-      { id: 'm', title: 'نقشه', folderId: 'f1', content: '- الف' },
-      { id: 'p', title: 'متن', folderId: 'f2', content: 'متن' },
-    ],
-    folders: [
-      { id: 'f1', name: 'کار', parentId: null },
-      { id: 'f2', name: 'بایگانی', parentId: null },
-    ],
-    currentId: 'm',
-    documentText: '- الف',
-  });
-  try {
-    await flush();
-    assert.ok(element.shadowRoot.querySelector('[data-doc-id="m"]'), 'expected the map document');
-    assert.equal(element.shadowRoot.querySelector('[data-folder-toggle="f2"]'), null);
-    assert.ok(element.shadowRoot.querySelector('[data-folder-toggle="f1"]'), 'expected the map folder');
-  } finally {
-    element.remove();
-  }
-});
-
-test('should_emit_create_mindmap_when_new_map_is_clicked', async () => {
-  const element = mount({ mindmapMode: true, items: [], currentId: null });
-  try {
-    await flush();
-    const seen = [];
-    element.addEventListener('document-create-mindmap', () => seen.push(true));
-    element.shadowRoot.querySelector('[data-mindmap-new]').click();
-    await flush();
-    assert.deepEqual(seen, [true]);
+    assert.ok(element.shadowRoot.querySelector('[data-doc-id="p"]'), 'expected the plain document');
+    assert.equal(element.shadowRoot.querySelector('[data-mindmap-new]'), null, 'expected no mindmap button');
+    assert.ok(element.shadowRoot.querySelector('[part="docs-new"]'), 'expected the plain create button');
   } finally {
     element.remove();
   }

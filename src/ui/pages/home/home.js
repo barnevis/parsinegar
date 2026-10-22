@@ -50,7 +50,6 @@ const FOLDER_ID_PREFIX = 'folder:';
 // for import; writing lives behind explicit download, never the service).
 const FILESYSTEM_METHODS = ['pickDirectory', 'listDirectory', 'collectEntries', 'readEntry'];
 const INSERT_ACTION_PREFIX = 'insert-';
-const MINDMAP_TEMPLATE = '- ایدهٔ اصلی\n  - شاخهٔ یک\n  - شاخهٔ دو';
 const INSERT_MARK_KINDS = [
   'heading',
   'bold',
@@ -214,7 +213,6 @@ class ParsiPageHome extends PeyElement {
       'outline-jump',
       'document-open',
       'document-create',
-      'document-create-mindmap',
       'document-import',
       'document-delete',
       'document-rename',
@@ -327,10 +325,6 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'document-create') {
         void this.#createDocument();
-        return;
-      }
-      if (event.type === 'document-create-mindmap') {
-        void this.#createMindmapDocument();
         return;
       }
       if (event.type === 'folder-create') {
@@ -1476,7 +1470,6 @@ class ParsiPageHome extends PeyElement {
           t: this.#t,
           assetBaseUrl: this.#assetBaseUrl,
           activeView: this.#activeView,
-          mindmapMode: this.#centerMode === 'mindmap',
           items,
           folders,
           currentId,
@@ -1488,7 +1481,6 @@ class ParsiPageHome extends PeyElement {
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
-          mindmapMode: this.#centerMode === 'mindmap',
           items,
           folders,
           currentId,
@@ -1571,23 +1563,6 @@ class ParsiPageHome extends PeyElement {
   async #createDocumentInFolder(folderId) {
     const target = typeof folderId === 'string' && folderId.length > 0 ? folderId : null;
     this.#applyResult(await this.#docs?.createDocument(target));
-  }
-
-  /**
-   * Creates a list-templated document for the mindmap section and opens
-   * it. The template lands through the draft (the editor is unmounted in
-   * mindmap mode) and the pending save persists it; the mounted map picks
-   * it up through the draft on boot or refresh.
-   * @returns {Promise<void>}
-   */
-  async #createMindmapDocument() {
-    this.#applyResult(await this.#docs?.createDocument(null));
-    if (!this.isConnected) {
-      return;
-    }
-    this.#docs?.setDraft(MINDMAP_TEMPLATE);
-    this.#docs?.scheduleSave();
-    this.#pushLiveUpdates();
   }
 
   /**
@@ -2019,7 +1994,6 @@ class ParsiPageHome extends PeyElement {
     const { settings = null } = this.#prefs?.getState() ?? {};
     this.#sideEl?.configure({
       activeView: this.#activeView,
-      mindmapMode: this.#centerMode === 'mindmap',
       items,
       folders,
       currentId,

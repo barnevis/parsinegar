@@ -20,7 +20,8 @@ import { describeOperation, generateSubBranch, lineOfNodeId, toMindElixirData } 
 const MINDMAP_CSS_PATH = './node_modules/mind-elixir/dist/MindElixir.css';
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const MONO_FONT = "'Vazirmatn', ui-monospace, monospace";
-const MINDMAP_STYLE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc{direction:rtl;text-align:start;}`
+const MINDMAP_STYLE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}[data-mindmap-root] .map-container{background-color:var(--pey-color-canvas,#ffffff);}`
+  + `[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc{direction:rtl;text-align:start;}`
   + `[data-mindmap-root] .text strong{font-weight:700;}[data-mindmap-root] .text em{font-style:italic;}[data-mindmap-root] .text del{text-decoration:line-through;}`
   + `[data-mindmap-root] .text code{font-family:${MONO_FONT};background-color:var(--pey-color-surface,#f1f1f4);border-radius:4px;padding-inline:0.25em;}`
   + `[data-mindmap-root] .text a{color:var(--pey-color-accent,#5eead4);text-decoration:underline;}`;
@@ -217,6 +218,32 @@ export function createMindmapHost(host, options = {}) {
     }
   };
 
+  // Zooms the map down only when it overflows the visible stage, so the
+  // map's start (the root) stays fully on screen beside the side panel.
+  // jsdom reports zero layout, which guards the call instead of scaling
+  // through NaN. The library's own scaleFit never zooms in past 1.
+  const fitMap = () => {
+    if (destroyed || !mind || canvas === null) {
+      return;
+    }
+    if (canvas.offsetWidth <= 0 || canvas.offsetHeight <= 0) {
+      return;
+    }
+    try {
+      mind.scaleFit();
+    } catch {
+      // A stale measurement heals on the next resize/refresh; never break.
+    }
+  };
+
+  let resizeObserver = null;
+  const observeSize = () => {
+    if (typeof ResizeObserver === 'function' && resizeObserver === null) {
+      resizeObserver = new ResizeObserver(fitMap);
+      resizeObserver.observe(canvas);
+    }
+  };
+
   async function applyDescribed(described) {
     if (destroyed) {
       return;
@@ -317,6 +344,8 @@ export function createMindmapHost(host, options = {}) {
       selectedId = null;
     });
     mind.init(toMindElixirData(buildMindmapTree(parseMindmap(text))));
+    fitMap();
+    observeSize();
     return true;
   }
 
@@ -339,6 +368,7 @@ export function createMindmapHost(host, options = {}) {
       mind.refresh(lastData);
       selectedId = null;
       pendingFresh.clear();
+      fitMap();
     } catch {
       // A later refresh heals; never break on a background relayout.
     }
@@ -407,6 +437,7 @@ export function createMindmapHost(host, options = {}) {
         if (await ensureInstance(text)) {
           lastData = toMindElixirData(buildMindmapTree(parseMindmap(text)));
           mind.refresh(lastData);
+          fitMap();
           selectedId = null;
           pendingFresh.clear();
         }
@@ -427,6 +458,10 @@ export function createMindmapHost(host, options = {}) {
       host.removeEventListener('click', handleBarClick);
       if (fontSet && typeof fontSet.removeEventListener === 'function') {
         fontSet.removeEventListener('loadingdone', healFonts);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
       }
       releaseInstance();
       pendingFresh.clear();

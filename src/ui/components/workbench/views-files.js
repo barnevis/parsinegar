@@ -3,7 +3,6 @@
 // Pure render function owned by this view module; the registry only references
 // it and holds no view logic. Takes explicit data, never services or DOM.
 import { escapeHtml, iconMarkup } from './html.js';
-import { isListOnlyDocument } from './mindmap.js';
 
 /**
  * Available files-list orderings, in menu display order.
@@ -122,46 +121,6 @@ export function buildFolderTree(folders) {
 }
 
 /**
- * Narrows documents and folders to mindmap-eligible ones: documents whose
- * content is list-only, plus folders holding (transitively) at least one
- * of them. Order and record shapes pass through untouched.
- * @param {Array<object>} items Documents with `{ id, folderId, content }`.
- * @param {Array<object>} folders Flat folders with `{ id, parentId }`.
- * @returns {object} `{ items, folders }` filtered copies.
- */
-export function filterMindmapTree(items, folders) {
-  const documents = Array.isArray(items) ? items : [];
-  const eligible = new Set(
-    documents
-      .filter((item) => isListOnlyDocument(item?.content ?? ''))
-      .map((item) => item?.id),
-  );
-  const byId = new Map();
-  for (const folder of Array.isArray(folders) ? folders : []) {
-    if (folder && typeof folder.id === 'string') {
-      byId.set(folder.id, folder);
-    }
-  }
-  const keptFolders = new Set();
-  for (const item of documents) {
-    if (!eligible.has(item?.id)) {
-      continue;
-    }
-    let current = item?.folderId ?? null;
-    const seen = new Set();
-    while (typeof current === 'string' && current !== '' && byId.has(current) && !seen.has(current)) {
-      seen.add(current);
-      keptFolders.add(current);
-      current = byId.get(current).parentId ?? null;
-    }
-  }
-  return {
-    items: documents.filter((item) => eligible.has(item?.id)),
-    folders: [...byId.values()].filter((folder) => keptFolders.has(folder.id)),
-  };
-}
-
-/**
  * Builds the display path of a folder through its parents ("کار / زیر").
  * @param {Map<string, object>} foldersById Folders keyed by id.
  * @param {string} id Folder id.
@@ -192,12 +151,9 @@ function folderDisplayPath(foldersById, id) {
  * @param {string} [options.sortMode] Active ordering for the sort menu (defaults to `updated-desc`).
  * @param {boolean} [options.sortMenuOpen] Whether the sort menu renders open.
  * @param {Array<string>} [options.folderCollapsed] Collapsed folder ids.
- * @param {boolean} [options.mindmap] Mindmap section mode: only the new-map
- *   button and sorting stay in the bar (plain create/import would make
- *   documents the filtered list hides).
  * @returns {string} Files view markup.
  */
-export function renderFilesView({ t, items, folders = [], currentId, openMenuId, moveMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, folderCollapsed = [], mindmap = false }) {
+export function renderFilesView({ t, items, folders = [], currentId, openMenuId, moveMenuId, editing, assetBaseUrl, sortMode, sortMenuOpen, folderCollapsed = [] }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const activeSort = FILES_SORT_MODES.includes(sortMode) ? sortMode : DEFAULT_FILES_SORT;
   const documents = Array.isArray(items) ? items : [];
@@ -261,11 +217,7 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
           <button type="button" part="docs-sort" data-doc-sort aria-haspopup="true" aria-expanded="${sortMenuOpen === true}" aria-label="${sortLabel}" data-tooltip="${sortLabel}">${sortIcon}</button>
           ${sortMenuOpen === true ? renderSortMenu(translate, activeSort) : ''}
         </div>`;
-  const mindmapNewLabel = escapeHtml(translate('parsinegar.views.mindmap-new'));
-  const mindmapNewIcon = iconMarkup(assetBaseUrl, 'account-tree') || mindmapNewLabel;
-  const createBit = mindmap === true
-    ? `<button type="button" part="docs-mindmap-new" data-mindmap-new aria-label="${mindmapNewLabel}" data-tooltip="${mindmapNewLabel}">${mindmapNewIcon}</button>`
-    : `<button type="button" part="docs-new" aria-label="${newLabel}" data-tooltip="${newLabel}">${newIcon}</button>
+  const createBit = `<button type="button" part="docs-new" aria-label="${newLabel}" data-tooltip="${newLabel}">${newIcon}</button>
         <button type="button" part="docs-folder-new" aria-label="${newFolderLabel}" data-tooltip="${newFolderLabel}">${newFolderIcon}</button>
         <button type="button" part="docs-import" aria-label="${importLabel}" data-tooltip="${importLabel}">${importIcon}</button>`;
   return `

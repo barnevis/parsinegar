@@ -2021,20 +2021,22 @@ test('should_collapse_panel_on_active_rail_click_while_map_stays_on_center', asy
   }
 });
 
-test('should_create_templated_document_when_mindmap_new_is_requested', async () => {
-  const documents = createDocuments([{ id: 'd1', title: 'ریشه', content: '- الف', updatedAt: 1 }]);
+test('should_list_all_documents_in_mindmap_picker', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'نقشه', content: '- الف', updatedAt: 2 },
+    { id: 'd2', title: 'متن ساده', content: 'پاراگراف', updatedAt: 1 },
+  ]);
   const element = await mountWithDocuments(documents);
   try {
     child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'mindmap' } }));
     await settled();
     await settled();
-    inChild(element, 'parsi-side-panel', '[data-mindmap-new]').click();
-    await settled();
-    await settled();
-    // The editor is unmounted in mindmap mode, so value reads the draft the
-    // template landed in (persistence itself rides the covered autosave).
-    assert.ok(element.value.includes('- ایدهٔ اصلی'), 'expected the mindmap template draft');
-    assert.ok(inChild(element, 'parsi-side-panel', '[part="docs-list"]').textContent.includes('سند تازه'));
+    // A mindmap is just a document: the picker beside the map is the plain
+    // files view (every document, no filtered list, no special button).
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d1"]'), 'expected the map document listed');
+    assert.ok(inChild(element, 'parsi-side-panel', '[data-doc-id="d2"]'), 'expected the plain document listed');
+    assert.equal(inChild(element, 'parsi-side-panel', '[data-mindmap-new]'), null, 'expected no mindmap-specific button');
+    assert.ok(inChild(element, 'parsi-side-panel', '[part="docs-new"]'), 'expected the plain create button');
   } finally {
     element.remove();
   }
