@@ -3,6 +3,7 @@
 // Pure render function owned by this view module; the registry only references
 // it and holds no view logic. Takes explicit data, never services or DOM.
 import { escapeHtml, iconMarkup } from './html.js';
+import { isListOnlyDocument } from './mindmap.js';
 
 /**
  * Available files-list orderings, in menu display order.
@@ -118,6 +119,46 @@ export function buildFolderTree(folders) {
       children: nest(folder.id),
     }));
   return nest(null);
+}
+
+/**
+ * Narrows documents and folders to mindmap-eligible ones: documents whose
+ * content is list-only, plus folders holding (transitively) at least one
+ * of them. Order and record shapes pass through untouched.
+ * @param {Array<object>} items Documents with `{ id, folderId, content }`.
+ * @param {Array<object>} folders Flat folders with `{ id, parentId }`.
+ * @returns {object} `{ items, folders }` filtered copies.
+ */
+export function filterMindmapTree(items, folders) {
+  const documents = Array.isArray(items) ? items : [];
+  const eligible = new Set(
+    documents
+      .filter((item) => isListOnlyDocument(item?.content ?? ''))
+      .map((item) => item?.id),
+  );
+  const byId = new Map();
+  for (const folder of Array.isArray(folders) ? folders : []) {
+    if (folder && typeof folder.id === 'string') {
+      byId.set(folder.id, folder);
+    }
+  }
+  const keptFolders = new Set();
+  for (const item of documents) {
+    if (!eligible.has(item?.id)) {
+      continue;
+    }
+    let current = item?.folderId ?? null;
+    const seen = new Set();
+    while (typeof current === 'string' && current !== '' && byId.has(current) && !seen.has(current)) {
+      seen.add(current);
+      keptFolders.add(current);
+      current = byId.get(current).parentId ?? null;
+    }
+  }
+  return {
+    items: documents.filter((item) => eligible.has(item?.id)),
+    folders: [...byId.values()].filter((folder) => keptFolders.has(folder.id)),
+  };
 }
 
 /**

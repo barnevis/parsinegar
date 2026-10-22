@@ -20,8 +20,15 @@ import { describeOperation, generateSubBranch, lineOfNodeId, toMindElixirData } 
 const MINDMAP_CSS_PATH = './node_modules/mind-elixir/dist/MindElixir.css';
 const PERSIAN_FONT = "'Vazirmatn', Tahoma, sans-serif";
 const MONO_FONT = "'Vazirmatn', ui-monospace, monospace";
-const MINDMAP_STYLE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}[data-mindmap-root] .map-container{background-color:var(--pey-color-canvas,#ffffff);}`
-  + `[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc{direction:rtl;text-align:start;}`
+const MINDMAP_STYLE = `[data-mindmap-root],[data-mindmap-root] *{font-family:${PERSIAN_FONT};}`
+  + `[data-mindmap-root]{direction:ltr;}`
+  // The library computes node offsets with left-origin math; inheriting the
+  // document's rtl direction mirrors the flex order and slides the whole map
+  // off the stage (the map's start ends up under the side panel). Canonical
+  // ltr on the map container centers it; node labels stay rtl via the rule
+  // below (root included, edit box inside).
+  + `[data-mindmap-root] .map-container{background-color:var(--pey-color-canvas,#ffffff);}`
+  + `[data-mindmap-root] .map-container .lhs me-tpc,[data-mindmap-root] .map-container .rhs me-tpc,[data-mindmap-root] me-root me-tpc{direction:rtl;text-align:start;}`
   + `[data-mindmap-root] .text strong{font-weight:700;}[data-mindmap-root] .text em{font-style:italic;}[data-mindmap-root] .text del{text-decoration:line-through;}`
   + `[data-mindmap-root] .text code{font-family:${MONO_FONT};background-color:var(--pey-color-surface,#f1f1f4);border-radius:4px;padding-inline:0.25em;}`
   + `[data-mindmap-root] .text a{color:var(--pey-color-accent,#5eead4);text-decoration:underline;}`;

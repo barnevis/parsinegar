@@ -46,6 +46,9 @@ const SYNC_SCOPE = {
 // Side-panel ids for folders: documents keep raw ids, folders travel
 // prefixed so rename/delete/move route to the folder flows.
 const FOLDER_ID_PREFIX = 'folder:';
+// Draft the «سند تازه» button plants beside the map: a starter list so the
+// new document opens as a real map, not an empty picker.
+const MINDMAP_TEMPLATE = '- ایدهٔ اصلی\n  - شاخهٔ یک\n  - شاخهٔ دو';
 // The filesystem methods this page relies on (folder picking and reading
 // for import; writing lives behind explicit download, never the service).
 const FILESYSTEM_METHODS = ['pickDirectory', 'listDirectory', 'collectEntries', 'readEntry'];
@@ -324,7 +327,7 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'document-create') {
-        void this.#createDocument();
+        void this.#createDocument(this.#centerMode === 'mindmap' ? MINDMAP_TEMPLATE : null);
         return;
       }
       if (event.type === 'folder-create') {
@@ -350,7 +353,7 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'folder-create-document') {
-        void this.#createDocumentInFolder(event.detail?.folderId ?? null);
+        void this.#createDocumentInFolder(event.detail?.folderId ?? null, this.#centerMode === 'mindmap' ? MINDMAP_TEMPLATE : null);
         return;
       }
       if (event.type === 'folder-delete' && typeof event.detail?.id === 'string') {
@@ -1470,6 +1473,7 @@ class ParsiPageHome extends PeyElement {
           t: this.#t,
           assetBaseUrl: this.#assetBaseUrl,
           activeView: this.#activeView,
+          mindmapMode: this.#centerMode === 'mindmap',
           items,
           folders,
           currentId,
@@ -1481,6 +1485,7 @@ class ParsiPageHome extends PeyElement {
         },
         configure: (element) => element.configure({
           activeView: this.#activeView,
+          mindmapMode: this.#centerMode === 'mindmap',
           items,
           folders,
           currentId,
@@ -1551,18 +1556,43 @@ class ParsiPageHome extends PeyElement {
     this.#applyResult(result);
   }
 
-  async #createDocument() {
+  /**
+   * Creates a document and opens it. A template (the map picker passes
+   * `MINDMAP_TEMPLATE`) is planted into the fresh draft right after, so
+   * list documents are instantly a map.
+   * @param {string|null} [template] Seed text to place in the new draft.
+   * @returns {Promise<void>}
+   */
+  async #createDocument(template = null) {
     this.#applyResult(await this.#docs?.createDocument());
+    this.#seedDraft(template);
   }
 
   /**
    * Creates a document inside a folder and opens it.
    * @param {string|null} folderId Target folder id, null for the root.
+   * @param {string|null} [template] Seed text to place in the new draft.
    * @returns {Promise<void>}
    */
-  async #createDocumentInFolder(folderId) {
+  async #createDocumentInFolder(folderId, template = null) {
     const target = typeof folderId === 'string' && folderId.length > 0 ? folderId : null;
     this.#applyResult(await this.#docs?.createDocument(target));
+    this.#seedDraft(template);
+  }
+
+  /**
+   * Seeds the just-opened draft with template text. Like the parent's own
+   * editor handler, the draft feeds the map directly before any save.
+   * @param {string|null} template Seed text; null keeps the empty draft.
+   * @returns {void}
+   */
+  #seedDraft(template) {
+    if (!this.isConnected || template === null) {
+      return;
+    }
+    this.#docs?.setDraft(template);
+    this.#docs?.scheduleSave();
+    this.#pushLiveUpdates();
   }
 
   /**
@@ -1994,6 +2024,7 @@ class ParsiPageHome extends PeyElement {
     const { settings = null } = this.#prefs?.getState() ?? {};
     this.#sideEl?.configure({
       activeView: this.#activeView,
+      mindmapMode: this.#centerMode === 'mindmap',
       items,
       folders,
       currentId,
