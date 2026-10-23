@@ -114,7 +114,7 @@ const catalog = {
     'parsinegar.views.close': 'بستن پنل',
     'parsinegar.about.tagline': 'میزکار فارسی نوشتن — سریع، خصوصی، همیشه در دسترس',
     'parsinegar.about.body': 'سندهای مارک‌داون شما فقط در همین مرورگر می‌مانند؛ بدون حساب، بدون سرور. بنویسید، بچینید، همگام کنید — مالک متن خودتانید.',
-    'parsinegar.about.version': 'نسخه ۰.۱۲.۰',
+    'parsinegar.about.version': 'نسخه ۰.۱۳.۰',
     'parsinegar.about.changelog': 'تاریخچه تغییرات',
     'parsinegar.help.marks-title': 'نشانه‌گذاری',
     'parsinegar.help.mark-heading': 'عنوان (۱ تا ۶)',

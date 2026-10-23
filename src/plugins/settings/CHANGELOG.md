@@ -1,5 +1,13 @@
 # Changelog — parsinegar.settings
 
+## [0.6.0]
+
+### Added
+
+- Accepted `mindmapLayout` preference (`'rtl' | 'ltr' | 'side' | 'down'`,
+  defaulting to `'rtl'`): the mindmap toolbar reports the chosen layout and
+  the page persists it; unknown values reject, old records backfill.
+
 ## [0.5.0]
 
 ### Added
