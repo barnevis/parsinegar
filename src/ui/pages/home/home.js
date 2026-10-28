@@ -1265,9 +1265,10 @@ class ParsiPageHome extends PeyElement {
   }
 
   /**
-   * Imports a local Markdown file as a new document: opens the system file
-   * picker, reads the chosen file as text and hands title plus content to
-   * the controller (mirrors the download anchor trick, in reverse).
+   * Imports local Markdown files as new documents: opens the system file
+   * picker with multi-select, reads the chosen files one by one and hands
+   * each to the controller (the last imported file stays open — mirroring
+   * the download anchor trick, in reverse).
    * @returns {Promise<void>}
    */
   async #importDocument() {
@@ -1276,25 +1277,34 @@ class ParsiPageHome extends PeyElement {
     }
     const picker = document.createElement('input');
     picker.type = 'file';
+    picker.multiple = true;
     picker.accept = '.md,.markdown,.mdown,.txt';
     picker.style.display = 'none';
     this.shadowRoot.append(picker);
     const cleanup = () => picker.remove();
     picker.addEventListener('cancel', cleanup, { once: true });
     picker.addEventListener('change', async () => {
+      // One failing file must not sink the rest of the pick; the last
+      // successful result carries the final lists plus the open document.
+      let result = null;
       try {
-        const file = picker.files?.[0] ?? null;
-        if (!file) {
-          return;
+        for (const file of picker.files ?? []) {
+          try {
+            const content = await file.text();
+            const imported = await this.#docs?.importContent({ title: deriveImportTitle(file.name), content });
+            if (imported) {
+              result = imported;
+            } else {
+              break;
+            }
+          } catch (error) {
+            console.error('[parsi-page-home] document import failed');
+          }
         }
-        const content = await file.text();
-        const result = await this.#docs?.importContent({ title: deriveImportTitle(file.name), content });
-        this.#applyResult(result);
-      } catch (error) {
-        console.error('[parsi-page-home] document import failed');
       } finally {
         cleanup();
       }
+      this.#applyResult(result);
     }, { once: true });
     picker.click();
   }

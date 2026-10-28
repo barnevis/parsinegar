@@ -352,6 +352,7 @@ test('should_import_picked_file_when_document_import_arrives', async () => {
     const picker = element.shadowRoot.querySelector('input[type="file"]');
     assert.ok(picker, 'expected the file picker');
     assert.equal(picker.getAttribute('accept'), '.md,.markdown,.mdown,.txt');
+    assert.ok(picker.multiple, 'expected multi-select on the same picker');
     const file = new File(['# وارد\n'], 'notes.md', { type: 'text/markdown' });
     Object.defineProperty(picker, 'files', { value: [file], configurable: true });
     picker.dispatchEvent(new Event('change', { bubbles: true }));
@@ -361,6 +362,61 @@ test('should_import_picked_file_when_document_import_arrives', async () => {
     assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
     const saves = documents.calls.filter(([method]) => method === 'save');
     assert.ok(saves.some(([, record]) => record.title === 'notes' && record.content === '# وارد\n'));
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_import_every_picked_file_in_order_and_open_the_last_one', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('document-import', { bubbles: true }));
+    await settled();
+    const picker = element.shadowRoot.querySelector('input[type="file"]');
+    assert.ok(picker, 'expected the file picker');
+    assert.ok(picker.multiple, 'expected multi-select on the same picker');
+    const files = [
+      new File(['# اول\n'], 'alpha.md', { type: 'text/markdown' }),
+      new File(['# دوم\n'], 'beta.md', { type: 'text/markdown' }),
+      new File(['# سوم\n'], 'gamma.md', { type: 'text/markdown' }),
+    ];
+    Object.defineProperty(picker, 'files', { value: files, configurable: true });
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    await settled();
+    await settled();
+    assert.equal(element.value, '# سوم\n', 'expected the last picked file open');
+    assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
+    // createDocument defaults an empty save; content rides the explicit save.
+    const saves = documents.calls.filter(([method]) => method === 'save')
+      .filter(([, record]) => record.content !== '');
+    assert.deepEqual(saves.map(([, record]) => record.content), ['# اول\n', '# دوم\n', '# سوم\n'], 'expected every file saved in pick order');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_import_survivors_when_one_picked_file_fails_to_read', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const element = await mountWithDocuments(documents);
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('document-import', { bubbles: true }));
+    await settled();
+    const picker = element.shadowRoot.querySelector('input[type="file"]');
+    assert.ok(picker, 'expected the file picker');
+    const bad = { name: 'bad.md', text: () => Promise.reject(new Error('unreadable')) };
+    const good = new File(['# سالم\n'], 'good.md', { type: 'text/markdown' });
+    Object.defineProperty(picker, 'files', { value: [bad, good], configurable: true });
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    await settled();
+    await settled();
+    assert.equal(element.value, '# سالم\n', 'expected the readable survivor open');
+    const saves = documents.calls.filter(([method]) => method === 'save')
+      .filter(([, record]) => record.content !== '');
+    assert.deepEqual(saves.map(([, record]) => record.content), ['# سالم\n'], 'expected only the readable file saved');
+    assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
   } finally {
     element.remove();
   }
