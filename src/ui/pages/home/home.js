@@ -1266,9 +1266,11 @@ class ParsiPageHome extends PeyElement {
 
   /**
    * Imports local Markdown files as new documents: opens the system file
-   * picker with multi-select, reads the chosen files one by one and hands
-   * each to the controller (the last imported file stays open — mirroring
-   * the download anchor trick, in reverse).
+   * picker with multi-select, reads the chosen files through the filesystem
+   * service (same Markdown filter and BOM strip as folder import — a bare
+   * text read keeps picking working when the service is missing) and hands
+   * each one to the controller in pick order (the last imported file stays
+   * open — mirroring the download anchor trick, in reverse).
    * @returns {Promise<void>}
    */
   async #importDocument() {
@@ -1287,14 +1289,23 @@ class ParsiPageHome extends PeyElement {
       // One failing file must not sink the rest of the pick; the last
       // successful result carries the final lists plus the open document.
       let result = null;
+      const importOne = async (name, read) => {
+        const imported = await this.#docs?.importContent({ title: deriveImportTitle(name), content: await read() });
+        if (imported) {
+          result = imported;
+          return true;
+        }
+        return false;
+      };
       try {
-        for (const file of picker.files ?? []) {
+        const filesystem = this.#filesystem;
+        const readAll = filesystem
+          ? (await filesystem.collectEntries([...(picker.files ?? [])]))
+            .map((entry) => [entry.name, () => filesystem.readEntry(entry)])
+          : [...(picker.files ?? [])].map((file) => [file.name, () => file.text()]);
+        for (const [name, read] of readAll) {
           try {
-            const content = await file.text();
-            const imported = await this.#docs?.importContent({ title: deriveImportTitle(file.name), content });
-            if (imported) {
-              result = imported;
-            } else {
+            if (!await importOne(name, read)) {
               break;
             }
           } catch (error) {

@@ -10,6 +10,7 @@ import '../../setup-styles.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TAG } from '../../../pages/home/home.js';
+import { createService as createRealFilesystem } from '../../../../plugins/filesystem/lib/filesystem-service.js';
 import {
   ASSET_BASE_URL,
   baseRefs,
@@ -417,6 +418,34 @@ test('should_import_survivors_when_one_picked_file_fails_to_read', async () => {
       .filter(([, record]) => record.content !== '');
     assert.deepEqual(saves.map(([, record]) => record.content), ['# سالم\n'], 'expected only the readable file saved');
     assert.equal(element.shadowRoot.querySelector('input[type="file"]'), null, 'expected the picker removed');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_read_picked_files_through_the_filesystem_service_when_importing', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
+  const filesystem = createRealFilesystem({});
+  const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('document-import', { bubbles: true }));
+    await settled();
+    const picker = element.shadowRoot.querySelector('input[type="file"]');
+    assert.ok(picker, 'expected the file picker');
+    const files = [
+      new File(['\uFEFF# بابی‌اوم\n'], 'note.md', { type: 'text/markdown' }),
+      new File(['not text'], 'pic.png', { type: 'image/png' }),
+      new File(['# دوم\n'], 'beta.txt', { type: 'text/plain' }),
+    ];
+    Object.defineProperty(picker, 'files', { value: files, configurable: true });
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await settled();
+    await settled();
+    await settled();
+    assert.equal(element.value, '# دوم\n', 'expected the last markdown pick open');
+    const saves = documents.calls.filter(([method]) => method === 'save')
+      .filter(([, record]) => record.content !== '');
+    assert.deepEqual(saves.map(([, record]) => record.content), ['# بابی‌اوم\n', '# دوم\n'], 'expected BOM stripped through the service and non-markdown skipped');
   } finally {
     element.remove();
   }
