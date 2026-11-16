@@ -31,9 +31,9 @@ html[data-theme="dark"] body {
     --pey-color-text: #e8eaf0;
     --pey-color-text-muted: #9aa3b2;
     --pey-color-border: #2e3642;
-    --pey-color-accent: #6ea8ff;
+    --pey-color-accent: #5eead4;
     --pey-color-status-error: #e07070;
-    --pey-color-focus-ring: rgb(110 168 255 / 0.5);
+    --pey-color-focus-ring: rgb(94 234 212 / 0.45);
   }
 
   html[data-theme="system"] body {

@@ -208,11 +208,14 @@ const foldTheme = EditorView.theme({
     blockSize: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    transform: 'translateY(-50%) rotate(45deg)',
+    // The small lift on both states is optical: the rotated glyph's ink sits
+    // in the diamond's lower half, so a geometric center reads low against
+    // the text line and the open tip dips under the row.
+    transform: 'translateY(calc(-50% - 0.15em)) rotate(45deg)',
     cursor: 'pointer',
   },
   '& .parsi-list-marker.parsi-list-collapsed .parsi-list-chevron': {
-    transform: 'translateY(-50%) rotate(135deg)',
+    transform: 'translateY(calc(-50% - 0.1em)) rotate(135deg)',
   },
   // A collapsed (left-pointing) chevron carries its tip at the box middle,
   // while the open one carries it below the box: the collapsed box drops by
@@ -245,11 +248,11 @@ const foldTheme = EditorView.theme({
     blockSize: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    transform: 'translateY(-50%) rotate(45deg)',
+    transform: 'translateY(calc(-50% - 0.15em)) rotate(45deg)',
     cursor: 'pointer',
   },
   '& .parsi-task-marker.parsi-list-collapsed .parsi-list-chevron': {
-    transform: 'translateY(-50%) rotate(135deg)',
+    transform: 'translateY(calc(-50% - 0.1em)) rotate(135deg)',
   },
 });
 

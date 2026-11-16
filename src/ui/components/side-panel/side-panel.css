@@ -191,7 +191,7 @@
   transform: translateY(-50%) rotate(45deg);
 }
 [part="docs-toggle"][aria-expanded="false"] > [part="outline-chevron"] {
-  transform: translateY(-50%) rotate(135deg);
+  transform: rotate(135deg);
 }
 [part="file-submenu-wrap"] {
   display: flex;
@@ -683,20 +683,6 @@ a[part="settings-button"] {
   background-color: color-mix(in srgb, #b91c1c 10%, transparent);
   color: #b91c1c;
   overflow-wrap: anywhere;
-}
-/* Destructive settings action (data wipe): the red error ink as an outlined
- * button — same danger hue as the failure banner, never the primary accent. */
-[part="settings-danger"] {
-  border: 1px solid color-mix(in srgb, #b91c1c 55%, transparent);
-  color: #b91c1c;
-  font-weight: 700;
-}
-[part="settings-danger"]:hover {
-  background-color: color-mix(in srgb, #b91c1c 12%, transparent);
-}
-[part="settings-danger"]:focus-visible {
-  outline: 2px solid color-mix(in srgb, #b91c1c 55%, transparent);
-  outline-offset: 2px;
 }
 [part="docs-open"]:focus-visible,
 [part="outline-jump"]:focus-visible,

@@ -148,7 +148,7 @@ const catalog = {
     'parsinegar.settings.increase': 'بزرگ‌تر',
     'parsinegar.settings.wipe-title': 'پاک‌سازی داده‌ها',
     'parsinegar.settings.wipe-note': 'همهٔ سندها، پوشه‌ها، تنظیمات، پیش‌نویس‌های دیسک و اتصال همگام‌سازی از همین مرورگر پاک می‌شوند.',
-    'parsinegar.settings.wipe': 'پاک کردن کل داده‌ها',
+    'parsinegar.settings.wipe': 'پاک کردن',
     'parsinegar.settings.wipe-confirm': 'همهٔ داده‌های پارسی‌نگار در این مرورگر برای همیشه پاک می‌شود و برنامه مثل نصب تازه از نو شروع می‌شود. اگر داده‌ای را می‌خواهید نگه دارید، پیش از ادامه با «دانلود همه (zip)» نسخهٔ پشتیبان بگیرید.',
     'parsinegar.settings.wipe-yes': 'پاک کن',
     'parsinegar.sync.title': 'همگام‌سازی',
