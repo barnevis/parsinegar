@@ -150,6 +150,17 @@
   padding-inline-start: 1rem;
   flex-basis: 100%;
 }
+/* Folder header wrapper: the row's own line inside the wrapping flex item.
+   The folder menu anchors (top: 100%) to this wrapper, not to the whole
+   li — the li also contains the nested subtree, which would push the open
+   menu below every child instead of under the row's ⋯ button. */
+[part="docs-folder-header"] {
+  position: relative;
+  flex-basis: 100%;
+  display: flex;
+  gap: 0.2rem;
+  align-items: center;
+}
 [part="files-view"] {
   font-size: 13px;
 }

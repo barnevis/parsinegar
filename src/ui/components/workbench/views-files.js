@@ -235,9 +235,11 @@ export function renderFilesView({ t, items, folders = [], currentId, openMenuId,
     const shut = collapsed.has(node.id);
     return `
     <li part="docs-item" data-folder-dir="true">
-      <button type="button" part="docs-toggle" data-folder-toggle="${escapeHtml(node.id)}" aria-expanded="${shut ? 'false' : 'true'}" aria-label="${escapeHtml(translate(shut ? 'parsinegar.disk.expand' : 'parsinegar.disk.collapse'))}"><span part="outline-chevron" aria-hidden="true"></span><span>${escapeHtml(node.label)}</span></button>
-      <button type="button" part="docs-menu" data-doc-menu="${escapeHtml(folderKey)}" aria-haspopup="true" aria-expanded="${openMenuId === folderKey}" aria-label="${escapeHtml(translate('parsinegar.folders.menu'))}">⋮</button>
-      ${openMenuId === folderKey ? renderFolderMenu(translate, node.id) : ''}
+      <div part="docs-folder-header">
+        <button type="button" part="docs-toggle" data-folder-toggle="${escapeHtml(node.id)}" aria-expanded="${shut ? 'false' : 'true'}" aria-label="${escapeHtml(translate(shut ? 'parsinegar.disk.expand' : 'parsinegar.disk.collapse'))}"><span part="outline-chevron" aria-hidden="true"></span><span>${escapeHtml(node.label)}</span></button>
+        <button type="button" part="docs-menu" data-doc-menu="${escapeHtml(folderKey)}" aria-haspopup="true" aria-expanded="${openMenuId === folderKey}" aria-label="${escapeHtml(translate('parsinegar.folders.menu'))}">⋮</button>
+        ${openMenuId === folderKey ? renderFolderMenu(translate, node.id) : ''}
+      </div>
       ${shut ? '' : `<ul part="docs-list">${node.children.map(renderFolderNode).join('')}${docsOf(node.id).map(renderDocRow).join('')}</ul>`}
     </li>`;
   };

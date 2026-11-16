@@ -232,6 +232,14 @@ test('should_render_folder_menu_when_open', () => {
   assert.ok(html.includes('data-folder-rename="f1"'), 'expected the folder rename action');
   assert.ok(html.includes('data-folder-new-doc="f1"'), 'expected the new-here action');
   assert.ok(html.includes('data-folder-delete="f1"'), 'expected the folder delete action');
+  // The menu anchors (top: 100%) to the header wrapper, not to the whole
+  // li — the li also holds the nested subtree and would drop the open menu
+  // below every child instead of under the row's ⋯ button.
+  const headerStart = html.indexOf('part="docs-folder-header"');
+  const menuStart = html.indexOf('part="file-menu"');
+  const headerEnd = html.indexOf('</div>', headerStart);
+  assert.ok(headerStart >= 0, 'expected the positioned header wrapper');
+  assert.ok(menuStart > headerStart && menuStart < headerEnd, 'expected the folder menu inside the header wrapper');
 });
 
 test('should_render_move_submenu_when_open', () => {
