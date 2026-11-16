@@ -7,7 +7,7 @@
 // listeners until destroy() releases them.
 import { EditorView, minimalSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { cursorLineEnd, cursorLineStart, indentWithTab, redo, selectAll, selectLineEnd, selectLineStart, undo } from '@codemirror/commands';
+import { cursorLineEnd, indentWithTab, redo, selectAll, selectLineEnd, selectLineStart, undo } from '@codemirror/commands';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { SearchQuery, search, setSearchQuery } from '@codemirror/search';
 import { keymap } from '@codemirror/view';
@@ -19,6 +19,7 @@ import { codeHighlightExtensions, codeLanguageDescriptions } from './code-highli
 import { lineDirectionExtensions } from './line-direction.js';
 import { listFoldExtensions } from './list-fold.js';
 import { listHangExtensions } from './list-hang.js';
+import { listHomeCursor } from './list-home.js';
 import { livePreviewExtensions } from './live-preview.js';
 import { continueList, indentListItem, listResequenceExtension } from './list-continue.js';
 import { indentNormalizeExtensions } from './indent-normalize.js';
@@ -214,14 +215,16 @@ export function createMarkdownView(host, options = {}) {
       // strands the cursor hopping between marks on marked lines (the lookup
       // resolves through zero-size mark spans and flips with cursor affinity,
       // so it never settles on the line start). Position-based jumps bypass
-      // measurement entirely and behave the same in rtl and ltr. Prec.high:
+      // measurement entirely and behave the same in rtl and ltr. On list
+      // lines Home cycles first to the item's text start (after the marker)
+      // and only then to the absolute line start (list-home.js). Prec.high:
       // minimalSetup already carries defaultKeymap, which wins ties by
       // position, so equal precedence would never reach these bindings.
       // Always consume: CodeMirror falls through to lower-precedence bindings
       // when a command reports no change, which would revive the stock
       // hopping exactly when already parked at the line edge.
       Prec.high(keymap.of([
-        { key: 'Home', run: alwaysConsume(cursorLineStart), shift: alwaysConsume(selectLineStart) },
+        { key: 'Home', run: alwaysConsume(listHomeCursor), shift: alwaysConsume(selectLineStart) },
         { key: 'End', run: alwaysConsume(cursorLineEnd), shift: alwaysConsume(selectLineEnd) },
       ])),
       // Bracket pairing (`()[]{}`) plus pair-aware Backspace from the keymap.
