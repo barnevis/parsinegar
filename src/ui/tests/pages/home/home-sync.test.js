@@ -452,6 +452,30 @@ test('should_clear_dirty_dot_after_clean_sync', async () => {
   }
 });
 
+test('should_run_sync_now_from_clean_state_when_dispatched', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    await settled();
+    await settled();
+    assert.equal(syncDot(element), 'ok', 'expected the clean green state before the run');
+    element.shadowRoot.querySelector('[part="workbench"]').dispatchEvent(new CustomEvent('sync-now', { bubbles: true, detail: {} }));
+    await settled();
+    await settled();
+    await settled();
+    assert.deepEqual(syncer.calls, [['syncNow']], 'expected the clean state to still run a sync — the repository may hold news to take');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_carry_ignore_patterns_in_sync_scope_when_synced', async () => {
   const documents = createDocuments([
     { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },

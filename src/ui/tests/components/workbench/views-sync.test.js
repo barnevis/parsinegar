@@ -68,18 +68,13 @@ test('should_render_sync_error_when_unconfigured', () => {
   assert.ok(markup.includes('boom'));
 });
 
-test('should_disable_sync_now_when_clean_or_busy', () => {
+test('should_keep_sync_now_enabled_when_clean', () => {
   const clean = renderSyncView({
     t: (key) => key,
-    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null, busy: false, clean: true },
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null, busy: false },
   });
-  assert.ok(clean.includes('data-sync-now disabled'), 'expected the clean state to disable sync');
+  assert.ok(!clean.includes('data-sync-now disabled'), 'expected sync enabled with nothing to send — the repository may hold news to take');
   assert.ok(!clean.includes('data-sync-remove disabled'), 'expected remove to stay available');
-  const dirty = renderSyncView({
-    t: (key) => key,
-    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null, busy: false, clean: false },
-  });
-  assert.ok(!dirty.includes('data-sync-now disabled'), 'expected sync enabled when there is news to send');
 });
 
 test('should_disable_actions_and_rename_labels_when_busy', () => {

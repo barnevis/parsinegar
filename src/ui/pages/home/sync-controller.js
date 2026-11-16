@@ -89,12 +89,6 @@ export function createSyncController({
           busy,
           ignoreText: storedIgnore().join('\n'),
           autoCommit: autoCommit(),
-          clean: syncStatus.configured === true
-            && !busy
-            && conflicts.length === 0
-            && !dirty
-            && !errorText
-            && typeof lastSyncText === 'string',
         };
       }
     } catch {
@@ -133,20 +127,6 @@ export function createSyncController({
       }
       dirty = next;
       notifyChrome();
-      // The settings view gates «همگام‌سازی» on cleanliness too: refresh the
-      // stored snapshot's flag without a service round-trip.
-      if (status) {
-        status = {
-          ...status,
-          clean: status.configured === true
-            && !busy
-            && conflicts.length === 0
-            && !next
-            && !status.errorText
-            && typeof status.lastSyncText === 'string',
-        };
-        notifyPanel();
-      }
     });
     dirtyWrite = run.catch(() => {});
     return run;

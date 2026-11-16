@@ -53,19 +53,20 @@ function tip(assetBaseUrl, label, contentHtml) {
  * configured. The token is never echoed back; the insecure-storage warning
  * and the single-repo advice ride the token field's tip icon. The host is a
  * radio pair inside the sync group; GitLab adds the optional base URL
- * (self-hosted). A clean green state disables «همگام‌سازی» — there is
- * nothing new to send or take.
+ * (self-hosted). «همگام‌سازی» stays enabled in the clean green state — the
+ * repository may hold news to take even when the device has none to send,
+ * and a clean run only reconciles read-only (it never writes, so no empty
+ * commits).
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
  * @param {string|null} [options.assetBaseUrl] Asset directory URL for icons.
- * @param {object|null} [options.sync] `{ configured, kind, repo, branch, baseUrl, lastSyncText, errorText, busy, ignoreText, autoCommit, clean }`.
+ * @param {object|null} [options.sync] `{ configured, kind, repo, branch, baseUrl, lastSyncText, errorText, busy, ignoreText, autoCommit }`.
  * @returns {string} Sync view markup.
  */
 export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const snapshot = sync && typeof sync === 'object' ? sync : null;
   const busy = snapshot?.busy === true;
-  const clean = snapshot?.clean === true;
   const error = snapshot?.errorText
     ? `<p part="settings-error">${escapeHtml(translate('parsinegar.sync.error'))}: ${escapeHtml(snapshot.errorText)}</p>`
     : '';
@@ -100,7 +101,7 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
         ${autoCommitTip.pop}
       </span>
       <div part="settings-actions">
-        <button type="button" part="settings-button" data-primary data-sync-now${busy || clean ? ' disabled' : ''}>${busy ? spinner : ''}${escapeHtml(translate('parsinegar.sync.now'))}</button>
+        <button type="button" part="settings-button" data-primary data-sync-now${busy ? ' disabled' : ''}>${busy ? spinner : ''}${escapeHtml(translate('parsinegar.sync.now'))}</button>
         <button type="button" part="settings-button" data-sync-remove${busy ? ' disabled' : ''}>${escapeHtml(translate('parsinegar.sync.remove'))}</button>
       </div>
       ${busy ? `<p part="settings-note">${escapeHtml(translate('parsinegar.sync.syncing'))}</p>` : ''}`
