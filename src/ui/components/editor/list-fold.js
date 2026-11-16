@@ -202,7 +202,10 @@ const foldTheme = EditorView.theme({
   '& .cm-line.parsi-list-active .parsi-list-marker .parsi-list-chevron': { display: 'block' },
   '& .parsi-list-marker .parsi-list-chevron': {
     position: 'absolute',
-    insetInlineStart: '-1em',
+    // 0.75em (not the full 1em pad): the outer wing end of the open chevron
+    // must stay inside the scroller's clip edge — at -1em it poked ~2px
+    // past it and the right wing lost its tip.
+    insetInlineStart: '-0.75em',
     top: 'calc(50% - 0.26em)',
     inlineSize: '0.3em',
     blockSize: '0.3em',
@@ -237,7 +240,7 @@ const foldTheme = EditorView.theme({
   '& .cm-line.parsi-list-active .parsi-task-marker .parsi-list-chevron': { display: 'block' },
   '& .parsi-task-marker .parsi-list-chevron': {
     position: 'absolute',
-    insetInlineStart: '-1em',
+    insetInlineStart: '-0.75em',
     top: '50%',
     inlineSize: '0.3em',
     blockSize: '0.3em',
