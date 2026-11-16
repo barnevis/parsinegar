@@ -203,34 +203,29 @@ const foldTheme = EditorView.theme({
   '& .parsi-list-marker .parsi-list-chevron': {
     position: 'absolute',
     insetInlineStart: '-1em',
-    top: '50%',
+    top: 'calc(50% - 0.26em)',
     inlineSize: '0.3em',
     blockSize: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    // The small lift on both states is optical: the rotated glyph's ink sits
-    // in the diamond's lower half, so a geometric center reads low against
-    // the text line and the open tip dips under the row.
-    transform: 'translateY(calc(-50% - 0.15em)) rotate(45deg)',
+    // The pivot sits just inside the tip corner, not the box center: the
+    // open (down-pointing) tip lands on the marker glyph's bottom edge and
+    // the collapsed (side-pointing) tip faces the glyph's middle, while the
+    // box itself barely moves between the two states — one fixed axis,
+    // rotation only.
+    transformOrigin: '0.26em 0.26em',
+    transform: 'rotate(45deg)',
     cursor: 'pointer',
   },
   '& .parsi-list-marker.parsi-list-collapsed .parsi-list-chevron': {
-    transform: 'translateY(calc(-50% - 0.1em)) rotate(135deg)',
+    transform: 'rotate(135deg)',
   },
-  // A collapsed (left-pointing) chevron carries its tip at the box middle,
-  // while the open one carries it below the box: the collapsed box drops by
-  // the same tip offset so both tips land on the bullet glyph. Ordered rows
-  // keep the shared position untouched.
-  '& .parsi-list-marker.parsi-list-bullet.parsi-list-collapsed .parsi-list-chevron': {
-    top: 'calc(50% - 0.25em + 0.28em)',
-    transform: 'translateY(-50%) rotate(135deg)',
-  },
-  // The chevron inherits the bullet nudge through its relative parent, so
-  // its own top cancels it back out: the open tip lands exactly where it
-  // always was — now on the lowered bullet. Ordered rows keep the shared
-  // rule untouched.
+  // The bullet glyph paints a touch lower than the ordered number, so its
+  // pivot rides 2px higher relative to the span: the open tip lands on the
+  // dot's bottom edge and the collapsed tip faces the dot's middle, on the
+  // same fixed axis as every other chevron.
   '& .parsi-list-marker.parsi-list-bullet .parsi-list-chevron': {
-    top: 'calc(50% - 0.25em)',
+    top: 'calc(50% - 0.26em - 2px)',
   },
   // Task chevrons overlay like bullet chevrons instead of taking flow
   // space: behind the box sits only the gap, the zero-size hidden dash and
@@ -248,11 +243,11 @@ const foldTheme = EditorView.theme({
     blockSize: '0.3em',
     borderRight: '2px solid currentColor',
     borderBottom: '2px solid currentColor',
-    transform: 'translateY(calc(-50% - 0.15em)) rotate(45deg)',
+    transform: 'translateY(-50%) rotate(45deg)',
     cursor: 'pointer',
   },
   '& .parsi-task-marker.parsi-list-collapsed .parsi-list-chevron': {
-    transform: 'translateY(calc(-50% - 0.1em)) rotate(135deg)',
+    transform: 'translateY(-50%) rotate(135deg)',
   },
 });
 
