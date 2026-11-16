@@ -1,8 +1,10 @@
 // Task-list rendering for the Persian Markdown editor: `- [ ]` / `- [x]`
-// boxes become clickable checkboxes (☐/☑). The raw box stays in the document
-// and reappears only where the cursor (or selection) overlaps it, so the
-// source remains plain Markdown. Pure presentation plus a view-local toggle;
-// no services involved.
+// boxes become clickable checkboxes drawn in CSS (a bordered square; the
+// border ink is scheme-specific, see editor-theme.js, and a checked box
+// carries a CSS-drawn check). The raw box stays in the document and
+// reappears only where the cursor (or selection) overlaps it, so the source
+// remains plain Markdown. A completed item's text is struck through. Pure
+// presentation plus a view-local toggle; no services involved.
 import { EditorView } from 'codemirror';
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view';
 import { collectListParents, hasFoldEffects, isFoldedRange } from './list-fold.js';
@@ -12,8 +14,28 @@ import { collectListParents, hasFoldEffects, isFoldedRange } from './list-fold.j
  */
 export const TASK_LINE_PATTERN = /^[ \t]*(?:[*+-]|\d+[.)])\s+\[[ xX]\]/;
 
-const CHECKED_GLYPH = '☑';
-const UNCHECKED_GLYPH = '☐';
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Builds the check mark as an inline SVG: a symmetric glyph flex-centers in
+ * the box on its own, where a text glyph proved zero-advance (RTL-shifting)
+ * and a rotated border-L leaned off-center at every font size.
+ * @returns {SVGElement} Check mark rooted at an `svg` element.
+ */
+function buildCheckMark() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 10 8');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', 'M1.5 4.4 L4 6.9 L8.5 1.4');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.7');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.append(path);
+  return svg;
+}
 
 /**
  * Returns the toggled box content for a task marker character.
@@ -73,10 +95,18 @@ class TaskBoxWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span');
     span.className = this.fold?.folded === true ? 'parsi-task-marker parsi-list-collapsed' : 'parsi-task-marker';
-    span.textContent = this.checked ? CHECKED_GLYPH : UNCHECKED_GLYPH;
     span.setAttribute('role', 'checkbox');
     span.setAttribute('aria-checked', String(this.checked));
     span.dataset.taskFrom = String(this.from);
+    const box = document.createElement('span');
+    box.className = 'parsi-task-box';
+    if (this.checked) {
+      const check = document.createElement('span');
+      check.className = 'parsi-task-check';
+      check.append(buildCheckMark());
+      box.append(check);
+    }
+    span.append(box);
     if (this.fold) {
       span.dataset.foldFrom = String(this.fold.from);
       span.dataset.foldTo = String(this.fold.to);
@@ -107,10 +137,22 @@ function buildTaskDecorations(view) {
       const line = view.state.doc.lineAt(pos);
       if (TASK_LINE_PATTERN.test(line.text)) {
         const box = findTaskBox(line, line.from);
-        if (box && (selection.from > box.to || selection.to < box.from)) {
-          builder.push(
-            Decoration.replace({ widget: new TaskBoxWidget(box.checked, box.from, foldOf(view, box.from)) }).range(box.from, box.to),
-          );
+        if (box) {
+          if (selection.from > box.to || selection.to < box.from) {
+            builder.push(
+              Decoration.replace({ widget: new TaskBoxWidget(box.checked, box.from, foldOf(view, box.from)) }).range(box.from, box.to),
+            );
+          }
+          // A completed item reads as done wherever the caret sits: the
+          // strike covers the item's own text (nested lines keep theirs) but
+          // skips the separator space, so struck text never touches the box.
+          let strikeFrom = box.to;
+          while (strikeFrom < line.to && /[ \t]/.test(line.text[strikeFrom - line.from])) {
+            strikeFrom += 1;
+          }
+          if (box.checked && line.to > strikeFrom) {
+            builder.push(Decoration.mark({ class: 'parsi-task-done' }).range(strikeFrom, line.to));
+          }
         }
       }
       pos = line.to + 1;
@@ -162,6 +204,23 @@ const taskMarkerPlugin = ViewPlugin.fromClass(
 
 const taskTheme = EditorView.theme({
   '& .parsi-task-marker': { cursor: 'pointer', color: 'var(--pey-color-accent, #5eead4)', fontWeight: '700' },
+  // Structure only — the border ink is the scheme's (editor-theme.js), so
+  // every theme step reads softer than pure text yet keeps the scheme hue.
+  '& .parsi-task-box': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
+    width: '0.95em',
+    height: '0.95em',
+    borderStyle: 'solid',
+    borderWidth: '0.125em',
+    borderRadius: '0.2em',
+    verticalAlign: '-0.15em',
+  },
+  '& .parsi-task-check': { display: 'flex' },
+  '& .parsi-task-check svg': { display: 'block', width: '0.62em', height: '0.5em' },
+  '& .parsi-task-done': { textDecoration: 'line-through' },
 });
 
 /**

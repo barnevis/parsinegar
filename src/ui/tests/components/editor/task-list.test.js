@@ -34,7 +34,9 @@ test('should_render_checkbox_when_task_is_open', () => {
   try {
     const box = mounted.host.querySelector('.parsi-task-marker');
     assert.ok(box, 'expected a checkbox widget');
-    assert.equal(box.textContent, '☐');
+    assert.equal(box.getAttribute('aria-checked'), 'false');
+    assert.ok(box.querySelector('.parsi-task-box'), 'expected the drawn square');
+    assert.equal(box.querySelector('.parsi-task-check'), null, 'expected no mark in an open box');
   } finally {
     destroy(mounted);
   }
@@ -45,7 +47,8 @@ test('should_render_checked_box_when_task_is_done', () => {
   try {
     const box = mounted.host.querySelector('.parsi-task-marker');
     assert.ok(box, 'expected a checkbox widget');
-    assert.equal(box.textContent, '☑');
+    assert.equal(box.getAttribute('aria-checked'), 'true');
+    assert.ok(box.querySelector('.parsi-task-check'), 'expected the drawn check inside the box');
   } finally {
     destroy(mounted);
   }
@@ -57,7 +60,7 @@ test('should_show_widget_when_cursor_is_elsewhere_on_task_line', () => {
     mounted.editor.focus();
     const box = mounted.host.querySelector('.parsi-task-marker');
     assert.ok(box, 'expected a checkbox widget when the cursor is not on the box');
-    assert.equal(box.textContent, '☐');
+    assert.equal(box.getAttribute('aria-checked'), 'false');
   } finally {
     destroy(mounted);
   }
@@ -96,7 +99,8 @@ test('should_lead_box_when_parent_task_carries_chevron', () => {
     const parent = mounted.host.querySelector('.parsi-task-marker[data-fold-from]');
     assert.ok(parent, 'expected the parent box to carry fold data');
     assert.equal(parent.firstElementChild?.className, 'parsi-list-chevron');
-    assert.equal(parent.textContent, '☐');
+    assert.equal(parent.getAttribute('aria-checked'), 'false');
+    assert.ok(parent.querySelector('.parsi-task-box'), 'expected the drawn square after the chevron');
   } finally {
     destroy(mounted);
   }
@@ -128,7 +132,33 @@ test('should_fold_children_when_parent_task_chevron_is_clicked', () => {
       'expected the collapsed task color',
     );
     assert.equal(mounted.host.querySelectorAll('.cm-line').length, 3);
-    assert.equal(parent.textContent, '☐', 'expected no checkbox toggle on chevron click');
+    assert.equal(parent.getAttribute('aria-checked'), 'false', 'expected no checkbox toggle on chevron click');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_strike_text_of_completed_task_only', () => {
+  const mounted = createEditor('- [x] انجام‌شده\n- [ ] باز');
+  try {
+    const struck = [...mounted.host.querySelectorAll('.parsi-task-done')];
+    assert.equal(struck.length, 1, 'expected exactly the done item struck');
+    assert.ok(struck[0].textContent.includes('انجام‌شده'));
+    assert.ok(!struck[0].textContent.includes('باز'), 'expected the open item untouched');
+  } finally {
+    destroy(mounted);
+  }
+});
+
+test('should_strike_task_text_after_toggling_the_box', () => {
+  const mounted = createEditor('- [ ] خرید');
+  try {
+    assert.equal(mounted.host.querySelector('.parsi-task-done'), null);
+    mounted.host.querySelector('.parsi-task-marker').dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+    );
+    assert.ok(mounted.host.querySelector('.parsi-task-done'), 'expected the strike after completing');
+    assert.equal(mounted.host.querySelector('.parsi-task-done').textContent, 'خرید');
   } finally {
     destroy(mounted);
   }

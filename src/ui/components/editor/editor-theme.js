@@ -34,6 +34,13 @@ const SEPIA_CURSOR = '#5f4b32';
 const SEPIA_HIGHLIGHT_BACKGROUND = '#fcd34d';
 const SEPIA_HIGHLIGHT_INK = '#5f4b32';
 
+// Task-box border ink (task-list.js draws the square): the scheme's own text
+// color at reduced alpha — same hue, softer than pure text, never harsh white
+// or black on any scheme.
+const TASK_BOX_BORDER_LIGHT = 'rgba(28, 32, 38, 0.55)';
+const TASK_BOX_BORDER_DARK = 'rgba(232, 234, 240, 0.6)';
+const TASK_BOX_BORDER_SEPIA = 'rgba(95, 75, 50, 0.55)';
+
 const DARK_CODE_KEYWORD = '#c084fc';
 const DARK_CODE_STRING = '#a3e635';
 const DARK_CODE_COMMENT = '#7d8aa0';
@@ -68,6 +75,7 @@ export function editorColorScheme(colorScheme) {
     ? LIGHT_HIGHLIGHT_BACKGROUND
     : dark ? DARK_HIGHLIGHT_BACKGROUND : SEPIA_HIGHLIGHT_BACKGROUND;
   const highlightInk = light ? LIGHT_HIGHLIGHT_INK : dark ? DARK_HIGHLIGHT_INK : SEPIA_HIGHLIGHT_INK;
+  const taskBoxBorder = light ? TASK_BOX_BORDER_LIGHT : dark ? TASK_BOX_BORDER_DARK : TASK_BOX_BORDER_SEPIA;
   const rules = {
     '& .cm-searchMatch': {
       backgroundColor: searchMatch,
@@ -79,6 +87,9 @@ export function editorColorScheme(colorScheme) {
     '& .parsi-highlight': {
       backgroundColor: highlightBackground,
       color: highlightInk,
+    },
+    '& .parsi-task-marker .parsi-task-box': {
+      borderColor: taskBoxBorder,
     },
     ...Object.fromEntries(
       admonitionSchemeRules(scheme).map((rule) => [rule.selector, rule.declarations]),
