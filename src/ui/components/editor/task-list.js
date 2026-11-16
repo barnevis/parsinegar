@@ -99,7 +99,7 @@ class TaskBoxWidget extends WidgetType {
     span.setAttribute('aria-checked', String(this.checked));
     span.dataset.taskFrom = String(this.from);
     const box = document.createElement('span');
-    box.className = 'parsi-task-box';
+    box.className = this.checked ? 'parsi-task-box parsi-task-checked' : 'parsi-task-box';
     if (this.checked) {
       const check = document.createElement('span');
       check.className = 'parsi-task-check';
@@ -206,6 +206,10 @@ const taskTheme = EditorView.theme({
   '& .parsi-task-marker': { cursor: 'pointer', color: 'var(--pey-color-accent, #5eead4)', fontWeight: '700' },
   // Structure only — the border ink is the scheme's (editor-theme.js), so
   // every theme step reads softer than pure text yet keeps the scheme hue.
+  // vertical-align must be content-independent: an inline-flex baseline is
+  // taken from its content when filled and from its bottom edge when empty,
+  // which made the box jump on toggle — `middle` pins the margin-box
+  // midpoint for both states.
   '& .parsi-task-box': {
     display: 'inline-flex',
     alignItems: 'center',
@@ -216,7 +220,14 @@ const taskTheme = EditorView.theme({
     borderStyle: 'solid',
     borderWidth: '0.125em',
     borderRadius: '0.2em',
-    verticalAlign: '-0.15em',
+    verticalAlign: 'middle',
+  },
+  // A completed box fills with the accent token (which resolves at the
+  // element, unlike the scheme literals) — border and interior one color —
+  // and the drawn check takes the contrasting ink from editor-theme.js.
+  '& .parsi-task-box.parsi-task-checked': {
+    borderColor: 'var(--pey-color-accent, #5eead4)',
+    backgroundColor: 'var(--pey-color-accent, #5eead4)',
   },
   '& .parsi-task-check': { display: 'flex' },
   '& .parsi-task-check svg': { display: 'block', width: '0.62em', height: '0.5em' },

@@ -36,10 +36,14 @@ const SEPIA_HIGHLIGHT_INK = '#5f4b32';
 
 // Task-box border ink (task-list.js draws the square): the scheme's own text
 // color at reduced alpha — same hue, softer than pure text, never harsh white
-// or black on any scheme.
+// or black on any scheme. A completed box fills with the accent token; the
+// drawn check then takes the scheme's canvas ink so it reads on the fill.
 const TASK_BOX_BORDER_LIGHT = 'rgba(28, 32, 38, 0.55)';
 const TASK_BOX_BORDER_DARK = 'rgba(232, 234, 240, 0.6)';
 const TASK_BOX_BORDER_SEPIA = 'rgba(95, 75, 50, 0.55)';
+const TASK_CHECK_INK_LIGHT = '#ffffff';
+const TASK_CHECK_INK_DARK = '#161a21';
+const TASK_CHECK_INK_SEPIA = '#f4ecd8';
 
 const DARK_CODE_KEYWORD = '#c084fc';
 const DARK_CODE_STRING = '#a3e635';
@@ -76,6 +80,7 @@ export function editorColorScheme(colorScheme) {
     : dark ? DARK_HIGHLIGHT_BACKGROUND : SEPIA_HIGHLIGHT_BACKGROUND;
   const highlightInk = light ? LIGHT_HIGHLIGHT_INK : dark ? DARK_HIGHLIGHT_INK : SEPIA_HIGHLIGHT_INK;
   const taskBoxBorder = light ? TASK_BOX_BORDER_LIGHT : dark ? TASK_BOX_BORDER_DARK : TASK_BOX_BORDER_SEPIA;
+  const taskCheckInk = light ? TASK_CHECK_INK_LIGHT : dark ? TASK_CHECK_INK_DARK : TASK_CHECK_INK_SEPIA;
   const rules = {
     '& .cm-searchMatch': {
       backgroundColor: searchMatch,
@@ -90,6 +95,9 @@ export function editorColorScheme(colorScheme) {
     },
     '& .parsi-task-marker .parsi-task-box': {
       borderColor: taskBoxBorder,
+    },
+    '& .parsi-task-marker .parsi-task-box.parsi-task-checked .parsi-task-check': {
+      color: taskCheckInk,
     },
     ...Object.fromEntries(
       admonitionSchemeRules(scheme).map((rule) => [rule.selector, rule.declarations]),

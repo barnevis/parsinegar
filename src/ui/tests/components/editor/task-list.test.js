@@ -36,6 +36,7 @@ test('should_render_checkbox_when_task_is_open', () => {
     assert.ok(box, 'expected a checkbox widget');
     assert.equal(box.getAttribute('aria-checked'), 'false');
     assert.ok(box.querySelector('.parsi-task-box'), 'expected the drawn square');
+    assert.equal(box.querySelector('.parsi-task-box.parsi-task-checked'), null, 'expected an open box unfilled');
     assert.equal(box.querySelector('.parsi-task-check'), null, 'expected no mark in an open box');
   } finally {
     destroy(mounted);
@@ -48,6 +49,7 @@ test('should_render_checked_box_when_task_is_done', () => {
     const box = mounted.host.querySelector('.parsi-task-marker');
     assert.ok(box, 'expected a checkbox widget');
     assert.equal(box.getAttribute('aria-checked'), 'true');
+    assert.ok(box.querySelector('.parsi-task-box.parsi-task-checked'), 'expected the filled box');
     assert.ok(box.querySelector('.parsi-task-check'), 'expected the drawn check inside the box');
   } finally {
     destroy(mounted);
