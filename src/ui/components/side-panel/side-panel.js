@@ -352,6 +352,11 @@ class ParsiSidePanel extends PeyElement {
       }
       return;
     }
+    const wipeButton = event.target?.closest?.('[data-settings-wipe]');
+    if (wipeButton) {
+      this.dispatchEvent(new CustomEvent('settings-wipe', { bubbles: true, composed: true }));
+      return;
+    }
     const closeButton = event.target?.closest?.('[part="side-close"]');
     if (closeButton) {
       this.dispatchEvent(new CustomEvent('side-close', { bubbles: true, composed: true }));

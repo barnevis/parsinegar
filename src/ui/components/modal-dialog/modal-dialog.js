@@ -128,6 +128,19 @@ class ParsiModalDialog extends PeyElement {
         messageParams: { count: this.#modal.count ?? 0 },
       });
     }
+    if (this.#modal?.kind === 'confirm-wipe') {
+      // The title slot carries the dialog heading (no document name in a
+      // wipe); the message text never interpolates it.
+      return renderConfirmModal({
+        t: this.#t,
+        title: this.#t('parsinegar.settings.wipe-title'),
+        assetBaseUrl: this.#assetBaseUrl,
+        headingKey: 'parsinegar.settings.wipe-title',
+        messageKey: 'parsinegar.settings.wipe-confirm',
+        confirmLabelKey: 'parsinegar.settings.wipe-yes',
+        cancelLabelKey: 'parsinegar.documents.delete-no',
+      });
+    }
     if (this.#modal?.kind === 'properties') {
       return renderPropertiesModal({
         t: this.#t,

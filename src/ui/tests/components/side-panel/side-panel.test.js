@@ -448,6 +448,23 @@ test('should_emit_setting_change_when_radio_changes', async () => {
   }
 });
 
+test('should_emit_settings_wipe_when_wipe_button_is_clicked', async () => {
+  const element = mount({
+    activeView: 'settings',
+    settings: { theme: 'dark', direction: 'rtl', fontSize: 18 },
+  });
+  try {
+    await flush();
+    const seen = [];
+    element.addEventListener('settings-wipe', (event) => seen.push(event.detail));
+    element.shadowRoot.querySelector('[data-settings-wipe]').click();
+    await flush();
+    assert.equal(seen.length, 1, 'expected exactly one wipe request');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_emit_setting_step_when_stepper_is_clicked', async () => {
   const element = mount({
     activeView: 'settings',

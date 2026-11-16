@@ -64,3 +64,15 @@ test('should_offer_four_themes_when_rendered', () => {
   assert.deepEqual(checked, ['value="sepia" checked']);
   assert.equal((markup.match(/data-setting="theme"/g) ?? []).length, 4);
 });
+
+test('should_render_wipe_group_when_rendered', () => {
+  const markup = renderSettingsView({
+    t: (key) => key,
+    settings: { theme: 'light', direction: 'auto', fontSize: 16 },
+    formatNumber: String,
+  });
+  assert.ok(markup.includes('parsinegar.settings.wipe-title'), 'expected the wipe group legend');
+  assert.ok(markup.includes('parsinegar.settings.wipe-note'), 'expected the wipe warning note');
+  assert.ok(markup.includes('data-settings-wipe'), 'expected the wipe button');
+  assert.ok(markup.includes('parsinegar.settings.wipe</button>'), 'expected the wipe button label');
+});

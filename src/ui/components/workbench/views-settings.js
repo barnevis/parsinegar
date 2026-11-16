@@ -64,5 +64,12 @@ export function renderSettingsView({ t, settings, formatNumber }) {
           <button type="button" part="settings-more" data-setting-key="fontSize" data-setting-step="1" aria-label="${escapeHtml(translate('parsinegar.settings.increase'))}">+</button>
         </div>
       </fieldset>
+      <fieldset part="settings-group">
+        <legend part="settings-legend">${escapeHtml(translate('parsinegar.settings.wipe-title'))}</legend>
+        <p part="settings-note">${escapeHtml(translate('parsinegar.settings.wipe-note'))}</p>
+        <div part="settings-actions">
+          <button type="button" part="settings-button settings-danger" data-settings-wipe>${escapeHtml(translate('parsinegar.settings.wipe'))}</button>
+        </div>
+      </fieldset>
     </div>`;
 }

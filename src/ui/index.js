@@ -10,6 +10,7 @@ import appCatalog from './i18n/catalog.js';
 
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
+const APP_SERVICE = 'parsinegar.app.service';
 const EXPORT_SERVICE = 'parsinegar.export.service';
 const FILESYSTEM_SERVICE = 'pey.filesystem.service';
 const SYNC_SERVICE = 'pey.sync.service';
@@ -59,7 +60,7 @@ function queueThemeApply(resources) {
  */
 export const setup = createApplicationSetup({
   assetBaseUrlBase: import.meta.url,
-  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE, SETTINGS_SERVICE, EXPORT_SERVICE, FILESYSTEM_SERVICE, SYNC_SERVICE],
+  requiredServices: [PEY_ROUTER_SERVICE, DOCUMENTS_SERVICE, SETTINGS_SERVICE, APP_SERVICE, EXPORT_SERVICE, FILESYSTEM_SERVICE, SYNC_SERVICE],
   optionalServices: [],
   mountShell(resources) {
     const sharedState = createSharedState();

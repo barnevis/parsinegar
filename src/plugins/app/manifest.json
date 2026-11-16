@@ -1,14 +1,28 @@
 {
   "name": "parsinegar.app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "architecture": "0.11",
-  "description": "Parsinegar application plugin: owns the route catalog of version 1",
+  "description": "Parsinegar application plugin: owns the route catalog of version 1 and the app-wide data reset",
   "type": "product",
   "dependencies": {
-    "required": ["pey.router.service"],
+    "required": ["pey.router.service", "pey.storage.service"],
     "optional": []
   },
-  "provides": [],
+  "provides": [
+    {
+      "name": "parsinegar.app.service",
+      "description": "App-level operations that span every plugin's stores.",
+      "methods": [
+        {
+          "name": "wipeAllData",
+          "description": "Wipes every declared collection (documents, folders, settings, disk drafts, sync backend and state) in one atomic cross-collection transaction. Returns per-collection counts as they were before the wipe; publishes no event — the caller reloads the page right after.",
+          "params": [],
+          "returns": "Promise<{ ok: true, cleared: object }>",
+          "errors": ["APP_STORAGE_UNAVAILABLE"]
+        }
+      ]
+    }
+  ],
   "events": [],
   "config": {}
 }

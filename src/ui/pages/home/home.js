@@ -19,6 +19,7 @@ import { createSettingsApplier } from './settings-applier.js';
 import { createSyncController } from './sync-controller.js';
 import { createExportFlow } from './export-flow.js';
 import { createDiskImport } from './disk-import.js';
+import { createDataReset } from './data-reset.js';
 import { createScrollSpy } from './scroll-spy.js';
 import '../../components/menu-bar/menu-bar.js';
 import '../../components/activity-rail/activity-rail.js';
@@ -30,6 +31,7 @@ const TAG = 'parsi-page-home';
 const CHANGE_EVENT = 'parsi-page-home:changed';
 const DOCUMENTS_SERVICE = 'parsinegar.documents.service';
 const SETTINGS_SERVICE = 'parsinegar.settings.service';
+const APP_SERVICE = 'parsinegar.app.service';
 const EXPORT_SERVICE = 'parsinegar.export.service';
 const FILESYSTEM_SERVICE = 'pey.filesystem.service';
 const SYNC_SERVICE = 'pey.sync.service';
@@ -101,6 +103,8 @@ class ParsiPageHome extends PeyElement {
   #exporter = null;
   #downloads = null;
   #documentsService = null;
+  #resetService = null;
+  #reset = null;
   #syncer = null;
   #sync = null;
   #searchSpec = null;
@@ -197,7 +201,7 @@ class ParsiPageHome extends PeyElement {
           this.#sideEl?.configure({ sync: snapshot });
         },
         onModalChanged: () => {
-          this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? this.#sync?.conflictModal() ?? this.#sync?.messageModal() ?? null });
+          this.#modalEl?.configure({ modal: this.#pendingModal() });
         },
       });
     }
@@ -212,6 +216,17 @@ class ParsiPageHome extends PeyElement {
         getShadowRoot: () => this.shadowRoot,
         isConnected: () => this.isConnected,
         applyResult: (result) => this.#applyResult(result),
+      });
+    }
+    const appService = refs.services?.[APP_SERVICE] ?? null;
+    this.#resetService = appService && typeof appService.wipeAllData === 'function' ? appService : null;
+    if (!this.#reset) {
+      this.#reset = createDataReset({
+        getService: () => this.#resetService,
+        isConnected: () => this.isConnected,
+        // Reload seam: tests inject a spy (refs.reloadPage), the shell's
+        // absence falls back to the real fresh boot.
+        reload: typeof refs.reloadPage === 'function' ? refs.reloadPage : () => window.location.reload(),
       });
     }
     if (!this.#guides) {
@@ -246,6 +261,7 @@ class ParsiPageHome extends PeyElement {
       'files-sort',
       'settings-change',
       'settings-step',
+      'settings-wipe',
       'search-query',
       'search-next',
       'search-previous',
@@ -290,6 +306,10 @@ class ParsiPageHome extends PeyElement {
           this.#docs.cancelOverlays();
           this.#requestEditor();
         }
+      }
+      if (event.key === 'Escape' && this.#reset?.modal()) {
+        this.#reset.cancel();
+        this.#requestEditor();
       }
       return;
     }
@@ -401,6 +421,20 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'modal-confirm') {
+        // One modal shows at a time, so an armed wipe owns the confirmation.
+        if (this.#reset?.modal()) {
+          if (event.detail?.accepted === true) {
+            void this.#reset.confirm().then(() => {
+              // Close the dialog whether the wipe ran (the reload races it)
+              // or failed atomically — a stuck dialog hides the failure.
+              this.#requestEditor();
+            });
+          } else {
+            this.#reset.cancel();
+            this.#requestEditor();
+          }
+          return;
+        }
         if (event.detail?.accepted === true) {
           void this.#confirmDeleteAndApply();
         } else {
@@ -410,6 +444,11 @@ class ParsiPageHome extends PeyElement {
         return;
       }
       if (event.type === 'modal-dismiss') {
+        if (this.#reset?.modal()) {
+          this.#reset.cancel();
+          this.#requestEditor();
+          return;
+        }
         if (this.#sync?.messageOpen()) {
           this.#sync.dismissMessage();
           this.#modalEl?.configure({ modal: this.#docs?.getModal() ?? null });
@@ -425,6 +464,11 @@ class ParsiPageHome extends PeyElement {
       }
       if (event.type === 'settings-step') {
         void this.#applySettingStep(event.detail?.key, event.detail?.delta);
+        return;
+      }
+      if (event.type === 'settings-wipe') {
+        this.#reset?.arm();
+        this.#requestEditor();
         return;
       }
       if (event.type === 'sync-configure') {
@@ -1170,8 +1214,19 @@ class ParsiPageHome extends PeyElement {
       tag: 'parsi-modal-dialog',
       infrastructure,
       refs: { t: this.#t, assetBaseUrl: this.#assetBaseUrl },
-      configure: (element) => element.configure({ modal: this.#docs?.getModal() ?? this.#sync?.conflictModal() ?? this.#sync?.messageModal() ?? null }),
+      configure: (element) => element.configure({ modal: this.#pendingModal() }),
     });
+  }
+
+  /**
+   * The one modal the page would currently show, in ownership priority:
+   * document confirmations/properties, then the armed data wipe, then the
+   * sync dialogs. Only one exists at a time because arming one flow closes
+   * the others' visible state.
+   * @returns {object|null} Modal snapshot or null.
+   */
+  #pendingModal() {
+    return this.#docs?.getModal() ?? this.#reset?.modal() ?? this.#sync?.conflictModal() ?? this.#sync?.messageModal() ?? null;
   }
 
   async #initialLoad() {

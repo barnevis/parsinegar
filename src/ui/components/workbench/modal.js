@@ -82,9 +82,11 @@ export function renderSyncMessageModal({ t, assetBaseUrl }) {
  * @param {string} [options.headingKey] Title key (defaults to the document delete title).
  * @param {string} [options.messageKey] Description key with `{ title }` (and `{ count }` for folders).
  * @param {object} [options.messageParams] Extra message params (e.g. `{ count }`).
+ * @param {string} [options.confirmLabelKey] Confirm button label key (defaults to the delete label).
+ * @param {string} [options.cancelLabelKey] Cancel button label key (defaults to the dismiss label).
  * @returns {string} Modal markup or ''.
  */
-export function renderConfirmModal({ t, title, assetBaseUrl, headingKey = 'parsinegar.documents.delete', messageKey = 'parsinegar.documents.delete-confirm', messageParams = {} }) {
+export function renderConfirmModal({ t, title, assetBaseUrl, headingKey = 'parsinegar.documents.delete', messageKey = 'parsinegar.documents.delete-confirm', messageParams = {}, confirmLabelKey = 'parsinegar.documents.delete-yes', cancelLabelKey = 'parsinegar.documents.delete-no' }) {
   if (typeof title !== 'string' || title.length === 0) {
     return '';
   }
@@ -97,8 +99,8 @@ export function renderConfirmModal({ t, title, assetBaseUrl, headingKey = 'parsi
         <h2 part="modal-title" id="modal-title">${escapeHtml(translate(headingKey))}</h2>
         <p part="modal-desc" id="modal-desc">${escapeHtml(translate(messageKey, { title, ...messageParams }))}</p>
         <div part="modal-actions">
-          <button type="button" part="modal-cancel" data-confirm-delete="no">${escapeHtml(translate('parsinegar.documents.delete-no'))}</button>
-          <button type="button" part="modal-confirm" data-confirm-delete="yes">${escapeHtml(translate('parsinegar.documents.delete-yes'))}</button>
+          <button type="button" part="modal-cancel" data-confirm-delete="no">${escapeHtml(translate(cancelLabelKey))}</button>
+          <button type="button" part="modal-confirm" data-confirm-delete="yes">${escapeHtml(translate(confirmLabelKey))}</button>
         </div>
       </div>
     </div>`;

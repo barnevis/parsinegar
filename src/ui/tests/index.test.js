@@ -53,6 +53,7 @@ function createContext({ router, documents, settings, exporter, filesystem, sync
       [PEY_ROUTER_SERVICE]: router ?? createRouter(),
       'parsinegar.documents.service': documents ?? createDocuments(),
       'parsinegar.settings.service': settings ?? createSettings(),
+      'parsinegar.app.service': { async wipeAllData() { return { ok: true, cleared: {} }; } },
       'parsinegar.export.service': exporter ?? createExporter(),
       'pey.filesystem.service': filesystem ?? createFilesystem(),
       'pey.sync.service': syncer ?? createSyncService(),

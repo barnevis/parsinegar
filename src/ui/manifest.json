@@ -6,6 +6,7 @@
   "dependencies": {
     "required": [
       "pey.router.service",
+      "parsinegar.app.service",
       "parsinegar.documents.service",
       "parsinegar.settings.service",
       "parsinegar.export.service",

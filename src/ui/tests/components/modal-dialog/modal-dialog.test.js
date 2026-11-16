@@ -70,6 +70,23 @@ test('should_emit_rejected_when_confirm_no_is_clicked', async () => {
   }
 });
 
+test('should_render_wipe_dialog_with_dedicated_labels_when_configured', async () => {
+  const element = mount();
+  try {
+    await flush();
+    element.configure({ modal: { kind: 'confirm-wipe' } });
+    await flush();
+    const dialog = element.shadowRoot.querySelector('[part="modal-dialog"]');
+    assert.ok(dialog, 'expected the wipe confirmation modal');
+    assert.ok(dialog.textContent.includes('parsinegar.settings.wipe-title'), 'expected the wipe heading');
+    assert.ok(dialog.textContent.includes('parsinegar.settings.wipe-confirm'), 'expected the wipe message');
+    assert.equal(element.shadowRoot.querySelector('[data-confirm-delete="no"]')?.textContent, 'parsinegar.documents.delete-no');
+    assert.equal(element.shadowRoot.querySelector('[data-confirm-delete="yes"]')?.textContent, 'parsinegar.settings.wipe-yes');
+  } finally {
+    element.remove();
+  }
+});
+
 test('should_render_properties_when_configured', async () => {
   const element = mount();
   try {

@@ -15,6 +15,7 @@ import {
   ASSET_BASE_URL,
   baseRefs,
   child,
+  createAppService,
   createDocuments,
   createEvents,
   createSettings,
@@ -1110,6 +1111,65 @@ test('should_step_font_size_when_settings_step_arrives', async () => {
     await settled();
     await settled();
     assert.deepEqual(settings.calls, [{ fontSize: 17 }]);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_arm_wipe_modal_without_touching_data_when_settings_wipe_arrives', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const app = createAppService();
+  const element = await mountWithSettings(documents, settings, { 'parsinegar.app.service': app });
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('settings-wipe', { bubbles: true }));
+    await settled();
+    await settled();
+    const dialog = inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]');
+    assert.ok(dialog, 'expected the wipe confirmation modal');
+    assert.ok(dialog.textContent.includes('پاک‌سازی داده‌ها'), 'expected the wipe heading');
+    assert.ok(dialog.textContent.includes('برای همیشه پاک'), 'expected the wipe warning message');
+    assert.deepEqual(app.calls, [], 'expected no wipe before the user confirms');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_wipe_and_reload_when_wipe_confirmation_is_accepted', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const app = createAppService();
+  const reloads = [];
+  const element = await mountWithSettings(documents, settings, { 'parsinegar.app.service': app }, { reloadPage: () => reloads.push(true) });
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('settings-wipe', { bubbles: true }));
+    await settled();
+    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="yes"]').click();
+    await settled();
+    await settled();
+    assert.deepEqual(app.calls, [['wipeAllData']]);
+    assert.deepEqual(reloads, [true], 'expected the fresh boot after the wipe');
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null, 'expected the modal closed');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_keep_data_when_wipe_confirmation_is_cancelled', async () => {
+  const documents = createDocuments([{ id: 'd1', title: 't', content: 'متن', updatedAt: 1 }]);
+  const settings = createSettings({ theme: 'device', direction: 'rtl', fontSize: 16 });
+  const app = createAppService();
+  const reloads = [];
+  const element = await mountWithSettings(documents, settings, { 'parsinegar.app.service': app }, { reloadPage: () => reloads.push(true) });
+  try {
+    child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('settings-wipe', { bubbles: true }));
+    await settled();
+    inChild(element, 'parsi-modal-dialog', '[data-confirm-delete="no"]').click();
+    await settled();
+    await settled();
+    assert.deepEqual(app.calls, [], 'expected no wipe on cancel');
+    assert.deepEqual(reloads, []);
+    assert.equal(inChild(element, 'parsi-modal-dialog', '[part="modal-dialog"]'), null, 'expected the modal closed');
   } finally {
     element.remove();
   }

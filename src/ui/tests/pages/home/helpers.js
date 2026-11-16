@@ -179,7 +179,18 @@ export function createSettings(initial = { theme: 'device', direction: 'auto', f
   return service;
 }
 
-export async function mountWithSettings(documents, settings, extraServices = {}) {
+export function createAppService() {
+  const service = {
+    calls: [],
+    async wipeAllData() {
+      service.calls.push(['wipeAllData']);
+      return { ok: true, cleared: {} };
+    },
+  };
+  return service;
+}
+
+export async function mountWithSettings(documents, settings, extraServices = {}, extraRefs = {}) {
   const element = document.createElement(TAG);
   element.connect({
     infrastructure: { events: createEvents() },
@@ -192,6 +203,7 @@ export async function mountWithSettings(documents, settings, extraServices = {})
         'parsinegar.settings.service': settings,
         ...extraServices,
       },
+      ...extraRefs,
     },
   });
   document.body.append(element);
