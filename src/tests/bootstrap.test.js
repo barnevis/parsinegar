@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const BOOTSTRAP_URL = new URL('../bootstrap.json', import.meta.url);
+const BOOTSTRAP_URL = new URL('../../bootstrap.json', import.meta.url);
 
 async function loadBootstrap() {
   return JSON.parse(await readFile(BOOTSTRAP_URL, 'utf8'));

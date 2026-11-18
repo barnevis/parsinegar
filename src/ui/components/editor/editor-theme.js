@@ -2,7 +2,7 @@
 //
 // CodeMirror injects theme styles into the document head, where shell-scoped
 // token overrides are invisible — so non-light values are literals mirroring
-// the matching scopes in public/theme.css. Every color lives here, exactly
+// the matching scopes in src/ui/assets/theme.css. Every color lives here, exactly
 // once per scheme: base themes carry structure only, because same-selector
 // ties across theme tags resolve against the scheme overrides (verified:
 // the scheme tag mounts before the base tags, so duplicates would always

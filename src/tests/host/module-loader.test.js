@@ -1,8 +1,8 @@
 // Verifies the browser ModuleLoader contract surface (two-step, no code on manifest).
-import '../../src/ui/tests/setup-dom.js';
+import '../../ui/tests/setup-dom.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createModuleLoader } from '../../src/app/module-loader.js';
+import { createModuleLoader } from '../../host/module-loader.js';
 
 test('should_expose_two_step_contract_when_created', () => {
   const loader = createModuleLoader();

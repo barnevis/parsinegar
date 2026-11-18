@@ -1,7 +1,7 @@
 // Verifies the browser EnvSource (query-param overrides, safe fallbacks).
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createEnvSource } from '../../src/app/env-source.js';
+import { createEnvSource } from '../../host/env-source.js';
 
 test('should_return_empty_when_variable_is_absent', () => {
   const source = createEnvSource();

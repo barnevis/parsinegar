@@ -14,7 +14,7 @@ import path from 'node:path';
 const root = path.dirname(new URL('.', import.meta.url).pathname);
 const dist = path.join(root, 'dist');
 
-const appEntry = 'src/app/main.js';
+const appEntry = 'src/host/main.js';
 
 // Bundling moves module code into chunks whose directory differs from the
 // original files; the components resolve stylesheets relative to
@@ -143,7 +143,6 @@ await cp(
   path.join(root, 'node_modules/mind-elixir/dist/MindElixir.css'),
   path.join(dist, 'node_modules/mind-elixir/dist/MindElixir.css'),
 );
-await cp(path.join(root, 'public'), path.join(dist, 'public'), { recursive: true });
 await cp(path.join(root, 'docs'), path.join(dist, 'docs'), { recursive: true });
 await cp(path.join(root, 'README.md'), path.join(dist, 'README.md'));
 await cp(path.join(root, 'CHANGELOG.md'), path.join(dist, 'CHANGELOG.md'));
@@ -153,8 +152,8 @@ await cp(path.join(root, 'index.html'), path.join(dist, 'index.html'));
 
 const html = await readFile(path.join(root, 'index.html'), 'utf8');
 const fontPreloads = [
-  'public/fonts/Vazirmatn-Regular.woff2',
-  'public/fonts/Vazirmatn-Bold.woff2',
+  'src/ui/assets/fonts/Vazirmatn-Regular.woff2',
+  'src/ui/assets/fonts/Vazirmatn-Bold.woff2',
 ]
   .map((href) => `<link rel="preload" as="font" type="font/woff2" href="./${href}" crossorigin>`)
   .join('\n  ');

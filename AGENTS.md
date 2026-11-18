@@ -7,7 +7,7 @@ Parsinegar is a Persian (RTL) Markdown editor built on the Pey plugin architectu
 ```sh
 npm install
 npm start     # static server on the repo root (serves node_modules/ for the importmap)
-npm test      # node:test + jsdom: "tests/**/*.test.js" "src/**/*.test.js"
+npm test      # node:test + jsdom: "src/**/*.test.js"
 npm run build # deploy assembly for GitHub Pages (CI-only; esbuild via scripts/build-dist.mjs)
 ```
 

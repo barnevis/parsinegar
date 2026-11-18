@@ -46,7 +46,7 @@ npm run build # مونتاژ dist برای انتشار (همان کاری که 
 npm test
 ```
 
-سوئیت با `node:test` و `jsdom` اجرا می‌شود: تست‌های سطح اپ در `tests/`، تست‌های افزونه‌ها کنار کدشان و تست‌های UI در `src/ui/tests/`. رفتارهای چیدمانی/دیداری (که jsdom ندارد) با پروب گذرای کرومیوم headless راستی‌آزمایی می‌شوند.
+سوئیت با `node:test` و `jsdom` اجرا می‌شود: تست‌های سطح اپ و یکپارچگی در `src/tests/`، تست‌های افزونه‌ها کنار کدشان و تست‌های UI در `src/ui/tests/`. رفتارهای چیدمانی/دیداری (که jsdom ندارد) با پروب گذرای کرومیوم headless راستی‌آزمایی می‌شوند.
 
 ## ساختار
 
@@ -58,10 +58,9 @@ parsinegar/
 ├── scripts/              # مونتاژ استقرار (build-dist.mjs، فقط در CI)
 ├── CHANGELOG.md          # تاریخچهٔ تغییرات (در اپ هم باز می‌شود)
 ├── LICENSE               # MIT
-├── public/               # فایل‌های ایستا: فونت وزیرمتن، تم‌های سطح سند
-├── docs/                 # ABOUT، architecture، decisions، userGuide و مستندات UI
-├── src/app/              # میزبان اجرا: main، config-source، env-source، module-loader
-├── src/ui/               # رابط کاربری: index، manifest، assets، components، pages، i18n، utils، tests
+├── docs/                 # معرفی، architecture، decisions، userGuide و مستندات UI
+├── src/host/             # میزبان اجرا: main، config-source، env-source، module-loader
+├── src/ui/               # رابط کاربری: index، manifest، assets (فونت وزیرمتن و تم‌های سطح سند)، components، pages، i18n، utils، tests
 ├── src/plugins/
 │   ├── app/              # مالک مسیرهای اپ (۰.۱.۰)
 │   ├── documents/        # چندسند روی pey.storage (۰.۵.۰)
@@ -69,7 +68,7 @@ parsinegar/
 │   ├── export/           # خروجی HTML مستقل و zip چندسندی (۰.۲.۰)
 │   ├── filesystem/       # دسترسی به فایل/پوشهٔ دستگاه، محلی فعلاً (۰.۲.۰)
 │   └── sync/             # همگام‌سازی با مخزن گیت‌هاب/گیت‌لب، محلی فعلاً (۰.۴.۰)
-└── tests/                # آزمون‌های سطح اپ و یکپارچه‌سازی
+└── src/tests/            # آزمون‌های سطح اپ و یکپارچه‌سازی
 ```
 
 ## معماری

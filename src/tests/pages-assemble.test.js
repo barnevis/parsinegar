@@ -10,11 +10,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { BUILTIN_DOCS } from '../src/ui/pages/home/builtin-docs.js';
+import { BUILTIN_DOCS } from '../ui/pages/home/builtin-docs.js';
 
-const ROOT_URL = new URL('../', import.meta.url);
-const WORKFLOW_URL = new URL('../.github/workflows/pages.yml', import.meta.url);
-const BUILD_SCRIPT_URL = new URL('../scripts/build-dist.mjs', import.meta.url);
+const ROOT_URL = new URL('../../', import.meta.url);
+const WORKFLOW_URL = new URL('../../.github/workflows/pages.yml', import.meta.url);
+const BUILD_SCRIPT_URL = new URL('../../scripts/build-dist.mjs', import.meta.url);
 
 function resolveRoot(relativeUrl) {
   assert.ok(relativeUrl.startsWith('./'), `expected a root-relative url: ${relativeUrl}`);
