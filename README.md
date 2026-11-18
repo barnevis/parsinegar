@@ -56,11 +56,11 @@ parsinegar/
 ├── bootstrap.json        # تنها محل تعریف آداپترها، افزونه‌ها و مسیر UI
 ├── package.json          # وابستگی‌ها (npm + GitHub)
 ├── scripts/              # مونتاژ استقرار (build-dist.mjs، فقط در CI)
-├── CHANGELOG.md          # تاریخچهٔ تغییرات (در اپ هم باز می‌شود)
+├── CHANGELOG.md          # تاریخچهٔ تغییرات
 ├── LICENSE               # MIT
-├── docs/                 # معرفی، architecture، decisions، userGuide و مستندات UI
+├── docs/                 # معرفی، architecture، decisions، userGuide
 ├── src/host/             # میزبان اجرا: main، config-source، env-source، module-loader
-├── src/ui/               # رابط کاربری: index، manifest، assets (فونت وزیرمتن و تم‌های سطح سند)، components، pages، i18n، utils، tests
+├── src/ui/               # رابط کاربری: index، manifest، assets (فونت وزیرمتن و تم‌های سطح سند)، components، pages، i18n، utils، tests و نقشهٔ UI در docs/
 ├── src/plugins/
 │   ├── app/              # مالک مسیرهای اپ (۰.۱.۰)
 │   ├── documents/        # چندسند روی pey.storage (۰.۵.۰)
@@ -78,7 +78,7 @@ parsinegar/
 | افزونه | نوع | نسخه | مسئولیت |
 |---|---|---|---|
 | `parsinegar.documents` | product | ۰.۵.۰ | چندسند مارک‌داون (CRUD، عنوان یکتا، پوشه‌بندی، پرچم فقط-خواندن) روی `pey.storage` |
-| `parsinegar.settings` | product | ۰.۵.۰ | ترجیحات کاربر (پوسته، جهت، قلم، حالت پیام کامیت همگام‌سازی) روی `pey.storage` |
+| `parsinegar.settings` | product | ۰.۶.۰ | ترجیحات کاربر (پوسته، جهت، قلم، چینش سندها، چیدمان نقشه، نادیده‌گرفتن‌های همگام‌سازی، حالت پیام کامیت) روی `pey.storage` |
 | `parsinegar.export` | feature | ۰.۲.۰ | خروجی HTML مستقل و zip چندسندی مارک‌داون |
 | `pey.sync` | infrastructure | ۰.۴.۰ | همگام‌سازی دستی سندها با فضای کاربر (بک‌اند git و gitlab شامل سرور خودمیزبان، هویت مسیر، پیام کامیت سفارشی اختیاری)؛ محلی می‌ماند تا مستقل منتشر شود |
 | `parsinegar.app` | product | ۰.۲.۰ | مالک مسیرهای اپ و سرویس سطح اپ (`wipeAllData`: پاک‌سازی اتمیک همهٔ storeها) |
@@ -90,12 +90,12 @@ parsinegar/
 - **ویرایشگر:** CodeMirror 6 با گرامر lezer برای تجزیهٔ مارک‌داون.
 - **رندر فارسی:** `pey.markdown` (v1.0.0) با افزونه‌های `parsneshan` (v0.2.0) برای اندرز، لیست فارسی و شعر.
 - **فشرده‌سازی:** `@zip.js/zip.js` برای خروجی zip (بدون worker، با CompressionStream بومی).
-- **توسعه:** `node:test` و `jsdom` (فقط dev).
+- **توسعه:** `node:test`، `jsdom`، `fake-indexeddb` و `esbuild` (فقط dev).
 
 نکته‌ها:
 
 - سند معماری: `docs/architecture.md`؛ تصمیم‌های ثبت‌شده: `docs/decisions.md` (هر رفتار تازه اول آنجا تصمیم می‌شود، بعد در کد).
-- این فایل، `CHANGELOG.md` و `ABOUT.md` داخل خود اپ هم از منوی «راهنما» به‌صورت سند فقط-خواندن باز می‌شوند.
+- سند راهنما (`docs/userGuide.md`) داخل خود اپ از منوی «راهنما» به‌صورت سند فقط-خواندن باز می‌شود.
 - قراردادها: ESM بومی بدون باندلر، نام‌گذاری kebab-case، تست برای هر رفتار، بدون کامنت تزئینی در کد.
 
 ## مجوز
