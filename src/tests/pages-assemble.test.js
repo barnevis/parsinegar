@@ -1,9 +1,11 @@
 // Verifies the Pages assembly ships every runtime-fetched project document.
 //
-// The built-in docs (help, changelog, about) are fetched from the deployed
-// site at runtime (see `builtin-docs.js`), so the pipeline must copy them
-// into `dist/`. The workflow only runs the build script; the assembly lives
-// in `scripts/build-dist.mjs`, so the test wires both links together:
+// The built-in docs (help → `docs/userGuide.md`) are fetched from the
+// deployed site at runtime (see `builtin-docs.js`), so the pipeline must
+// copy them into `dist/`; other project docs, README and the changelog are
+// repo-side files and intentionally stay out of the artifact. The workflow
+// only runs the build script; the assembly lives in `scripts/build-dist.mjs`,
+// so the test wires both links together:
 // workflow → `npm run build` → doc copies + `.nojekyll`. Missing files fail
 // silently in the app (fetch 404 → null), which is the regression class
 // pinned here.
@@ -33,7 +35,7 @@ test('should_copy_builtin_docs_when_site_is_assembled', async () => {
   const workflow = await readFile(WORKFLOW_URL, 'utf8');
   assert.ok(workflow.includes('npm run build'), 'expected the assemble step to run the build script');
   const buildScript = await readFile(BUILD_SCRIPT_URL, 'utf8');
-  for (const token of ['dist', 'docs', 'README.md', 'CHANGELOG.md', 'bootstrap.json', '.nojekyll']) {
+  for (const token of ['dist', 'docs/userGuide.md', 'bootstrap.json', '.nojekyll']) {
     assert.ok(buildScript.includes(`'${token}'`) || buildScript.includes(`"${token}"`),
       `expected the build script to ship ${token}`);
   }
