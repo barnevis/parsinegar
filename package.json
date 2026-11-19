@@ -50,7 +50,7 @@
     "pey.markdown": "github:peyjs/pey-markdown#v1.0.0",
     "pey.router": "github:peyjs/pey-router#v1.0.0",
     "pey.storage": "github:peyjs/pey-storage#v0.4.0",
-    "pey.sync": "github:peyjs/pey-sync#v2.0.1",
+    "pey.sync": "github:peyjs/pey-sync#v2.1.0",
     "pey.webui": "github:peyjs/pey-webui#v1.0.0",
     "style-mod": "^4.1.3",
     "w3c-keyname": "^2.2.8"
