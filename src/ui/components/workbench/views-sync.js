@@ -86,11 +86,39 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
   );
   const autoCommitTip = tip(assetBaseUrl, translate('parsinegar.sync.auto-commit-note'), longText('parsinegar.sync.auto-commit-note'));
   const ignoreTip = tip(assetBaseUrl, translate('parsinegar.sync.ignore-note'), longText('parsinegar.sync.ignore-note'));
+  // The pending preview arrives precomputed from the controller (network-free
+  // local reads): created / edited carry the document title, deleted ones
+  // only the sync path — the display strips the extension for them.
+  const pending = snapshot?.pending && typeof snapshot.pending === 'object' ? snapshot.pending : null;
+  const pendingCount = pending
+    ? pending.created.length + pending.edited.length + pending.deleted.length
+    : 0;
+  const pendingItem = (item) => {
+    const label = typeof item.title === 'string' && item.title.trim().length > 0
+      ? item.title
+      : String(item.path ?? '').replace(/\.(md|markdown|mdown|txt)$/i, '');
+    return `<li>${escapeHtml(label)}</li>`;
+  };
+  const pendingGroup = (kindKey, items) => items.length > 0
+    ? `<p part="sync-pending-kind">${escapeHtml(translate(kindKey))}</p><ul part="sync-pending-list">${items.map(pendingItem).join('')}</ul>`
+    : '';
+  const pendingFieldset = pending && pendingCount > 0
+    ? `<fieldset part="settings-group" data-sync-pending>
+        <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.pending-title'))}</legend>
+        ${pendingGroup('parsinegar.sync.pending-created', pending.created)}
+        ${pendingGroup('parsinegar.sync.pending-edited', pending.edited)}
+        ${pendingGroup('parsinegar.sync.pending-deleted', pending.deleted)}
+      </fieldset>`
+    : '';
+  const pendingNone = pending && pendingCount === 0
+    ? `<p part="settings-note" data-sync-pending-none>${escapeHtml(translate('parsinegar.sync.pending-none'))}</p>`
+    : '';
   const status = snapshot?.configured === true
     ? `<p part="settings-note" data-sync-status="host">${escapeHtml(translate('parsinegar.sync.host'))}: ${escapeHtml(hostLabel)}</p>
       <p part="settings-note" data-sync-status="repo">${escapeHtml(translate('parsinegar.sync.backend'))}: ${escapeHtml(snapshot.repo ?? '')}</p>
       <p part="settings-note" data-sync-status="branch">${escapeHtml(translate('parsinegar.sync.branch'))}: ${escapeHtml(snapshot.branch ?? '')}</p>
       <p part="settings-note" data-sync-status="last">${escapeHtml(translate('parsinegar.sync.last-sync'))}: ${escapeHtml(snapshot.lastSyncText ?? translate('parsinegar.sync.never'))}</p>
+      ${pendingNone}
       ${error}
       <span part="sync-check-row">
         <label part="settings-check">
@@ -147,6 +175,7 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.title'))}</legend>
         ${status}
       </fieldset>
+      ${pendingFieldset}
       <fieldset part="settings-group">
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.ignore-title'))}${ignoreTip.icon}${ignoreTip.pop}</legend>
         <label part="settings-field">

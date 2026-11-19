@@ -66,6 +66,30 @@ export function createSyncController({
   };
 
   /**
+   * Fetches the local pending preview (created / edited / deleted documents
+   * since the last sync) — the same network-free comparison as the dirty
+   * dot, with the actual lists. A service without the method (older plugin)
+   * or a failed call degrades to null; the view then shows no list.
+   * @param {object} syncer Sync service.
+   * @returns {Promise<object|null>} `{ created, edited, deleted }` or null.
+   */
+  async function fetchPending(syncer) {
+    if (!syncer || typeof syncer.getPendingChanges !== 'function') {
+      return null;
+    }
+    try {
+      const changes = await syncer.getPendingChanges({ scope: scope() });
+      return {
+        created: Array.isArray(changes?.created) ? changes.created : [],
+        edited: Array.isArray(changes?.edited) ? changes.edited : [],
+        deleted: Array.isArray(changes?.deleted) ? changes.deleted : [],
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Rebuilds the status snapshot from the service and reports it to the
    * page (rail dot, side panel, modal). Service failures degrade to no
    * snapshot; the view keeps its last truth.
@@ -89,6 +113,7 @@ export function createSyncController({
           busy,
           ignoreText: storedIgnore().join('\n'),
           autoCommit: autoCommit(),
+          pending: await fetchPending(getSyncer()),
         };
       }
     } catch {

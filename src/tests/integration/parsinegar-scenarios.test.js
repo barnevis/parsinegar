@@ -16,6 +16,19 @@ const EXPORT = 'pey.document-export.service';
 const SYNC = 'pey.sync.service';
 const FILESYSTEM = 'pey.filesystem.service';
 
+// The sync scope the page controller sends — documents collection with the
+// folders chain, mirroring sync-controller.js minus the stored ignores.
+const SYNC_SCOPE = {
+  collections: [
+    {
+      collection: 'documents',
+      serializer: 'markdown',
+      titleField: 'title',
+      folders: { collection: 'folders', nameField: 'name' },
+    },
+  ],
+};
+
 test('should_empty_every_store_and_restore_defaults_when_wipe_all_data_is_called', async () => {
   // The factory-reset journey: one call crossing documents, settings,
   // folders, disk drafts and both sync stores. Each store is filled through
@@ -170,6 +183,71 @@ test('should_produce_standalone_rtl_html_from_a_real_document_when_exported', as
     assert.ok(result.html.includes('<h1'), 'the heading must render as real HTML');
     assert.ok(result.html.includes('گزارش صادرات'), 'the title must appear in the page');
     assert.ok(result.html.includes('<strong>متن</strong>'), 'inline markdown must render');
+  } finally {
+    await instance.shutdown();
+  }
+});
+
+test('should_preview_created_edited_and_deleted_documents_before_a_sync_round', async () => {
+  // The pre-run preview journey: the git backend is configured through the
+  // real service (the environment-level network double answers the open
+  // probes), documents are created / edited / deleted through the real
+  // documents service, and the local-only preview lists each kind with its
+  // title — no sync round runs and no network beyond the open probes.
+  const instance = await bootParsinegar({
+    network: (url) => {
+      const target = String(url);
+      if (!target.startsWith('https://api.github.com/repos/owner/test-repo')) {
+        return undefined;
+      }
+      const payload = target.includes('/branches/')
+        ? { name: 'main', commit: { sha: 'test-sha' } }
+        : { full_name: 'owner/test-repo', default_branch: 'main' };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload,
+        text: async () => JSON.stringify(payload),
+      };
+    },
+  });
+  try {
+    assert.equal(instance.ready, true);
+    const services = instance.ui.captured.context.services;
+    const documents = services[DOCUMENTS];
+    const sync = services[SYNC];
+
+    await sync.configureBackend({
+      kind: 'git',
+      params: { host: 'github', repo: 'owner/test-repo', branch: 'main', token: 'test-token' },
+    });
+    const kept = await documents.createDocument('یادداشت دست‌نخورده');
+    const edited = await documents.createDocument('یادداشت ویرایش‌شده');
+    const removed = await documents.createDocument('یادداشت حذف‌شده');
+
+    const preview = await sync.getPendingChanges({ scope: SYNC_SCOPE });
+    assert.equal(preview.pending, true);
+    // Both sides go through the same default sort: only the multiset matters,
+    // never the plugin's path-based ordering.
+    assert.deepEqual(
+      preview.created.map((item) => item.title).sort(),
+      ['یادداشت دست‌نخورده', 'یادداشت حذف‌شده', 'یادداشت ویرایش‌شده'].sort(),
+      'every fresh document reads as created with its title',
+    );
+    assert.deepEqual(preview.edited, [], 'nothing sits in the snapshot yet, so nothing reads as edited');
+
+    await documents.deleteDocument(removed.id);
+    await documents.saveDocument({ id: kept.id, title: 'یادداشت دست‌نخورده', content: '# متن عوض‌شده\n' });
+
+    const later = await sync.getPendingChanges({ scope: SYNC_SCOPE });
+    assert.deepEqual(
+      later.created.map((item) => item.title).sort(),
+      ['یادداشت دست‌نخورده', 'یادداشت ویرایش‌شده'].sort(),
+      'the preview reflects the current local truth — the deleted record leaves the list',
+    );
+    assert.deepEqual(later.deleted, [],
+      'deletions need the path in the last-synced snapshot, which only a settled round advances — covered by the plugin suite');
+    assert.equal(kept.id.length > 0, true, 'the journey started from real records');
   } finally {
     await instance.shutdown();
   }

@@ -36,6 +36,9 @@ function createSyncService(overrides = {}) {
     async hasPendingChanges() {
       return { pending: false };
     },
+    async getPendingChanges() {
+      return { pending: false, created: [], edited: [], deleted: [] };
+    },
     async syncNow() {
       calls.push(['syncNow']);
       return { pushed: [], pulled: [], deletedRemote: [], deleteLocal: [], relocated: [], skipped: [], conflicts: [], completed: true };
@@ -639,6 +642,80 @@ test('should_save_commit_mode_and_rerender_when_checkbox_is_toggled', async () =
     await settled();
     assert.ok(settings.calls.some((patch) => JSON.stringify(patch) === JSON.stringify({ syncCommitAuto: false })));
     assert.equal(inChild(element, 'parsi-side-panel', '[data-sync-field="autoCommit"]').checked, false);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_list_pending_documents_in_the_sync_view_when_previewed', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: null, lastError: null };
+    },
+    async getPendingChanges(input) {
+      syncer.calls.push(['getPendingChanges', input]);
+      return {
+        pending: true,
+        created: [{ collection: 'docs', id: 'd2', path: 'سفر.md', title: 'سفر', updatedAt: 30 }],
+        edited: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', title: 'یادداشت', updatedAt: 100 }],
+        deleted: [{ collection: 'docs', id: 'd0', path: 'کهنه.md' }],
+      };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
+    assert.ok(panel().querySelector('[data-sync-pending]'), 'expected the pending fieldset in the sync view');
+    assert.ok(panel().textContent.includes('سفر'), 'expected the created title');
+    assert.ok(panel().textContent.includes('یادداشت'), 'expected the edited title');
+    assert.ok(panel().textContent.includes('کهنه'), 'expected the deleted path without its extension');
+    // Envelope pin: the page calls the preview with the same scope the sync
+    // round uses — the documents collection with the stored ignore patterns.
+    const previewCall = syncer.calls.find(([method]) => method === 'getPendingChanges');
+    assert.ok(previewCall, 'expected the preview to be fetched through the service');
+    const scopeCollections = previewCall[1]?.scope?.collections ?? [];
+    assert.equal(scopeCollections[0]?.collection, 'documents');
+    assert.equal(Array.isArray(scopeCollections[0]?.ignore), true, 'expected the ignore patterns riding the scope');
+    // A clean preview flips the section to the clean-state note: the real
+    // user flow is the sync button — the round settles and the page refreshes.
+    syncer.getPendingChanges = async () => ({ pending: false, created: [], edited: [], deleted: [] });
+    panel().querySelector('[data-sync-now]').click();
+    await settled();
+    await settled();
+    await settled();
+    assert.ok(panel().querySelector('[data-sync-pending-none]'), 'expected the clean-state note after everything settles');
+    assert.equal(panel().querySelector('[data-sync-pending]'), null);
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_omit_the_pending_list_when_the_service_lacks_the_method', async () => {
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: null, lastError: null };
+    },
+  });
+  delete syncer.getPendingChanges;
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
+    assert.ok(panel().querySelector('[data-sync-status="last"]'), 'expected the sync view itself to render');
+    assert.equal(panel().querySelector('[data-sync-pending]'), null, 'expected no pending fieldset');
+    assert.equal(panel().querySelector('[data-sync-pending-none]'), null, 'expected no clean-state note');
+    assert.equal(syncDot(element), 'stale', 'expected the rail dot unaffected without the preview method');
   } finally {
     element.remove();
   }

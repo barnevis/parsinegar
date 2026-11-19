@@ -146,3 +146,59 @@ test('should_render_ignore_form_with_current_patterns', () => {
   assert.ok(markup.includes('parsinegar.sync.ignore-note'), 'expected the patterns help in the pop');
   assert.ok(/data-sync-ignore-save[^>]*disabled/.test(markup), 'expected the save disabled until edited');
 });
+
+test('should_render_pending_lists_with_titles_when_previewed', () => {
+  const markup = renderSyncView({
+    t: (key) => key,
+    sync: {
+      configured: true,
+      repo: 'u/r',
+      branch: 'main',
+      lastSyncText: 'امروز',
+      errorText: null,
+      busy: false,
+      pending: {
+        created: [{ collection: 'docs', id: 'd2', path: 'سفر.md', title: 'سفر', updatedAt: 30 }],
+        edited: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', title: 'یادداشت', updatedAt: 20 }],
+        deleted: [{ collection: 'docs', id: 'd0', path: 'کهنه.md' }],
+      },
+    },
+  });
+  assert.ok(markup.includes('data-sync-pending'), 'expected the pending fieldset');
+  assert.ok(markup.includes('parsinegar.sync.pending-title'));
+  assert.ok(markup.includes('parsinegar.sync.pending-created'));
+  assert.ok(markup.includes('parsinegar.sync.pending-edited'));
+  assert.ok(markup.includes('parsinegar.sync.pending-deleted'));
+  assert.ok(markup.includes('<li>سفر</li>'));
+  assert.ok(markup.includes('<li>یادداشت</li>'));
+  assert.ok(markup.includes('<li>کهنه</li>'), 'expected the deleted entry shown without its extension');
+  assert.ok(!markup.includes('parsinegar.sync.pending-none'), 'expected no clean-state note with items pending');
+});
+
+test('should_render_the_clean_state_note_when_nothing_is_pending', () => {
+  const markup = renderSyncView({
+    t: (key) => key,
+    sync: {
+      configured: true,
+      repo: 'u/r',
+      branch: 'main',
+      lastSyncText: 'امروز',
+      errorText: null,
+      busy: false,
+      pending: { created: [], edited: [], deleted: [] },
+    },
+  });
+  assert.ok(markup.includes('data-sync-pending-none'));
+  assert.ok(markup.includes('parsinegar.sync.pending-none'));
+  assert.ok(!markup.includes('data-sync-pending"'), 'expected no pending fieldset when clean');
+  assert.ok(!markup.includes('parsinegar.sync.pending-created'));
+});
+
+test('should_omit_the_pending_section_when_the_preview_is_missing', () => {
+  const markup = renderSyncView({
+    t: (key) => key,
+    sync: { configured: true, repo: 'u/r', branch: 'main', lastSyncText: 'امروز', errorText: null, busy: false, pending: null },
+  });
+  assert.ok(!markup.includes('data-sync-pending-none'), 'expected no clean-state note without a preview');
+  assert.ok(!markup.includes('data-sync-pending'), 'expected no pending fieldset without a preview');
+});

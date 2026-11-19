@@ -549,6 +549,21 @@
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
 }
+[part="sync-pending-kind"] {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin: 0.4rem 0 0.15rem;
+}
+[part="sync-pending-list"] {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+[part="sync-pending-list"] li {
+  margin: 0.15rem 0;
+  overflow-wrap: anywhere;
+}
 /* Help tips in the sync form: a small icon opens the long explanation on
  * hover AND keyboard focus (custom pop, not the OS-font native title).
  * The pop anchors to the FIELD the icon lives in (panel-width box), never
