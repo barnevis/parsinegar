@@ -3,7 +3,7 @@
 تمام تغییرات این پروژه در همین فایل ثبت می‌شود.
 قالب فایل بر پایه‌ی [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) و نسخه‌گذاری بر پایه‌ی [Semantic Versioning](https://semver.org/) است.
 
-## [منتشرنشده]
+## [0.15.0] - 1405-08-29
 
 ### افزوده‌شده
 - سند معرفی `docs/introduction.md` افزوده شد.
