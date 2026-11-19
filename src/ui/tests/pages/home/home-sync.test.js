@@ -396,8 +396,10 @@ test('should_show_dirty_dot_with_tooltip_after_local_edit', async (t) => {
     async getStatus() {
       return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
     },
-    async hasPendingChanges() {
-      return { pending };
+    async getPendingChanges() {
+      return pending
+        ? { pending: true, created: [], edited: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', title: 'یادداشت', updatedAt: 200 }], deleted: [] }
+        : { pending: false, created: [], edited: [], deleted: [] };
     },
   });
   const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
@@ -431,8 +433,10 @@ test('should_clear_dirty_dot_after_clean_sync', async () => {
     async getStatus() {
       return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
     },
-    async hasPendingChanges() {
-      return { pending };
+    async getPendingChanges() {
+      return pending
+        ? { pending: true, created: [], edited: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', title: 'یادداشت', updatedAt: 200 }], deleted: [] }
+        : { pending: false, created: [], edited: [], deleted: [] };
     },
     async syncNow() {
       pending = false;
@@ -716,6 +720,50 @@ test('should_omit_the_pending_list_when_the_service_lacks_the_method', async () 
     assert.equal(panel().querySelector('[data-sync-pending]'), null, 'expected no pending fieldset');
     assert.equal(panel().querySelector('[data-sync-pending-none]'), null, 'expected no clean-state note');
     assert.equal(syncDot(element), 'stale', 'expected the rail dot unaffected without the preview method');
+  } finally {
+    element.remove();
+  }
+});
+
+test('should_refresh_the_pending_lists_when_a_document_changes_without_reload', async (t) => {
+  // The reported regression: the preview must track document edits live —
+  // the dirty recheck path (autosave) refreshes the lists, never a reload.
+  const documents = createDocuments([
+    { id: 'd1', title: 'یادداشت', content: 'c1', updatedAt: 100 },
+  ]);
+  let edited = false;
+  const syncer = createSyncService({
+    async getStatus() {
+      return { configured: true, kind: 'git', repo: 'u/r', branch: 'main', lastSyncAt: 200, lastError: null };
+    },
+    async getPendingChanges() {
+      return edited
+        ? {
+            pending: true,
+            created: [],
+            edited: [{ collection: 'docs', id: 'd1', path: 'یادداشت.md', title: 'یادداشت', updatedAt: 200 }],
+            deleted: [],
+          }
+        : { pending: false, created: [], edited: [], deleted: [] };
+    },
+  });
+  const element = await mountWithDocuments(documents, { 'pey.sync.service': syncer });
+  try {
+    child(element, 'parsi-activity-rail').dispatchEvent(new CustomEvent('view-select', { bubbles: true, detail: { id: 'sync' } }));
+    await settled();
+    await settled();
+    const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
+    assert.ok(panel().querySelector('[data-sync-pending-none]'), 'expected the clean-state note first');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    edited = true;
+    element.setDocument('متن تازه');
+    t.mock.timers.tick(1000);
+    t.mock.timers.reset();
+    await settled();
+    await settled();
+    assert.ok(panel().querySelector('[data-sync-pending]'), 'expected the list to refresh live after the edit — no reload');
+    assert.ok(panel().textContent.includes('یادداشت'), 'expected the edited title in the list');
+    assert.equal(panel().querySelector('[data-sync-pending-none]'), null, 'expected the clean-state note gone');
   } finally {
     element.remove();
   }

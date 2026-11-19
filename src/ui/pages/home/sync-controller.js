@@ -78,12 +78,7 @@ export function createSyncController({
       return null;
     }
     try {
-      const changes = await syncer.getPendingChanges({ scope: scope() });
-      return {
-        created: Array.isArray(changes?.created) ? changes.created : [],
-        edited: Array.isArray(changes?.edited) ? changes.edited : [],
-        deleted: Array.isArray(changes?.deleted) ? changes.deleted : [],
-      };
+      return normalizePending(await syncer.getPendingChanges({ scope: scope() }));
     } catch {
       return null;
     }
@@ -129,29 +124,65 @@ export function createSyncController({
   }
 
   /**
-   * Rechecks local dirtiness against the sync snapshot (local reads only,
-   * never network) and moves the rail dot when it flips. Runs serialize
-   * like the theme queue so rapid saves converge instead of racing.
+   * Normalizes a getPendingChanges result into the snapshot's pending shape
+   * (`{ created, edited, deleted }`), tolerating a partial payload.
+   * @param {object} changes Service preview result.
+   * @returns {object} `{ created, edited, deleted }` lists.
+   */
+  function normalizePending(changes) {
+    return {
+      created: Array.isArray(changes?.created) ? changes.created : [],
+      edited: Array.isArray(changes?.edited) ? changes.edited : [],
+      deleted: Array.isArray(changes?.deleted) ? changes.deleted : [],
+    };
+  }
+
+  /**
+   * Rechecks local dirtiness and the pending lists against the sync snapshot
+   * (local reads only, never network) and moves the rail dot / refreshes the
+   * sync view's lists when they change. Runs serialize like the theme queue
+   * so rapid saves converge instead of racing. The lists ride the panel
+   * snapshot only when they actually changed — a content edit that keeps the
+   * same created/edited set must never re-render the sync form (it would
+   * wipe a half-typed token or ignore pattern).
    * @returns {Promise<void>}
    */
   async function updateDirty() {
     const run = (dirtyWrite ?? Promise.resolve()).then(async () => {
       let next = false;
+      let lists = null;
       try {
         const syncer = getSyncer();
-        if (syncer && typeof syncer.hasPendingChanges === 'function' && isConnected()) {
-          const checked = await syncer.hasPendingChanges({ scope: scope() });
-          next = checked?.pending === true;
+        if (syncer && isConnected()) {
+          if (typeof syncer.getPendingChanges === 'function') {
+            const changes = await syncer.getPendingChanges({ scope: scope() });
+            lists = normalizePending(changes);
+            next = changes?.pending === true;
+          } else if (typeof syncer.hasPendingChanges === 'function') {
+            const checked = await syncer.hasPendingChanges({ scope: scope() });
+            next = checked?.pending === true;
+          }
         }
       } catch {
         // A failed check never flips the dot; the next trigger retries.
         return;
       }
-      if (!isConnected() || dirty === next) {
+      if (!isConnected()) {
         return;
       }
-      dirty = next;
-      notifyChrome();
+      const pendingChanged = lists !== null
+        && status !== null
+        && JSON.stringify(lists) !== JSON.stringify(status.pending ?? null);
+      if (lists !== null && status !== null) {
+        status = { ...status, pending: lists };
+      }
+      if (dirty !== next) {
+        dirty = next;
+        notifyChrome();
+      }
+      if (pendingChanged) {
+        notifyPanel();
+      }
     });
     dirtyWrite = run.catch(() => {});
     return run;
