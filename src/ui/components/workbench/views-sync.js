@@ -15,6 +15,14 @@
 // state is render's.
 import { escapeHtml, iconMarkup } from './html.js';
 
+// Pending preview groups in display order; the bold head with its count
+// carries the kind — no icons, no per-document labels.
+const PENDING_KINDS = [
+  { kind: 'created', key: 'parsinegar.sync.pending-created' },
+  { kind: 'edited', key: 'parsinegar.sync.pending-edited' },
+  { kind: 'deleted', key: 'parsinegar.sync.pending-deleted' },
+];
+
 /**
  * Normalizes a patterns text into the canonical newline list (mirrors the
  * save flow, so a saved round-trip always compares equal).
@@ -56,14 +64,17 @@ function tip(assetBaseUrl, label, contentHtml) {
  * (self-hosted). «همگام‌سازی» stays enabled in the clean green state — the
  * repository may hold news to take even when the device has none to send,
  * and a clean run only reconciles read-only (it never writes, so no empty
- * commits).
+ * commits). When the pending preview is present, each kind renders as a
+ * bold icon-headed group with its count and the document names as a plain
+ * bullet list.
  * @param {object} options Render options.
  * @param {Function} options.t Translation function.
  * @param {string|null} [options.assetBaseUrl] Asset directory URL for icons.
- * @param {object|null} [options.sync] `{ configured, kind, repo, branch, baseUrl, lastSyncText, errorText, busy, ignoreText, autoCommit }`.
+ * @param {Function|null} [options.formatNumber] Persian-digit number formatter.
+ * @param {object|null} [options.sync] `{ configured, kind, repo, branch, baseUrl, lastSyncText, errorText, busy, ignoreText, autoCommit, pending }`.
  * @returns {string} Sync view markup.
  */
-export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
+export function renderSyncView({ t, assetBaseUrl = null, formatNumber = null, sync = null }) {
   const translate = typeof t === 'function' ? t : (key) => key;
   const snapshot = sync && typeof sync === 'object' ? sync : null;
   const busy = snapshot?.busy === true;
@@ -88,29 +99,37 @@ export function renderSyncView({ t, assetBaseUrl = null, sync = null }) {
   const ignoreTip = tip(assetBaseUrl, translate('parsinegar.sync.ignore-note'), longText('parsinegar.sync.ignore-note'));
   // The pending preview arrives precomputed from the controller (network-free
   // local reads): created / edited carry the document title, deleted ones
-  // only the sync path — the display strips the extension for them.
+  // only the sync path — the display strips the extension for them. Each
+  // kind renders ONCE as a bold icon-headed group with its count, and the
+  // documents below it are a plain bullet list of bare names.
   const pending = snapshot?.pending && typeof snapshot.pending === 'object' ? snapshot.pending : null;
-  const pendingCount = pending
+  const count = (value) => (typeof formatNumber === 'function' ? formatNumber(value) : String(value));
+  const pendingGroups = PENDING_KINDS.map(({ kind, key, icon }) => {
+    const items = Array.isArray(pending?.[kind]) ? pending[kind] : [];
+    if (items.length === 0) {
+      return '';
+    }
+    const rows = items.map((item) => {
+      const label = typeof item.title === 'string' && item.title.trim().length > 0
+        ? item.title
+        : String(item.path ?? '').replace(/\.(md|markdown|mdown|txt)$/i, '');
+      return `<li>${escapeHtml(label)}</li>`;
+    }).join('');
+    return `<div part="sync-pending-group">
+      <p part="sync-pending-head">${escapeHtml(translate(key))}<span part="sync-pending-count"> (${count(items.length)})</span></p>
+      <ul part="sync-pending-list">${rows}</ul>
+    </div>`;
+  }).join('');
+  const pendingTotal = pending
     ? pending.created.length + pending.edited.length + pending.deleted.length
     : 0;
-  const pendingItem = (item) => {
-    const label = typeof item.title === 'string' && item.title.trim().length > 0
-      ? item.title
-      : String(item.path ?? '').replace(/\.(md|markdown|mdown|txt)$/i, '');
-    return `<li>${escapeHtml(label)}</li>`;
-  };
-  const pendingGroup = (kindKey, items) => items.length > 0
-    ? `<p part="sync-pending-kind">${escapeHtml(translate(kindKey))}</p><ul part="sync-pending-list">${items.map(pendingItem).join('')}</ul>`
-    : '';
-  const pendingFieldset = pending && pendingCount > 0
+  const pendingFieldset = pendingGroups.length > 0
     ? `<fieldset part="settings-group" data-sync-pending>
         <legend part="settings-legend">${escapeHtml(translate('parsinegar.sync.pending-title'))}</legend>
-        ${pendingGroup('parsinegar.sync.pending-created', pending.created)}
-        ${pendingGroup('parsinegar.sync.pending-edited', pending.edited)}
-        ${pendingGroup('parsinegar.sync.pending-deleted', pending.deleted)}
+        ${pendingGroups}
       </fieldset>`
     : '';
-  const pendingNone = pending && pendingCount === 0
+  const pendingNone = pending && pendingTotal === 0
     ? `<p part="settings-note" data-sync-pending-none>${escapeHtml(translate('parsinegar.sync.pending-none'))}</p>`
     : '';
   const status = snapshot?.configured === true

@@ -150,6 +150,7 @@ test('should_render_ignore_form_with_current_patterns', () => {
 test('should_render_pending_lists_with_titles_when_previewed', () => {
   const markup = renderSyncView({
     t: (key) => key,
+    formatNumber: (value) => String(value),
     sync: {
       configured: true,
       repo: 'u/r',
@@ -166,9 +167,14 @@ test('should_render_pending_lists_with_titles_when_previewed', () => {
   });
   assert.ok(markup.includes('data-sync-pending'), 'expected the pending fieldset');
   assert.ok(markup.includes('parsinegar.sync.pending-title'));
-  assert.ok(markup.includes('parsinegar.sync.pending-created'));
-  assert.ok(markup.includes('parsinegar.sync.pending-edited'));
-  assert.ok(markup.includes('parsinegar.sync.pending-deleted'));
+  // Each kind renders ONCE as a bold group head with its count; the kind
+  // icons are intentionally absent (one clean type scale per group).
+  assert.ok(!markup.includes('sync-pending-icon'), 'expected no icons in the pending groups');
+  assert.ok(markup.includes('parsinegar.sync.pending-created'), 'expected the created group head');
+  assert.ok(markup.includes('parsinegar.sync.pending-edited'), 'expected the edited group head');
+  assert.ok(markup.includes('parsinegar.sync.pending-deleted'), 'expected the deleted group head');
+  assert.ok(markup.includes('(1)'), 'expected the count beside the label');
+  assert.ok(markup.includes('<ul part="sync-pending-list">'), 'expected bullet lists');
   assert.ok(markup.includes('<li>سفر</li>'));
   assert.ok(markup.includes('<li>یادداشت</li>'));
   assert.ok(markup.includes('<li>کهنه</li>'), 'expected the deleted entry shown without its extension');

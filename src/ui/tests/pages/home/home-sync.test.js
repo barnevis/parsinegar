@@ -676,6 +676,8 @@ test('should_list_pending_documents_in_the_sync_view_when_previewed', async () =
     await settled();
     const panel = () => element.shadowRoot.querySelector('parsi-side-panel').shadowRoot;
     assert.ok(panel().querySelector('[data-sync-pending]'), 'expected the pending fieldset in the sync view');
+    assert.ok(panel().textContent.includes('ساخته‌شده') && /\(\s*[۱1]\s*\)/.test(panel().textContent),
+      'expected the count beside the group label (Persian digits in production)');
     assert.ok(panel().textContent.includes('سفر'), 'expected the created title');
     assert.ok(panel().textContent.includes('یادداشت'), 'expected the edited title');
     assert.ok(panel().textContent.includes('کهنه'), 'expected the deleted path without its extension');

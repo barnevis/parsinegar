@@ -549,15 +549,26 @@
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
 }
-[part="sync-pending-kind"] {
+[part="sync-pending-group"] {
+  margin: 0.55rem 0;
+}
+[part="sync-pending-group"]:first-child {
+  margin-block-start: 0.1rem;
+}
+[part="sync-pending-head"] {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 0.2rem;
+}
+[part="sync-pending-count"] {
+  font-weight: 400;
   font-size: 0.8rem;
   opacity: 0.8;
-  margin: 0.4rem 0 0.15rem;
 }
 [part="sync-pending-list"] {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-inline-start: 1.3rem;
+  list-style: disc;
   font-size: 0.85rem;
 }
 [part="sync-pending-list"] li {
