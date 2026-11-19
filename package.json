@@ -45,6 +45,7 @@
     "crelt": "^1.0.7",
     "mind-elixir": "^5.15.1",
     "parsneshan": "github:barnevis/parsneshan#v0.2.0",
+    "pey.filesystem": "github:peyjs/pey-filesystem#v1.3.0",
     "pey.markdown": "github:peyjs/pey-markdown#v1.0.0",
     "pey.router": "github:peyjs/pey-router#v1.0.0",
     "pey.storage": "github:peyjs/pey-storage#v0.4.0",

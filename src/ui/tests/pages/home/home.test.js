@@ -10,7 +10,7 @@ import '../../setup-styles.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TAG } from '../../../pages/home/home.js';
-import { createService as createRealFilesystem } from '../../../../plugins/filesystem/lib/filesystem-service.js';
+import { createService as createRealFilesystem } from 'pey.filesystem/lib/filesystem-service.js';
 import {
   ASSET_BASE_URL,
   baseRefs,
@@ -426,7 +426,19 @@ test('should_import_survivors_when_one_picked_file_fails_to_read', async () => {
 
 test('should_read_picked_files_through_the_filesystem_service_when_importing', async () => {
   const documents = createDocuments([{ id: 'd1', title: 't', content: 'c', updatedAt: 1 }]);
-  const filesystem = createRealFilesystem({});
+  // The real framework service reads entries through its environment adapter
+  // (the browser adapter runs on File System Access, absent in jsdom) — the
+  // test supplies the minimal six-method adapter contract reading Files.
+  const { service: filesystem } = createRealFilesystem({
+    adapter: {
+      capabilities: () => ({ picker: false, directory: false, write: false }),
+      pickDirectory: async () => null,
+      pickFile: async () => null,
+      listEntries: async () => [],
+      readEntry: async (entry) => (entry?.file && typeof entry.file.text === 'function' ? entry.file.text() : ''),
+      writeEntry: async () => {},
+    },
+  });
   const element = await mountWithDocuments(documents, { 'pey.filesystem.service': filesystem });
   try {
     child(element, 'parsi-side-panel').dispatchEvent(new CustomEvent('document-import', { bubbles: true }));

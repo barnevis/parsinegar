@@ -19,7 +19,7 @@ const PROVIDING_MANIFESTS = {
   'parsinegar.app.service': './src/plugins/app',
   'parsinegar.documents.service': './src/plugins/documents',
   'parsinegar.settings.service': './src/plugins/settings',
-  'pey.filesystem.service': './src/plugins/filesystem',
+  'pey.filesystem.service': './node_modules/pey.filesystem',
   'pey.markdown.service': './node_modules/pey.markdown',
   'parsinegar.export.service': './src/plugins/export',
 };
