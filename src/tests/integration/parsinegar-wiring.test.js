@@ -15,7 +15,7 @@ const UI_REF = './src/ui';
 const PROVIDING_MANIFESTS = {
   'pey.router.service': './node_modules/pey.router',
   'pey.storage.service': './node_modules/pey.storage',
-  'pey.sync.service': './src/plugins/sync',
+  'pey.sync.service': './node_modules/pey.sync',
   'parsinegar.app.service': './src/plugins/app',
   'parsinegar.documents.service': './src/plugins/documents',
   'parsinegar.settings.service': './src/plugins/settings',
