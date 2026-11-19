@@ -30,7 +30,7 @@ test('should_wire_router_adapter_and_plugins_when_loaded', async () => {
   assert.ok(names.includes('parsinegar.documents'));
   assert.ok(names.includes('parsinegar.settings'));
   assert.ok(names.includes('pey.markdown'));
-  assert.ok(names.includes('parsinegar.export'));
+  assert.ok(names.includes('pey.document-export'));
   assert.ok(names.includes('pey.filesystem'));
   assert.ok(names.includes('pey.sync'));
   assert.equal(bootstrap.plugins.length, 9);

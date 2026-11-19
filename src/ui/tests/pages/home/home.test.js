@@ -1421,7 +1421,7 @@ test('should_download_html_through_export_service_when_requested', async () => {
   const documents = createDocuments([{ id: 'd1', title: 'یادداشت', content: '# سلام', updatedAt: 1 }]);
   const calls = [];
   const element = await mountWithDocuments(documents, {
-    'parsinegar.export.service': {
+    'pey.document-export.service': {
       async exportHtml(input) {
         calls.push(input);
         return { html: '<!DOCTYPE html>', filename: 'یادداشت.html', mime: 'text/html' };
@@ -1602,7 +1602,7 @@ test('should_download_current_html_when_menu_action_requests_it', async () => {
   const documents = createDocuments([{ id: 'd1', title: 'یادداشت', content: '# سلام', updatedAt: 1 }]);
   const calls = [];
   const element = await mountWithDocuments(documents, {
-    'parsinegar.export.service': {
+    'pey.document-export.service': {
       async exportHtml(input) {
         calls.push(input);
         return { html: '<!DOCTYPE html>', filename: 'یادداشت.html', mime: 'text/html' };
@@ -1636,7 +1636,7 @@ test('should_download_library_zip_with_folder_paths_when_menu_action_requests_it
   await documents.moveDocument('d2', folder.id);
   const calls = [];
   const element = await mountWithDocuments(documents, {
-    'parsinegar.export.service': {
+    'pey.document-export.service': {
       async exportHtml() {
         throw new Error('unexpected html export');
       },

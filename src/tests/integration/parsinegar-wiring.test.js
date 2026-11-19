@@ -21,7 +21,7 @@ const PROVIDING_MANIFESTS = {
   'parsinegar.settings.service': './src/plugins/settings',
   'pey.filesystem.service': './node_modules/pey.filesystem',
   'pey.markdown.service': './node_modules/pey.markdown',
-  'parsinegar.export.service': './src/plugins/export',
+  'pey.document-export.service': './node_modules/pey.document-export',
 };
 
 test('should_start_infrastructure_before_application_and_ui_last_when_booted', async () => {
@@ -84,7 +84,7 @@ test('should_bind_every_ui_required_service_with_its_declared_methods_when_ready
 
 test('should_deactivate_the_failed_plugin_and_still_reach_ready_when_a_feature_entry_is_refused', async () => {
   // pey.markdown is a feature whose service pey.markdown.service feeds
-  // parsinegar.export. An activation-level refusal (manifest valid, entry
+  // pey.document-export. An activation-level refusal (manifest valid, entry
   // load fails) must deactivate exactly the failed plugin, cascade to the
   // dependents, and still reach core:ready — the non-fatal contract for
   // feature/product types.
@@ -97,7 +97,7 @@ test('should_deactivate_the_failed_plugin_and_still_reach_ready_when_a_feature_e
     const services = instance.ui.captured.context.services;
     assert.equal('pey.markdown.service' in services, false,
       'the refused plugin must provide no service');
-    assert.equal('parsinegar.export.service' in services, false,
+    assert.equal('pey.document-export.service' in services, false,
       'the dependent export plugin must not survive the cascade');
     const documents = services['parsinegar.documents.service'];
     assert.equal(Array.isArray(await documents.listDocuments()), true,

@@ -9,7 +9,7 @@
       "parsinegar.app.service",
       "parsinegar.documents.service",
       "parsinegar.settings.service",
-      "parsinegar.export.service",
+      "pey.document-export.service",
       "pey.filesystem.service",
       "pey.sync.service"
     ],

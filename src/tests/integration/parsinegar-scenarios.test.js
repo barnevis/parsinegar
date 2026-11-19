@@ -12,7 +12,7 @@ import { bootParsinegar } from './boot.js';
 const DOCUMENTS = 'parsinegar.documents.service';
 const SETTINGS = 'parsinegar.settings.service';
 const APP = 'parsinegar.app.service';
-const EXPORT = 'parsinegar.export.service';
+const EXPORT = 'pey.document-export.service';
 const SYNC = 'pey.sync.service';
 const FILESYSTEM = 'pey.filesystem.service';
 

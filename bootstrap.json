@@ -48,9 +48,9 @@
       "path": "./node_modules/pey.markdown"
     },
     {
-      "name": "parsinegar.export",
-      "version": "0.2.0",
-      "path": "./src/plugins/export"
+      "name": "pey.document-export",
+      "version": "1.1.0",
+      "path": "./node_modules/pey.document-export"
     },
     {
       "name": "pey.filesystem",

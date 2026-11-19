@@ -64,8 +64,7 @@ parsinegar/
 ├── src/plugins/
 │   ├── app/              # مالک مسیرهای اپ (۰.۱.۰)
 │   ├── documents/        # چندسند روی pey.storage (۰.۵.۰)
-│   ├── settings/         # ترجیحات کاربر روی pey.storage (۰.۵.۰)
-│   └── export/           # خروجی HTML مستقل و zip چندسندی (۰.۲.۰)
+│   └── settings/         # ترجیحات کاربر روی pey.storage (۰.۶.۰)
 └── src/tests/            # آزمون‌های سطح اپ و یکپارچه‌سازی
 ```
 
@@ -77,7 +76,7 @@ parsinegar/
 |---|---|---|---|
 | `parsinegar.documents` | product | ۰.۵.۰ | چندسند مارک‌داون (CRUD، عنوان یکتا، پوشه‌بندی، پرچم فقط-خواندن) روی `pey.storage` |
 | `parsinegar.settings` | product | ۰.۶.۰ | ترجیحات کاربر (پوسته، جهت، قلم، چینش سندها، چیدمان نقشه، نادیده‌گرفتن‌های همگام‌سازی، حالت پیام کامیت) روی `pey.storage` |
-| `parsinegar.export` | feature | ۰.۲.۰ | خروجی HTML مستقل و zip چندسندی مارک‌داون |
+| `pey.document-export` | feature | ۱.۱.۰ | خروجی HTML مستقل و zip چندسندی مارک‌داون؛ از چارچوب Pey |
 | `pey.sync` | infrastructure | ۲.۰.۱ | همگام‌سازی دستی سندها با فضای کاربر (بک‌اند git و gitlab شامل سرور خودمیزبان، هویت مسیر، پیام کامیت سفارشی اختیاری)؛ از چارچوب Pey |
 | `parsinegar.app` | product | ۰.۲.۰ | مالک مسیرهای اپ و سرویس سطح اپ (`wipeAllData`: پاک‌سازی اتمیک همهٔ storeها) |
 | `pey.filesystem` | platform | ۱.۳.۰ | دسترسی به فایل/پوشهٔ دستگاه و پیش‌نویس‌های سایه؛ از چارچوب Pey |
